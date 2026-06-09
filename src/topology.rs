@@ -6,6 +6,9 @@ use crate::law::{MemoryTier, NumaNodeId, TopologyEpoch};
 extern crate alloc;
 
 #[cfg(not(feature = "std"))]
+use alloc::boxed::Box;
+
+#[cfg(not(feature = "std"))]
 use alloc::vec;
 
 #[cfg(not(feature = "std"))]
@@ -17,9 +20,9 @@ pub struct NumaNode {
     /// Node identifier.
     pub id: NumaNodeId,
     /// Logical processors assigned to this node.
-    pub processors: Vec<u32>,
+    pub processors: Box<[u32]>,
     /// Relative distance to other nodes.
-    pub distances: Vec<u32>,
+    pub distances: Box<[u32]>,
     /// Primary memory tier for the node.
     pub memory_tier: MemoryTier,
 }
@@ -32,24 +35,19 @@ pub struct CacheLevel {
     /// Cache size in bytes.
     pub size_bytes: usize,
     /// Processors sharing this cache.
-    pub shared_processors: Vec<u32>,
+    pub shared_processors: Box<[u32]>,
 }
 
 /// CPU topology snapshot.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CpuTopology {
     /// Snapshot epoch.
-    pub epoch: TopologyEpoch,
-    /// NUMA nodes.
-    pub numa_nodes: Vec<NumaNode>,
-    /// Dense processor to NUMA node mapping indexed by logical processor ID.
-    pub processor_to_node: Vec<Option<NumaNodeId>>,
-    /// Dense NUMA node ID to `numa_nodes` index mapping.
-    pub node_to_index: Vec<Option<usize>>,
-    /// Logical processor count.
-    pub logical_processors: usize,
-    /// Cache hierarchy.
-    pub cache_levels: Vec<CacheLevel>,
+    epoch: TopologyEpoch,
+    numa_nodes: Box<[NumaNode]>,
+    processor_to_node: Box<[Option<NumaNodeId>]>,
+    node_to_index: Box<[Option<usize>]>,
+    logical_processors: usize,
+    cache_levels: Box<[CacheLevel]>,
 }
 
 impl CpuTopology {
@@ -87,8 +85,8 @@ impl CpuTopology {
             .collect();
         let numa_nodes = vec![NumaNode {
             id: node_id,
-            processors,
-            distances: vec![10],
+            processors: processors.into_boxed_slice(),
+            distances: vec![10].into_boxed_slice(),
             memory_tier: MemoryTier::Dram,
         }];
 
@@ -96,10 +94,34 @@ impl CpuTopology {
             epoch: TopologyEpoch::INITIAL,
             processor_to_node: build_processor_to_node(logical_processors, &processor_node_pairs),
             node_to_index: build_node_to_index(&numa_nodes),
-            numa_nodes,
+            numa_nodes: numa_nodes.into_boxed_slice(),
             logical_processors,
             cache_levels: default_cache_levels(logical_processors),
         }
+    }
+
+    /// Returns the snapshot epoch.
+    #[must_use]
+    pub const fn epoch(&self) -> TopologyEpoch {
+        self.epoch
+    }
+
+    /// Returns the NUMA node table.
+    #[must_use]
+    pub fn numa_nodes(&self) -> &[NumaNode] {
+        &self.numa_nodes
+    }
+
+    /// Returns the cache hierarchy table.
+    #[must_use]
+    pub fn cache_levels(&self) -> &[CacheLevel] {
+        &self.cache_levels
+    }
+
+    /// Returns the logical processor count.
+    #[must_use]
+    pub const fn logical_processors(&self) -> usize {
+        self.logical_processors
     }
 
     /// Returns the NUMA node for a processor.
@@ -202,8 +224,8 @@ impl CpuTopology {
 
             numa_nodes.push(NumaNode {
                 id: node_id,
-                processors,
-                distances,
+                processors: processors.into_boxed_slice(),
+                distances: distances.into_boxed_slice(),
                 memory_tier: MemoryTier::Dram,
             });
         }
@@ -213,7 +235,7 @@ impl CpuTopology {
         let node_to_index = build_node_to_index(&numa_nodes);
         Some(Self {
             epoch: TopologyEpoch::INITIAL,
-            numa_nodes,
+            numa_nodes: numa_nodes.into_boxed_slice(),
             node_to_index,
             processor_to_node,
             logical_processors,
@@ -256,10 +278,11 @@ impl CpuTopology {
             }
             numa_nodes.push(NumaNode {
                 id: node_id,
-                processors,
+                processors: processors.into_boxed_slice(),
                 distances: (0..node_count)
                     .map(|index| if index == raw_node as usize { 10 } else { 20 })
-                    .collect(),
+                    .collect::<Vec<_>>()
+                    .into_boxed_slice(),
                 memory_tier: MemoryTier::Dram,
             });
         }
@@ -271,7 +294,7 @@ impl CpuTopology {
         Some(Self {
             epoch: TopologyEpoch::INITIAL,
             node_to_index: build_node_to_index(&numa_nodes),
-            numa_nodes,
+            numa_nodes: numa_nodes.into_boxed_slice(),
             processor_to_node: build_processor_to_node(
                 logical_processors.max(1),
                 &processor_node_pairs,
@@ -285,7 +308,7 @@ impl CpuTopology {
 fn build_processor_to_node(
     logical_processors: usize,
     mappings: &[(u32, NumaNodeId)],
-) -> Vec<Option<NumaNodeId>> {
+) -> Box<[Option<NumaNodeId>]> {
     let max_processor = mappings
         .iter()
         .map(|(processor, _)| *processor as usize)
@@ -295,16 +318,16 @@ fn build_processor_to_node(
     for (processor, node) in mappings {
         processor_to_node[*processor as usize] = Some(*node);
     }
-    processor_to_node
+    processor_to_node.into_boxed_slice()
 }
 
-fn build_node_to_index(nodes: &[NumaNode]) -> Vec<Option<usize>> {
+fn build_node_to_index(nodes: &[NumaNode]) -> Box<[Option<usize>]> {
     let max_node = nodes.iter().map(|node| node.id.index()).max().unwrap_or(0);
     let mut node_to_index = vec![None; max_node + 1];
     for (index, node) in nodes.iter().enumerate() {
         node_to_index[node.id.index()] = Some(index);
     }
-    node_to_index
+    node_to_index.into_boxed_slice()
 }
 
 #[cfg(all(feature = "std", target_os = "linux"))]
@@ -322,25 +345,26 @@ fn parse_cpu_list(cpulist: &str) -> Vec<u32> {
     processors
 }
 
-fn default_cache_levels(logical_processors: usize) -> Vec<CacheLevel> {
+fn default_cache_levels(logical_processors: usize) -> Box<[CacheLevel]> {
     let processors: Vec<u32> = (0..logical_processors.max(1) as u32).collect();
     vec![
         CacheLevel {
             level: 1,
             size_bytes: 32 * 1024,
-            shared_processors: Vec::new(),
+            shared_processors: Box::default(),
         },
         CacheLevel {
             level: 2,
             size_bytes: 256 * 1024,
-            shared_processors: Vec::new(),
+            shared_processors: Box::default(),
         },
         CacheLevel {
             level: 3,
             size_bytes: 8 * 1024 * 1024,
-            shared_processors: processors,
+            shared_processors: processors.into_boxed_slice(),
         },
     ]
+    .into_boxed_slice()
 }
 
 fn logical_processor_count() -> usize {
@@ -393,14 +417,14 @@ mod tests {
         let nodes = vec![
             NumaNode {
                 id: NumaNodeId::new(2),
-                processors: vec![0],
-                distances: vec![10, 31],
+                processors: vec![0].into_boxed_slice(),
+                distances: vec![10, 31].into_boxed_slice(),
                 memory_tier: MemoryTier::Dram,
             },
             NumaNode {
                 id: NumaNodeId::new(7),
-                processors: vec![1],
-                distances: vec![31, 10],
+                processors: vec![1].into_boxed_slice(),
+                distances: vec![31, 10].into_boxed_slice(),
                 memory_tier: MemoryTier::Dram,
             },
         ];
@@ -411,7 +435,7 @@ mod tests {
                 &[(0, NumaNodeId::new(2)), (1, NumaNodeId::new(7))],
             ),
             node_to_index: build_node_to_index(&nodes),
-            numa_nodes: nodes,
+            numa_nodes: nodes.into_boxed_slice(),
             logical_processors: 2,
             cache_levels: default_cache_levels(2),
         };
