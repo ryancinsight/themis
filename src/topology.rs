@@ -2,12 +2,6 @@
 
 use crate::law::{MemoryTier, NumaNodeId, TopologyEpoch};
 
-#[cfg(feature = "std")]
-use std::collections::BTreeMap;
-
-#[cfg(not(feature = "std"))]
-use alloc::collections::BTreeMap;
-
 #[cfg(not(feature = "std"))]
 extern crate alloc;
 
@@ -48,8 +42,10 @@ pub struct CpuTopology {
     pub epoch: TopologyEpoch,
     /// NUMA nodes.
     pub numa_nodes: Vec<NumaNode>,
-    /// Processor to NUMA node mapping.
-    pub processor_to_node: BTreeMap<u32, NumaNodeId>,
+    /// Dense processor to NUMA node mapping indexed by logical processor ID.
+    pub processor_to_node: Vec<Option<NumaNodeId>>,
+    /// Dense NUMA node ID to `numa_nodes` index mapping.
+    pub node_to_index: Vec<Option<usize>>,
     /// Logical processor count.
     pub logical_processors: usize,
     /// Cache hierarchy.
@@ -85,20 +81,22 @@ impl CpuTopology {
         let logical_processors = logical_processors.max(1);
         let processors: Vec<u32> = (0..logical_processors as u32).collect();
         let node_id = NumaNodeId::ZERO;
-        let mut processor_to_node = BTreeMap::new();
-        for processor in &processors {
-            processor_to_node.insert(*processor, node_id);
-        }
+        let processor_node_pairs: Vec<(u32, NumaNodeId)> = processors
+            .iter()
+            .map(|processor| (*processor, node_id))
+            .collect();
+        let numa_nodes = vec![NumaNode {
+            id: node_id,
+            processors,
+            distances: vec![10],
+            memory_tier: MemoryTier::Dram,
+        }];
 
         Self {
             epoch: TopologyEpoch::INITIAL,
-            numa_nodes: vec![NumaNode {
-                id: node_id,
-                processors: processors.clone(),
-                distances: vec![10],
-                memory_tier: MemoryTier::Dram,
-            }],
-            processor_to_node,
+            processor_to_node: build_processor_to_node(logical_processors, &processor_node_pairs),
+            node_to_index: build_node_to_index(&numa_nodes),
+            numa_nodes,
             logical_processors,
             cache_levels: default_cache_levels(logical_processors),
         }
@@ -107,17 +105,43 @@ impl CpuTopology {
     /// Returns the NUMA node for a processor.
     #[must_use]
     pub fn processor_to_numa_node(&self, processor: u32) -> Option<NumaNodeId> {
-        self.processor_to_node.get(&processor).copied()
+        self.processor_to_node
+            .get(processor as usize)
+            .copied()
+            .flatten()
+    }
+
+    /// Iterates over known processor-to-node mappings.
+    pub fn processor_node_pairs(&self) -> impl Iterator<Item = (u32, NumaNodeId)> + '_ {
+        self.processor_to_node
+            .iter()
+            .enumerate()
+            .filter_map(|(processor, node)| Some((processor as u32, (*node)?)))
     }
 
     /// Returns node distance.
     #[must_use]
     pub fn distance(&self, from: NumaNodeId, to: NumaNodeId) -> u32 {
-        self.numa_nodes
-            .iter()
-            .find(|node| node.id == from)
-            .and_then(|node| node.distances.get(to.index()).copied())
-            .unwrap_or(if from == to { 10 } else { 20 })
+        match (self.node_index(from), self.node_index(to)) {
+            (Some(from_index), Some(to_index)) => self
+                .numa_nodes
+                .get(from_index)
+                .and_then(|node| node.distances.get(to_index).copied())
+                .unwrap_or(if from == to { 10 } else { 20 }),
+            _ => {
+                if from == to {
+                    10
+                } else {
+                    20
+                }
+            }
+        }
+    }
+
+    /// Returns the compact topology index for a NUMA node ID.
+    #[must_use]
+    pub fn node_index(&self, node_id: NumaNodeId) -> Option<usize> {
+        self.node_to_index.get(node_id.index()).copied().flatten()
     }
 
     /// Returns adjacent nodes sorted by distance.
@@ -153,7 +177,7 @@ impl CpuTopology {
         }
 
         let mut numa_nodes = Vec::with_capacity(node_ids.len());
-        let mut processor_to_node = BTreeMap::new();
+        let mut processor_node_pairs = Vec::new();
 
         for node_id_raw in &node_ids {
             let node_id = NumaNodeId::new(*node_id_raw);
@@ -163,7 +187,7 @@ impl CpuTopology {
                 .unwrap_or_default();
 
             for processor in &processors {
-                processor_to_node.insert(*processor, node_id);
+                processor_node_pairs.push((*processor, node_id));
             }
 
             let distance_path = format!("{nodes_path}/node{node_id_raw}/distance");
@@ -185,9 +209,12 @@ impl CpuTopology {
         }
 
         let logical_processors = logical_processor_count();
+        let processor_to_node = build_processor_to_node(logical_processors, &processor_node_pairs);
+        let node_to_index = build_node_to_index(&numa_nodes);
         Some(Self {
             epoch: TopologyEpoch::INITIAL,
             numa_nodes,
+            node_to_index,
             processor_to_node,
             logical_processors,
             cache_levels: default_cache_levels(logical_processors),
@@ -209,7 +236,7 @@ impl CpuTopology {
 
         let node_count = highest_node.saturating_add(1) as usize;
         let mut numa_nodes = Vec::with_capacity(node_count);
-        let mut processor_to_node = BTreeMap::new();
+        let mut processor_node_pairs = Vec::new();
         let mut logical_processors = 0usize;
 
         for raw_node in 0..=highest_node {
@@ -223,7 +250,7 @@ impl CpuTopology {
             for processor in 0..64u32 {
                 if (mask & (1u64 << processor)) != 0 {
                     processors.push(processor);
-                    processor_to_node.insert(processor, node_id);
+                    processor_node_pairs.push((processor, node_id));
                     logical_processors = logical_processors.max(processor as usize + 1);
                 }
             }
@@ -243,12 +270,41 @@ impl CpuTopology {
 
         Some(Self {
             epoch: TopologyEpoch::INITIAL,
+            node_to_index: build_node_to_index(&numa_nodes),
             numa_nodes,
-            processor_to_node,
+            processor_to_node: build_processor_to_node(
+                logical_processors.max(1),
+                &processor_node_pairs,
+            ),
             logical_processors: logical_processors.max(1),
             cache_levels: default_cache_levels(logical_processors.max(1)),
         })
     }
+}
+
+fn build_processor_to_node(
+    logical_processors: usize,
+    mappings: &[(u32, NumaNodeId)],
+) -> Vec<Option<NumaNodeId>> {
+    let max_processor = mappings
+        .iter()
+        .map(|(processor, _)| *processor as usize)
+        .max()
+        .unwrap_or(0);
+    let mut processor_to_node = vec![None; logical_processors.max(max_processor + 1).max(1)];
+    for (processor, node) in mappings {
+        processor_to_node[*processor as usize] = Some(*node);
+    }
+    processor_to_node
+}
+
+fn build_node_to_index(nodes: &[NumaNode]) -> Vec<Option<usize>> {
+    let max_node = nodes.iter().map(|node| node.id.index()).max().unwrap_or(0);
+    let mut node_to_index = vec![None; max_node + 1];
+    for (index, node) in nodes.iter().enumerate() {
+        node_to_index[node.id.index()] = Some(index);
+    }
+    node_to_index
 }
 
 #[cfg(all(feature = "std", target_os = "linux"))]
@@ -330,5 +386,41 @@ mod tests {
         let topology = CpuTopology::detect().expect("topology detection should return fallback");
         assert!(!topology.numa_nodes.is_empty());
         assert!(topology.logical_processors > 0);
+    }
+
+    #[test]
+    fn sparse_node_ids_use_compact_distance_rows() {
+        let nodes = vec![
+            NumaNode {
+                id: NumaNodeId::new(2),
+                processors: vec![0],
+                distances: vec![10, 31],
+                memory_tier: MemoryTier::Dram,
+            },
+            NumaNode {
+                id: NumaNodeId::new(7),
+                processors: vec![1],
+                distances: vec![31, 10],
+                memory_tier: MemoryTier::Dram,
+            },
+        ];
+        let topology = CpuTopology {
+            epoch: TopologyEpoch::INITIAL,
+            processor_to_node: build_processor_to_node(
+                2,
+                &[(0, NumaNodeId::new(2)), (1, NumaNodeId::new(7))],
+            ),
+            node_to_index: build_node_to_index(&nodes),
+            numa_nodes: nodes,
+            logical_processors: 2,
+            cache_levels: default_cache_levels(2),
+        };
+
+        assert_eq!(topology.processor_to_numa_node(1), Some(NumaNodeId::new(7)));
+        assert_eq!(
+            topology.distance(NumaNodeId::new(2), NumaNodeId::new(7)),
+            31
+        );
+        assert_eq!(topology.node_index(NumaNodeId::new(7)), Some(1));
     }
 }
