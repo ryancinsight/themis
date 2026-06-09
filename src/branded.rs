@@ -3,9 +3,6 @@
 use melinoe::sync::{sync_region_scope, thread_local_scope, SyncRegionToken, ThreadLocalToken};
 use melinoe::{MelinoeCell, MelinoeMut, MelinoeRef};
 
-/// Branded storage for placement state.
-pub type PlacementCell<'brand, T> = MelinoeCell<'brand, T>;
-
 /// Thread-confined placement capability.
 ///
 /// The inner Melinoe token is `!Send + !Sync`, so placement state accessed
@@ -15,16 +12,16 @@ pub struct ThreadLocalPlacement<'brand> {
 }
 
 impl<'brand> ThreadLocalPlacement<'brand> {
-    /// Creates a placement cell in this brand.
+    /// Creates a Melinoe cell in this placement brand.
     #[must_use]
     #[inline]
-    pub const fn cell<T>(&self, value: T) -> PlacementCell<'brand, T> {
-        PlacementCell::new(value)
+    pub const fn cell<T>(&self, value: T) -> MelinoeCell<'brand, T> {
+        MelinoeCell::new(value)
     }
 
     /// Reads placement state through the thread-confined permit.
     #[inline]
-    pub fn read<'a, T>(&'a self, cell: &'a PlacementCell<'brand, T>) -> MelinoeRef<'a, 'brand, T> {
+    pub fn read<'a, T>(&'a self, cell: &'a MelinoeCell<'brand, T>) -> MelinoeRef<'a, 'brand, T> {
         cell.borrow(&self.token)
     }
 
@@ -32,7 +29,7 @@ impl<'brand> ThreadLocalPlacement<'brand> {
     #[inline]
     pub fn write<'a, T>(
         &'a mut self,
-        cell: &'a PlacementCell<'brand, T>,
+        cell: &'a MelinoeCell<'brand, T>,
     ) -> MelinoeMut<'a, 'brand, T> {
         cell.borrow_mut(&mut self.token)
     }
@@ -47,16 +44,16 @@ pub struct SyncRegionPlacement<'brand> {
 }
 
 impl<'brand> SyncRegionPlacement<'brand> {
-    /// Creates a placement cell in this brand.
+    /// Creates a Melinoe cell in this placement brand.
     #[must_use]
     #[inline]
-    pub const fn cell<T>(&self, value: T) -> PlacementCell<'brand, T> {
-        PlacementCell::new(value)
+    pub const fn cell<T>(&self, value: T) -> MelinoeCell<'brand, T> {
+        MelinoeCell::new(value)
     }
 
     /// Reads placement state through the sync-region permit.
     #[inline]
-    pub fn read<'a, T>(&'a self, cell: &'a PlacementCell<'brand, T>) -> MelinoeRef<'a, 'brand, T> {
+    pub fn read<'a, T>(&'a self, cell: &'a MelinoeCell<'brand, T>) -> MelinoeRef<'a, 'brand, T> {
         cell.borrow(&self.token)
     }
 
@@ -64,7 +61,7 @@ impl<'brand> SyncRegionPlacement<'brand> {
     #[inline]
     pub fn write<'a, T>(
         &'a mut self,
-        cell: &'a PlacementCell<'brand, T>,
+        cell: &'a MelinoeCell<'brand, T>,
     ) -> MelinoeMut<'a, 'brand, T> {
         cell.borrow_mut(&mut self.token)
     }

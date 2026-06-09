@@ -19,7 +19,9 @@ execution owner. Themis supplies the law both consume.
 With the default `melinoe` feature, Themis also exposes branded placement
 scopes. `ThreadLocalPlacement` uses Melinoe's thread-confined token for
 worker-local placement state. `SyncRegionPlacement` uses Melinoe's sync-region
-token for placement snapshots that may move between execution domains.
+token for placement snapshots that may move between execution domains. Branded
+storage remains `melinoe::MelinoeCell`; Themis does not define a second cell
+name.
 
 ## Boundary
 
