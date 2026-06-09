@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.4.0 - 2026-06-09
+
+### Changed
+
+- Precomputed adjacent NUMA node order in `CpuTopology` so locality consumers can read steal order without per-call allocation or sorting.
+
+### Breaking
+
+- `CpuTopology::adjacent_nodes` now returns `&[NumaNodeId]` instead of allocating `Vec<NumaNodeId>`.
+
+### Migration
+
+- Iterate the returned slice directly or call `.to_vec()` at the outer boundary when owned storage is required.
+
 ## 0.3.0 - 2026-06-09
 
 ### Changed

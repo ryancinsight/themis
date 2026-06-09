@@ -46,6 +46,7 @@ pub struct CpuTopology {
     numa_nodes: Box<[NumaNode]>,
     processor_to_node: Box<[Option<NumaNodeId>]>,
     node_to_index: Box<[Option<usize>]>,
+    adjacent_nodes: Box<[Box<[NumaNodeId]>]>,
     logical_processors: usize,
     cache_levels: Box<[CacheLevel]>,
 }
@@ -94,6 +95,7 @@ impl CpuTopology {
             epoch: TopologyEpoch::INITIAL,
             processor_to_node: build_processor_to_node(logical_processors, &processor_node_pairs),
             node_to_index: build_node_to_index(&numa_nodes),
+            adjacent_nodes: build_adjacent_nodes(&numa_nodes),
             numa_nodes: numa_nodes.into_boxed_slice(),
             logical_processors,
             cache_levels: default_cache_levels(logical_processors),
@@ -168,15 +170,10 @@ impl CpuTopology {
 
     /// Returns adjacent nodes sorted by distance.
     #[must_use]
-    pub fn adjacent_nodes(&self, node_id: NumaNodeId) -> Vec<NumaNodeId> {
-        let mut adjacent: Vec<(NumaNodeId, u32)> = self
-            .numa_nodes
-            .iter()
-            .filter(|node| node.id != node_id)
-            .map(|node| (node.id, self.distance(node_id, node.id)))
-            .collect();
-        adjacent.sort_by_key(|(_, distance)| *distance);
-        adjacent.into_iter().map(|(id, _)| id).collect()
+    pub fn adjacent_nodes(&self, node_id: NumaNodeId) -> &[NumaNodeId] {
+        self.node_index(node_id)
+            .and_then(|index| self.adjacent_nodes.get(index))
+            .map_or(&[], |nodes| nodes)
     }
 
     #[cfg(all(feature = "std", target_os = "linux"))]
@@ -233,11 +230,13 @@ impl CpuTopology {
         let logical_processors = logical_processor_count();
         let processor_to_node = build_processor_to_node(logical_processors, &processor_node_pairs);
         let node_to_index = build_node_to_index(&numa_nodes);
+        let adjacent_nodes = build_adjacent_nodes(&numa_nodes);
         Some(Self {
             epoch: TopologyEpoch::INITIAL,
             numa_nodes: numa_nodes.into_boxed_slice(),
             node_to_index,
             processor_to_node,
+            adjacent_nodes,
             logical_processors,
             cache_levels: default_cache_levels(logical_processors),
         })
@@ -294,6 +293,7 @@ impl CpuTopology {
         Some(Self {
             epoch: TopologyEpoch::INITIAL,
             node_to_index: build_node_to_index(&numa_nodes),
+            adjacent_nodes: build_adjacent_nodes(&numa_nodes),
             numa_nodes: numa_nodes.into_boxed_slice(),
             processor_to_node: build_processor_to_node(
                 logical_processors.max(1),
@@ -328,6 +328,35 @@ fn build_node_to_index(nodes: &[NumaNode]) -> Box<[Option<usize>]> {
         node_to_index[node.id.index()] = Some(index);
     }
     node_to_index.into_boxed_slice()
+}
+
+fn build_adjacent_nodes(nodes: &[NumaNode]) -> Box<[Box<[NumaNodeId]>]> {
+    nodes
+        .iter()
+        .enumerate()
+        .map(|(from_index, from_node)| {
+            let mut adjacent: Vec<(NumaNodeId, u32)> = nodes
+                .iter()
+                .enumerate()
+                .filter(|(to_index, _)| *to_index != from_index)
+                .map(|(to_index, to_node)| {
+                    let distance = from_node
+                        .distances
+                        .get(to_index)
+                        .copied()
+                        .unwrap_or(if from_node.id == to_node.id { 10 } else { 20 });
+                    (to_node.id, distance)
+                })
+                .collect();
+            adjacent.sort_by_key(|(_, distance)| *distance);
+            adjacent
+                .into_iter()
+                .map(|(node_id, _)| node_id)
+                .collect::<Vec<_>>()
+                .into_boxed_slice()
+        })
+        .collect::<Vec<_>>()
+        .into_boxed_slice()
 }
 
 #[cfg(all(feature = "std", target_os = "linux"))]
@@ -435,6 +464,7 @@ mod tests {
                 &[(0, NumaNodeId::new(2)), (1, NumaNodeId::new(7))],
             ),
             node_to_index: build_node_to_index(&nodes),
+            adjacent_nodes: build_adjacent_nodes(&nodes),
             numa_nodes: nodes.into_boxed_slice(),
             logical_processors: 2,
             cache_levels: default_cache_levels(2),
@@ -446,5 +476,9 @@ mod tests {
             31
         );
         assert_eq!(topology.node_index(NumaNodeId::new(7)), Some(1));
+        assert_eq!(
+            topology.adjacent_nodes(NumaNodeId::new(2)),
+            &[NumaNodeId::new(7)]
+        );
     }
 }
