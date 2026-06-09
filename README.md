@@ -16,6 +16,11 @@ It does not own allocation, scheduling, queues, worker loops, or thread-local
 allocator state. Mnemosyne remains the allocation owner. Moirai remains the
 execution owner. Themis supplies the law both consume.
 
+With the default `melinoe` feature, Themis also exposes branded placement
+scopes. `ThreadLocalPlacement` uses Melinoe's thread-confined token for
+worker-local placement state. `SyncRegionPlacement` uses Melinoe's sync-region
+token for placement snapshots that may move between execution domains.
+
 ## Boundary
 
 ```text
@@ -35,6 +40,6 @@ storage pointers.
 ## Evidence
 
 Current correctness claims rest on type-level encoding plus value-semantic unit
-tests. OS topology discovery is empirical and falls back to a single-node
-topology when platform data is unavailable.
-
+tests. Branded placement-state claims rest on Melinoe token invariants. OS
+topology discovery is empirical and falls back to a single-node topology when
+platform data is unavailable.

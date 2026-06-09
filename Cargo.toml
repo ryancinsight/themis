@@ -13,8 +13,9 @@ categories = ["concurrency", "memory-management", "hardware-support"]
 rust-version = "1.75.0"
 
 [features]
-default = ["std"]
-std = []
+default = ["std", "melinoe"]
+std = ["melinoe?/std"]
+melinoe = ["dep:melinoe"]
 
 [dependencies]
-
+melinoe = { git = "https://github.com/ryancinsight/melinoe.git", default-features = false, optional = true }
