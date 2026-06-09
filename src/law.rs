@@ -26,6 +26,53 @@ impl NumaNodeId {
     pub const fn index(self) -> usize {
         self.0 as usize
     }
+
+    /// Maps this NUMA node into a fixed-size bucket table.
+    ///
+    /// # Panics
+    ///
+    /// Panics when `BUCKETS == 0`; zero buckets cannot represent a placement target.
+    #[must_use]
+    pub const fn bucket_index<const BUCKETS: usize>(self) -> NumaBucketIndex<BUCKETS> {
+        NumaBucketIndex::new(self.index() % BUCKETS)
+    }
+}
+
+/// NUMA bucket identity for a fixed-size placement table.
+#[repr(transparent)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct NumaBucketIndex<const BUCKETS: usize>(usize);
+
+impl<const BUCKETS: usize> NumaBucketIndex<BUCKETS> {
+    /// Creates a bucket index from an already-normalized raw index.
+    ///
+    /// # Panics
+    ///
+    /// Panics when `BUCKETS == 0`; zero buckets cannot represent a placement target.
+    #[must_use]
+    pub const fn new(raw: usize) -> Self {
+        assert!(BUCKETS > 0, "NUMA bucket count must be non-zero");
+        Self(raw % BUCKETS)
+    }
+
+    /// Returns the normalized bucket index.
+    #[must_use]
+    pub const fn index(self) -> usize {
+        self.0
+    }
+
+    /// Returns the next bucket after `offset` positions, wrapping inside the bucket table.
+    #[must_use]
+    pub const fn wrapping_add(self, offset: usize) -> Self {
+        assert!(BUCKETS > 0, "NUMA bucket count must be non-zero");
+        let offset = offset % BUCKETS;
+        let remaining = BUCKETS - self.0;
+        if offset < remaining {
+            Self(self.0 + offset)
+        } else {
+            Self(offset - remaining)
+        }
+    }
 }
 
 /// Scheduler worker identity.
@@ -132,6 +179,14 @@ mod tests {
     fn typed_ids_preserve_values() {
         assert_eq!(NumaNodeId::new(7).get(), 7);
         assert_eq!(NumaNodeId::new(7).index(), 7);
+        assert_eq!(NumaNodeId::new(19).bucket_index::<16>().index(), 3);
+        assert_eq!(
+            NumaNodeId::new(19)
+                .bucket_index::<16>()
+                .wrapping_add(15)
+                .index(),
+            2
+        );
         assert_eq!(WorkerId::new(3).get(), 3);
         assert_eq!(WorkerId::new(3).index(), 3);
         assert_eq!(LocalityDomainId::new(11).get(), 11);

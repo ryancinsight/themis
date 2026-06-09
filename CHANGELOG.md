@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.0 - 2026-06-09
+
+### Added
+
+- Added `NumaBucketIndex<const BUCKETS: usize>` and `NumaNodeId::bucket_index` as the canonical fixed-table NUMA placement normalization API.
+
 ## 0.4.0 - 2026-06-09
 
 ### Changed

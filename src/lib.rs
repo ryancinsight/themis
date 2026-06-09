@@ -23,6 +23,9 @@ pub use branded::{
     sync_region_placement_scope, thread_local_placement_scope, SyncRegionPlacement,
     ThreadLocalPlacement,
 };
-pub use law::{LocalityDomainId, MemoryTier, NumaNodeId, PlacementHint, TopologyEpoch, WorkerId};
+pub use law::{
+    LocalityDomainId, MemoryTier, NumaBucketIndex, NumaNodeId, PlacementHint, TopologyEpoch,
+    WorkerId,
+};
 pub use query::{current_numa_node, current_processor, refresh_current_numa_node};
 pub use topology::{CacheLevel, CpuTopology, NumaNode};
