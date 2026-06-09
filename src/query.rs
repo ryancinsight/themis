@@ -1,0 +1,166 @@
+//! Current processor and NUMA-node query functions.
+
+use crate::law::NumaNodeId;
+
+#[cfg(feature = "std")]
+std::thread_local! {
+    static CACHED_NODE: core::cell::Cell<Option<NumaNodeId>> = const { core::cell::Cell::new(None) };
+}
+
+/// Returns the cached NUMA node for the calling thread.
+#[must_use]
+#[inline]
+pub fn current_numa_node() -> NumaNodeId {
+    #[cfg(feature = "std")]
+    {
+        CACHED_NODE.with(|cell| {
+            if let Some(node) = cell.get() {
+                node
+            } else {
+                let node = query_numa_node_os();
+                cell.set(Some(node));
+                node
+            }
+        })
+    }
+
+    #[cfg(not(feature = "std"))]
+    {
+        NumaNodeId::ZERO
+    }
+}
+
+/// Refreshes and returns the calling thread's NUMA node.
+#[must_use]
+#[inline]
+pub fn refresh_current_numa_node() -> NumaNodeId {
+    let node = query_numa_node_os();
+    #[cfg(feature = "std")]
+    CACHED_NODE.with(|cell| cell.set(Some(node)));
+    node
+}
+
+/// Returns the current processor when the platform exposes it.
+#[must_use]
+#[inline]
+pub fn current_processor() -> Option<u32> {
+    query_processor_os()
+}
+
+#[inline(never)]
+fn query_numa_node_os() -> NumaNodeId {
+    #[cfg(all(feature = "std", target_os = "linux", target_arch = "x86_64"))]
+    {
+        let mut cpu = 0u32;
+        let mut node = 0u32;
+        let ret: isize;
+        // SAFETY: `getcpu` writes two `u32` outputs through valid pointers and
+        // does not retain them after the syscall returns.
+        unsafe {
+            core::arch::asm!(
+                "syscall",
+                in("rax") 309isize,
+                in("rdi") &mut cpu as *mut u32,
+                in("rsi") &mut node as *mut u32,
+                in("rdx") core::ptr::null_mut::<u8>(),
+                lateout("rax") ret,
+                lateout("rcx") _,
+                lateout("r11") _,
+                options(nostack, preserves_flags)
+            );
+        }
+        if ret == 0 {
+            NumaNodeId::new(node)
+        } else {
+            NumaNodeId::ZERO
+        }
+    }
+
+    #[cfg(all(feature = "std", windows))]
+    {
+        // SAFETY: Windows APIs write to the provided node output pointer during
+        // the call and do not retain it.
+        unsafe {
+            extern "system" {
+                fn GetCurrentProcessorNumber() -> u32;
+                fn GetNumaProcessorNode(processor: u8, node_number: *mut u8) -> i32;
+            }
+            let cpu = GetCurrentProcessorNumber();
+            let mut node = 0u8;
+            if GetNumaProcessorNode(cpu as u8, &mut node) != 0 {
+                NumaNodeId::new(node as u32)
+            } else {
+                NumaNodeId::ZERO
+            }
+        }
+    }
+
+    #[cfg(not(any(
+        all(feature = "std", target_os = "linux", target_arch = "x86_64"),
+        all(feature = "std", windows)
+    )))]
+    {
+        NumaNodeId::ZERO
+    }
+}
+
+#[inline(never)]
+fn query_processor_os() -> Option<u32> {
+    #[cfg(all(feature = "std", target_os = "linux", target_arch = "x86_64"))]
+    {
+        let mut cpu = 0u32;
+        let mut node = 0u32;
+        let ret: isize;
+        // SAFETY: `getcpu` writes two `u32` outputs through valid pointers and
+        // does not retain them after the syscall returns.
+        unsafe {
+            core::arch::asm!(
+                "syscall",
+                in("rax") 309isize,
+                in("rdi") &mut cpu as *mut u32,
+                in("rsi") &mut node as *mut u32,
+                in("rdx") core::ptr::null_mut::<u8>(),
+                lateout("rax") ret,
+                lateout("rcx") _,
+                lateout("r11") _,
+                options(nostack, preserves_flags)
+            );
+        }
+        if ret == 0 {
+            Some(cpu)
+        } else {
+            None
+        }
+    }
+
+    #[cfg(all(feature = "std", windows))]
+    {
+        // SAFETY: `GetCurrentProcessorNumber` takes no pointers and returns the
+        // current processor number for the calling thread.
+        unsafe {
+            extern "system" {
+                fn GetCurrentProcessorNumber() -> u32;
+            }
+            Some(GetCurrentProcessorNumber())
+        }
+    }
+
+    #[cfg(not(any(
+        all(feature = "std", target_os = "linux", target_arch = "x86_64"),
+        all(feature = "std", windows)
+    )))]
+    {
+        None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn current_node_refreshes_to_same_type() {
+        let node = refresh_current_numa_node();
+        assert_eq!(current_numa_node().get(), node.get());
+    }
+}
