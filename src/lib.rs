@@ -5,6 +5,7 @@
 //! to choose worker and task locality.
 
 #![cfg_attr(not(feature = "std"), no_std)]
+#![cfg_attr(nightly_tls_active, feature(thread_local))]
 #![deny(unsafe_op_in_unsafe_fn)]
 #![deny(missing_docs)]
 
