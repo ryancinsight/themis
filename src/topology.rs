@@ -410,6 +410,135 @@ fn logical_processor_count() -> usize {
     }
 }
 
+/// GPU device topology snapshot (atlas ADR 0002).
+///
+/// Provider-fed: themis stays stateless law, so there is no `detect()` here —
+/// device backends (hephaestus) construct this from wgpu adapter limits or
+/// CUDA device attributes via [`GpuTopology::from_provider`]. Consumers:
+/// moirai's occupancy planner (warp-aware launch shaping) and mnemosyne's
+/// kernel resource budgets read these capacities; the `Registers`/`SharedMem`
+/// figures are budget vocabulary, never host-allocatable (see
+/// [`MemoryTier::is_host_allocatable`]).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GpuTopology {
+    epoch: TopologyEpoch,
+    properties: GpuDeviceProperties,
+}
+
+/// Provider-supplied GPU device properties for [`GpuTopology::from_provider`].
+///
+/// A plain field struct (not a builder): every field is required, and the
+/// provider reads them directly off the device API in one place. Fields the
+/// API does not report are zero (capacity unknown), never fabricated.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct GpuDeviceProperties {
+    /// Streaming-multiprocessor / compute-unit count (0 when unreported).
+    pub compute_units: u32,
+    /// Warp (NVIDIA) / wavefront (AMD) / subgroup width in lanes.
+    pub warp_width: u32,
+    /// Maximum resident threads per compute unit (0 when unreported).
+    pub max_threads_per_unit: u32,
+    /// 32-bit registers per compute unit (budgeted tier `Registers`;
+    /// 0 when unreported).
+    pub registers_per_unit: u32,
+    /// Shared/local memory bytes per compute unit (budgeted tier
+    /// `SharedMem`).
+    pub shared_mem_per_unit_bytes: usize,
+    /// Device L2 cache size in bytes (0 when unreported).
+    pub l2_bytes: usize,
+    /// Device global-memory tier (`Hbm`, `Gddr`, or `Device` when unknown).
+    pub memory_tier: MemoryTier,
+    /// Device global-memory capacity in bytes (0 when unreported).
+    pub memory_bytes: u64,
+}
+
+impl GpuTopology {
+    /// Construct a snapshot from provider-reported device properties.
+    #[must_use]
+    pub const fn from_provider(properties: GpuDeviceProperties) -> Self {
+        Self {
+            epoch: TopologyEpoch::INITIAL,
+            properties,
+        }
+    }
+
+    /// Snapshot epoch.
+    #[must_use]
+    #[inline]
+    pub const fn epoch(&self) -> TopologyEpoch {
+        self.epoch
+    }
+
+    /// Streaming-multiprocessor / compute-unit count.
+    #[must_use]
+    #[inline]
+    pub const fn compute_units(&self) -> u32 {
+        self.properties.compute_units
+    }
+
+    /// Warp / wavefront / subgroup width in lanes.
+    #[must_use]
+    #[inline]
+    pub const fn warp_width(&self) -> u32 {
+        self.properties.warp_width
+    }
+
+    /// Maximum resident threads per compute unit.
+    #[must_use]
+    #[inline]
+    pub const fn max_threads_per_unit(&self) -> u32 {
+        self.properties.max_threads_per_unit
+    }
+
+    /// 32-bit registers per compute unit (budgeted `Registers` tier).
+    #[must_use]
+    #[inline]
+    pub const fn registers_per_unit(&self) -> u32 {
+        self.properties.registers_per_unit
+    }
+
+    /// Shared/local memory bytes per compute unit (budgeted `SharedMem` tier).
+    #[must_use]
+    #[inline]
+    pub const fn shared_mem_per_unit_bytes(&self) -> usize {
+        self.properties.shared_mem_per_unit_bytes
+    }
+
+    /// Device L2 cache size in bytes (0 when unreported).
+    #[must_use]
+    #[inline]
+    pub const fn l2_bytes(&self) -> usize {
+        self.properties.l2_bytes
+    }
+
+    /// Device global-memory tier.
+    #[must_use]
+    #[inline]
+    pub const fn memory_tier(&self) -> MemoryTier {
+        self.properties.memory_tier
+    }
+
+    /// Device global-memory capacity in bytes.
+    #[must_use]
+    #[inline]
+    pub const fn memory_bytes(&self) -> u64 {
+        self.properties.memory_bytes
+    }
+
+    /// Total resident warps at theoretical full occupancy:
+    /// `compute_units · max_threads_per_unit / warp_width`. Returns 0 for a
+    /// zero warp width rather than dividing by zero.
+    #[must_use]
+    #[inline]
+    pub const fn max_resident_warps(&self) -> u64 {
+        if self.properties.warp_width == 0 {
+            return 0;
+        }
+        (self.properties.compute_units as u64) * (self.properties.max_threads_per_unit as u64)
+            / (self.properties.warp_width as u64)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -480,5 +609,61 @@ mod tests {
             topology.adjacent_nodes(NumaNodeId::new(2)),
             &[NumaNodeId::new(7)]
         );
+    }
+}
+
+#[cfg(test)]
+mod gpu_topology_tests {
+    use super::*;
+
+    fn sample_properties() -> GpuDeviceProperties {
+        GpuDeviceProperties {
+            compute_units: 46,
+            warp_width: 32,
+            max_threads_per_unit: 1536,
+            registers_per_unit: 65536,
+            shared_mem_per_unit_bytes: 102_400,
+            l2_bytes: 4 * 1024 * 1024,
+            memory_tier: MemoryTier::Gddr,
+            memory_bytes: 8 * 1024 * 1024 * 1024,
+        }
+    }
+
+    #[test]
+    fn provider_snapshot_round_trips_every_field() {
+        let topology = GpuTopology::from_provider(sample_properties());
+        assert_eq!(topology.compute_units(), 46);
+        assert_eq!(topology.warp_width(), 32);
+        assert_eq!(topology.max_threads_per_unit(), 1536);
+        assert_eq!(topology.registers_per_unit(), 65536);
+        assert_eq!(topology.shared_mem_per_unit_bytes(), 102_400);
+        assert_eq!(topology.l2_bytes(), 4 * 1024 * 1024);
+        assert_eq!(topology.memory_tier(), MemoryTier::Gddr);
+        assert_eq!(topology.memory_bytes(), 8 * 1024 * 1024 * 1024);
+        assert_eq!(topology.epoch(), TopologyEpoch::INITIAL);
+    }
+
+    #[test]
+    fn max_resident_warps_is_units_times_threads_over_width() {
+        let topology = GpuTopology::from_provider(sample_properties());
+        // 46 * 1536 / 32 = 2208
+        assert_eq!(topology.max_resident_warps(), 2208);
+
+        let mut zero_width = sample_properties();
+        zero_width.warp_width = 0;
+        assert_eq!(
+            GpuTopology::from_provider(zero_width).max_resident_warps(),
+            0
+        );
+    }
+
+    #[test]
+    fn budgeted_tiers_are_not_host_allocatable() {
+        assert!(!MemoryTier::Registers.is_host_allocatable());
+        assert!(!MemoryTier::SharedMem.is_host_allocatable());
+        assert!(MemoryTier::Gddr.is_host_allocatable());
+        assert!(MemoryTier::HostPinned.is_host_allocatable());
+        assert!(MemoryTier::Hbm.is_host_allocatable());
+        assert!(MemoryTier::Dram.is_host_allocatable());
     }
 }

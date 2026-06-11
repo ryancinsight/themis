@@ -10,15 +10,15 @@ Extend the law to the full CPU/GPU/TPU memory and compute hierarchy. themis
 stays stateless: detection may be provider-fed (hephaestus reports device
 properties into themis types).
 
-- [ ] [minor] `MemoryTier` additions: `Gddr` (distinct from `Hbm`; both are
+- [x] [minor] (0.6.0) `MemoryTier` additions: `Gddr` (distinct from `Hbm`; both are
   device-attached but with different bandwidth/latency law) and `HostPinned`
   (page-locked host staging). Document the tier lattice and intended consumers.
-- [ ] [minor] Budgeted device tiers: `Registers` and `SharedMem` as
+- [x] [minor] (0.6.0) Budgeted device tiers: `Registers` and `SharedMem` as
   *non-host-allocatable* tiers with queryable capacities (regs per SM/thread,
   shared bytes per SM/block). These exist so mnemosyne's kernel resource
   budgets and moirai's occupancy planner speak themis types — host code never
   allocates them (GPU compilers assign registers; ADR 0002 constraint 2).
-- [ ] [minor] `GpuTopology` snapshot alongside `CpuTopology`: SM/CU count,
+- [x] [minor] (0.6.0) `GpuTopology` snapshot alongside `CpuTopology`: SM/CU count,
   warp/wavefront width, max threads per SM, register file size per SM,
   shared memory per SM, L2 size, memory tier (Hbm/Gddr) + bandwidth class.
   Provider-fed constructor (hephaestus supplies values from wgpu adapter info

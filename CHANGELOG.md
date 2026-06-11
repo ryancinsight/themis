@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.6.0 - 2026-06-11
+
+### Added
+
+- atlas ADR 0002 tier/topology vocabulary: `MemoryTier::{Gddr, HostPinned,
+  Registers, SharedMem}`. `Registers`/`SharedMem` are budgeted, non-host-
+  allocatable device tiers (GPU compilers assign registers; kernels declare
+  shared memory) encoded by the new `MemoryTier::is_host_allocatable`.
+- `GpuTopology` snapshot + `GpuDeviceProperties` provider struct: SM/CU count,
+  warp width, max threads per unit, registers per unit, shared memory per
+  unit, L2 size, global-memory tier and capacity, with a
+  `max_resident_warps` occupancy helper. Provider-fed (hephaestus reports wgpu
+  adapter limits / CUDA device attributes); themis stays stateless law.
+  Unreported fields are zero, never fabricated.
+
 ## 0.5.0 - 2026-06-09
 
 ### Added

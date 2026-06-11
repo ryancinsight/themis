@@ -28,4 +28,4 @@ pub use law::{
     WorkerId,
 };
 pub use query::{current_numa_node, current_processor, refresh_current_numa_node};
-pub use topology::{CacheLevel, CpuTopology, NumaNode};
+pub use topology::{CacheLevel, CpuTopology, GpuDeviceProperties, GpuTopology, NumaNode};
