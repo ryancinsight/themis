@@ -15,6 +15,9 @@
 - Consolidated current CPU and NUMA OS probing through one internal locality
   query implementation, removing duplicate platform syscall/API code without
   changing the public query contract.
+- Split current-locality queries into `query/{cache,platform,tests}.rs` so TLS
+  caching, OS probing, and verification have separate module ownership without
+  changing the public query API.
 - Documented `CacheLevel` consumers: leto uses cache sizes for tiling hints,
   and moirai uses shared-processor rows for chunk-locality hints.
 

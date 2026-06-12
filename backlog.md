@@ -53,3 +53,6 @@ properties into themis types).
   one platform syscall/API implementation. Evidence: clippy/test/doc gates;
   empirical benchmark tier from `cargo nextest run` wall-time only, no
   criterion baseline claimed.
+- [x] [patch] Split current-locality query code into cache, platform, and test
+  leaf modules. Evidence: module-level ownership separation; no public API
+  change; verification gates recorded in the change commit.

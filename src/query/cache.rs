@@ -1,0 +1,68 @@
+//! Thread-local NUMA-node query cache.
+
+use super::platform::query_numa_node_or_default;
+use crate::law::NumaNodeId;
+
+#[cfg(all(feature = "std", nightly_tls_active))]
+#[thread_local]
+static mut CACHED_NODE_NIGHTLY: Option<NumaNodeId> = None;
+
+#[cfg(all(feature = "std", not(nightly_tls_active)))]
+std::thread_local! {
+    static CACHED_NODE: core::cell::Cell<Option<NumaNodeId>> = const { core::cell::Cell::new(None) };
+}
+
+/// Returns the cached NUMA node for the calling thread.
+#[must_use]
+#[inline]
+pub fn current_numa_node() -> NumaNodeId {
+    #[cfg(feature = "std")]
+    {
+        #[cfg(nightly_tls_active)]
+        {
+            unsafe {
+                if let Some(node) = CACHED_NODE_NIGHTLY {
+                    node
+                } else {
+                    let node = query_numa_node_or_default();
+                    CACHED_NODE_NIGHTLY = Some(node);
+                    node
+                }
+            }
+        }
+        #[cfg(not(nightly_tls_active))]
+        {
+            CACHED_NODE.with(|cell| {
+                if let Some(node) = cell.get() {
+                    node
+                } else {
+                    let node = query_numa_node_or_default();
+                    cell.set(Some(node));
+                    node
+                }
+            })
+        }
+    }
+
+    #[cfg(not(feature = "std"))]
+    {
+        NumaNodeId::ZERO
+    }
+}
+
+/// Refreshes and returns the calling thread's NUMA node.
+#[must_use]
+#[inline]
+pub fn refresh_current_numa_node() -> NumaNodeId {
+    let node = query_numa_node_or_default();
+    #[cfg(feature = "std")]
+    {
+        #[cfg(nightly_tls_active)]
+        unsafe {
+            CACHED_NODE_NIGHTLY = Some(node);
+        }
+        #[cfg(not(nightly_tls_active))]
+        CACHED_NODE.with(|cell| cell.set(Some(node)));
+    }
+    node
+}

@@ -1,4 +1,4 @@
-//! Current processor and NUMA-node query functions.
+//! Platform CPU-locality probes.
 
 use crate::law::NumaNodeId;
 
@@ -8,105 +8,29 @@ struct CpuLocality {
     numa_node: NumaNodeId,
 }
 
-#[cfg(all(feature = "std", nightly_tls_active))]
-#[thread_local]
-static mut CACHED_NODE_NIGHTLY: Option<NumaNodeId> = None;
-
-#[cfg(all(feature = "std", not(nightly_tls_active)))]
-std::thread_local! {
-    static CACHED_NODE: core::cell::Cell<Option<NumaNodeId>> = const { core::cell::Cell::new(None) };
-}
-
-/// Returns the cached NUMA node for the calling thread.
-#[must_use]
-#[inline]
-pub fn current_numa_node() -> NumaNodeId {
-    #[cfg(feature = "std")]
-    {
-        #[cfg(nightly_tls_active)]
-        {
-            unsafe {
-                if let Some(node) = CACHED_NODE_NIGHTLY {
-                    node
-                } else {
-                    let node = query_numa_node_os();
-                    CACHED_NODE_NIGHTLY = Some(node);
-                    node
-                }
-            }
-        }
-        #[cfg(not(nightly_tls_active))]
-        {
-            CACHED_NODE.with(|cell| {
-                if let Some(node) = cell.get() {
-                    node
-                } else {
-                    let node = query_numa_node_os();
-                    cell.set(Some(node));
-                    node
-                }
-            })
-        }
-    }
-
-    #[cfg(not(feature = "std"))]
-    {
-        NumaNodeId::ZERO
-    }
-}
-
-/// Refreshes and returns the calling thread's NUMA node.
-#[must_use]
-#[inline]
-pub fn refresh_current_numa_node() -> NumaNodeId {
-    let node = query_numa_node_os();
-    #[cfg(feature = "std")]
-    {
-        #[cfg(nightly_tls_active)]
-        unsafe {
-            CACHED_NODE_NIGHTLY = Some(node);
-        }
-        #[cfg(not(nightly_tls_active))]
-        CACHED_NODE.with(|cell| cell.set(Some(node)));
-    }
-    node
-}
-
 /// Returns the current processor when the platform exposes it.
 #[must_use]
 #[inline]
 pub fn current_processor() -> Option<u32> {
-    query_processor_os()
+    query_cpu_locality_os().map(|locality| locality.processor)
 }
 
 /// Queries the calling thread's NUMA node without caching, returning `None`
 /// when the platform does not expose the information.
 ///
-/// Unlike [`current_numa_node`], which falls back to node 0 for callers that
-/// need a placement decision regardless, this preserves the stack-wide
+/// Unlike [`crate::current_numa_node`], which falls back to node 0 for callers
+/// that need a placement decision regardless, this preserves the stack-wide
 /// "unreported = `None`, never fabricated" contract for consumers that must
 /// distinguish "node 0" from "unknown" (e.g. locality verification).
 #[must_use]
 #[inline]
 pub fn try_current_numa_node() -> Option<NumaNodeId> {
-    try_query_numa_node_os()
-}
-
-#[inline]
-fn query_numa_node_os() -> NumaNodeId {
-    query_cpu_locality_os()
-        .map(|locality| locality.numa_node)
-        .unwrap_or(NumaNodeId::ZERO)
-}
-
-#[inline(never)]
-fn try_query_numa_node_os() -> Option<NumaNodeId> {
     query_cpu_locality_os().map(|locality| locality.numa_node)
 }
 
-#[inline(never)]
-fn query_processor_os() -> Option<u32> {
-    query_cpu_locality_os().map(|locality| locality.processor)
+#[inline]
+pub(super) fn query_numa_node_or_default() -> NumaNodeId {
+    try_current_numa_node().unwrap_or(NumaNodeId::ZERO)
 }
 
 #[inline(never)]
@@ -170,16 +94,5 @@ fn query_cpu_locality_os() -> Option<CpuLocality> {
     )))]
     {
         None
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn current_node_refreshes_to_same_type() {
-        let node = refresh_current_numa_node();
-        assert_eq!(current_numa_node().get(), node.get());
     }
 }
