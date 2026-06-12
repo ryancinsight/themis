@@ -1,12 +1,12 @@
 //! Topology unit tests.
 
-use crate::law::{MemoryTier, NumaNodeId, TopologyEpoch};
 use super::cpu::{
     build_adjacent_nodes, build_node_to_index, build_processor_to_node, default_cache_levels,
     CpuTopology,
 };
 use super::gpu::GpuTopology;
 use super::types::{GpuDeviceProperties, NumaNode};
+use crate::law::{MemoryTier, NumaNodeId, TopologyEpoch};
 
 #[cfg(not(feature = "std"))]
 extern crate alloc;

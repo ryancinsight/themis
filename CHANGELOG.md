@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Default `parallel` and `mnemosyne-memory` feature markers for the placement
+  law crate, keeping Atlas provider feature policy uniform without adding a
+  runtime dependency or changing topology semantics.
+
 ## 0.7.0 - 2026-06-12
 
 ### Added

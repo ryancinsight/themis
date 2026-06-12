@@ -1,7 +1,7 @@
 //! GPU topology query types.
 
-use crate::law::{MemoryTier, TopologyEpoch};
 use super::types::GpuDeviceProperties;
+use crate::law::{MemoryTier, TopologyEpoch};
 
 /// GPU device topology snapshot (atlas ADR 0002).
 ///

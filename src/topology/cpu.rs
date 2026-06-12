@@ -1,7 +1,7 @@
 //! CPU topology detection and snapshot queries.
 
-use crate::law::{MemoryTier, NumaNodeId, TopologyEpoch};
 use super::types::{CacheLevel, NumaNode};
+use crate::law::{MemoryTier, NumaNodeId, TopologyEpoch};
 
 #[cfg(not(feature = "std"))]
 extern crate alloc;

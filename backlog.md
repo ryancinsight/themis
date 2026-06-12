@@ -4,6 +4,14 @@ Strategic roadmap; tags `[patch]`/`[minor]`/`[major]`/`[arch]` per SemVer class.
 themis is the Atlas placement-law SSOT: typed, stateless vocabulary that
 mnemosyne (allocation), moirai (scheduling), and hephaestus (devices) consume.
 
+## Delivered
+
+- [x] [patch] Add default `parallel` and `mnemosyne-memory` feature markers to
+  the placement-law crate. Evidence: `cargo metadata --no-deps --locked
+  --format-version 1`; full Atlas feature-policy metadata audit; `cargo fmt
+  --check`; `git diff --check`. Residual: compile/test gates were blocked before
+  rustc by denied access to `target/debug/.cargo-lock`.
+
 ## Heterogeneous topology law (atlas ADR 0002) [arch]
 
 Extend the law to the full CPU/GPU/TPU memory and compute hierarchy. themis

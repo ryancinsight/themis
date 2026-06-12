@@ -32,7 +32,7 @@ pub struct CacheLevel {
     pub shared_processors: Box<[u32]>,
 }
 
-/// Provider-supplied GPU device properties for [`GpuTopology::from_provider`].
+/// Provider-supplied GPU device properties for [`crate::topology::GpuTopology::from_provider`].
 ///
 /// A plain field struct (not a builder): every field is required, and the
 /// provider reads them directly off the device API in one place. Fields the
