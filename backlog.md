@@ -31,9 +31,14 @@ properties into themis types).
   shared memory per SM, L2 size, memory tier (Hbm/Gddr) + bandwidth class.
   Provider-fed constructor (hephaestus supplies values from wgpu adapter info
   / CUDA device attributes).
-- [ ] [minor] Minimal `TpuTopology` vocabulary (core count, HBM capacity per
-  core) — types only, no detection, gated on a real PJRT consumer in
-  hephaestus.
+- [x] [minor] (0.9.0) Minimal `TpuTopology` vocabulary (core count, HBM
+  capacity per core) — types only, no detection, gated on a real PJRT consumer
+  in hephaestus. Evidence: provider-fed `TpuTopology`/`TpuDeviceProperties`,
+  value-semantic tests including saturating total-capacity derivation, local
+  verification gates recorded in the change commit. Residual: `cargo
+  semver-checks check-release` is blocked by historical published
+  `themis 0.0.3` resolving yanked `zeroize 0.5.2` before compatibility
+  comparison.
 - [x] [patch] `CacheLevel` consumers note: document the leto tiling and
   moirai chunking contracts that read L1/L2/L3 sizes, so changes to the type
   surface treat them as consumers. Evidence: README boundary/evidence sync;
@@ -62,3 +67,9 @@ properties into themis types).
 - [x] [patch] Split CPU topology into snapshot/accessor, platform detection,
   dense-table builder, and cache-default leaf modules. Evidence: no public API
   change; verification gates recorded in the change commit.
+
+## Topology type hierarchy [patch]
+
+- [x] [patch] Split topology structural types into CPU, GPU, and TPU leaf
+  modules. Evidence: no removal of existing public exports; verification gates
+  recorded in the change commit.

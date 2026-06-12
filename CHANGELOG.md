@@ -2,8 +2,13 @@
 
 ## Unreleased
 
+## 0.9.0 - 2026-06-12
+
 ### Added
 
+- `TpuTopology` and `TpuDeviceProperties` provider-fed vocabulary for TPU core
+  count and HBM capacity per core, plus saturating total-HBM capacity
+  derivation.
 - Default `parallel` and `mnemosyne-memory` feature markers for the placement
   law crate, keeping Atlas provider feature policy uniform without adding a
   runtime dependency or changing topology semantics.
@@ -22,6 +27,8 @@
   snapshot accessors, OS detection, dense lookup construction, and conservative
   cache defaults in separate leaf modules without changing the public topology
   API.
+- Split topology structural types into `topology/types/{cpu,gpu,tpu}.rs`, so
+  CPU, GPU, and TPU provider vocabulary have separate module ownership.
 - Documented `CacheLevel` consumers: leto uses cache sizes for tiling hints,
   and moirai uses shared-processor rows for chunk-locality hints.
 
