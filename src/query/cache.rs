@@ -3,13 +3,11 @@
 use super::platform::query_numa_node_or_default;
 use crate::law::NumaNodeId;
 
-#[cfg(all(feature = "std", nightly_tls_active))]
-#[thread_local]
-static mut CACHED_NODE_NIGHTLY: Option<NumaNodeId> = None;
-
-#[cfg(all(feature = "std", not(nightly_tls_active)))]
-std::thread_local! {
-    static CACHED_NODE: core::cell::Cell<Option<NumaNodeId>> = const { core::cell::Cell::new(None) };
+#[cfg(feature = "std")]
+melinoe::thread_cached! {
+    /// Per-thread cached NUMA node (melinoe `thread_cached!` SSOT; replaces
+    /// the crate-local nightly/stable TLS pair).
+    mod cached_node: NumaNodeId;
 }
 
 /// Returns the cached NUMA node for the calling thread.
@@ -18,30 +16,7 @@ std::thread_local! {
 pub fn current_numa_node() -> NumaNodeId {
     #[cfg(feature = "std")]
     {
-        #[cfg(nightly_tls_active)]
-        {
-            unsafe {
-                if let Some(node) = CACHED_NODE_NIGHTLY {
-                    node
-                } else {
-                    let node = query_numa_node_or_default();
-                    CACHED_NODE_NIGHTLY = Some(node);
-                    node
-                }
-            }
-        }
-        #[cfg(not(nightly_tls_active))]
-        {
-            CACHED_NODE.with(|cell| {
-                if let Some(node) = cell.get() {
-                    node
-                } else {
-                    let node = query_numa_node_or_default();
-                    cell.set(Some(node));
-                    node
-                }
-            })
-        }
+        cached_node::get_or_init(query_numa_node_or_default)
     }
 
     #[cfg(not(feature = "std"))]
@@ -56,13 +31,6 @@ pub fn current_numa_node() -> NumaNodeId {
 pub fn refresh_current_numa_node() -> NumaNodeId {
     let node = query_numa_node_or_default();
     #[cfg(feature = "std")]
-    {
-        #[cfg(nightly_tls_active)]
-        unsafe {
-            CACHED_NODE_NIGHTLY = Some(node);
-        }
-        #[cfg(not(nightly_tls_active))]
-        CACHED_NODE.with(|cell| cell.set(Some(node)));
-    }
+    cached_node::set(node);
     node
 }

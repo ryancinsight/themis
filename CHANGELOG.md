@@ -21,6 +21,16 @@
 - Documented `CacheLevel` consumers: leto uses cache sizes for tiling hints,
   and moirai uses shared-processor rows for chunk-locality hints.
 
+## 0.8.0 - 2026-06-12
+
+### Changed
+
+- Thread-local NUMA cache now uses the melinoe `thread_cached!` SSOT
+  (0.7.0), deleting the crate-local nightly/stable TLS pair. melinoe is now
+  an unconditional dependency (it is no_std, default-features off); the
+  `melinoe` cargo feature continues to gate only the branded placement
+  extras.
+
 ## 0.7.0 - 2026-06-12
 
 ### Added

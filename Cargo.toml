@@ -1,6 +1,6 @@
 [package]
 name = "themis"
-version = "0.7.0"
+version = "0.8.0"
 edition = "2021"
 authors = ["Ryan Clanton <ryanclanton@outlook.com>"]
 license = "MIT OR Apache-2.0"
@@ -14,10 +14,12 @@ rust-version = "1.75.0"
 
 [features]
 default = ["std", "parallel", "mnemosyne-memory", "melinoe"]
-std = ["melinoe?/std"]
+std = ["melinoe/std"]
 parallel = []
 mnemosyne-memory = []
-melinoe = ["dep:melinoe"]
+# Branded placement extras; the melinoe dependency itself is unconditional
+# (thread_cached!, placement law utilities).
+melinoe = []
 
 [dependencies]
-melinoe = { git = "https://github.com/ryancinsight/melinoe.git", default-features = false, optional = true }
+melinoe = { git = "https://github.com/ryancinsight/melinoe.git", version = "0.7.0", default-features = false }
