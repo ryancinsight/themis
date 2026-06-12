@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 0.9.1 - 2026-06-12
+
+### Changed
+
+- Split placement law value types into `law/{identity,epoch,memory,placement}.rs`
+  so ID newtypes, topology epoch, memory tiers, and placement hints have
+  separate module ownership without changing the public API.
+
 ## 0.9.0 - 2026-06-12
 
 ### Added

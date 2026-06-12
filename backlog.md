@@ -73,3 +73,9 @@ properties into themis types).
 - [x] [patch] Split topology structural types into CPU, GPU, and TPU leaf
   modules. Evidence: no removal of existing public exports; verification gates
   recorded in the change commit.
+
+## Placement law structure [patch]
+
+- [x] [patch] Split placement law value types into identity, epoch, memory, and
+  placement leaf modules. Evidence: no public API removal; value-semantic tests
+  retained in the law module; verification gates recorded in the change commit.
