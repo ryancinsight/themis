@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## 0.9.3 - 2026-06-12
+
+### Changed
+
+- Split branded placement scopes into
+  `branded/{thread_local,sync_region,tests}.rs`, keeping thread-confined and
+  thread-portable Melinoe capabilities in separate leaf modules without
+  changing the feature-gated public API.
+
 ## 0.9.2 - 2026-06-12
 
 ### Changed

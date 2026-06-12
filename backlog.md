@@ -85,3 +85,10 @@ properties into themis types).
 - [x] [patch] Split placement law value types into identity, epoch, memory, and
   placement leaf modules. Evidence: no public API removal; value-semantic tests
   retained in the law module; verification gates recorded in the change commit.
+
+## Branded placement structure [patch]
+
+- [x] [patch] Split Melinoe-backed branded placement scopes into
+  thread-confined, sync-region, and test leaf modules. Evidence: no
+  feature-gated public API removal; value-semantic branded-scope tests
+  retained; verification gates recorded in the change commit.
