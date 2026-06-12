@@ -73,8 +73,26 @@ pub fn current_processor() -> Option<u32> {
     query_processor_os()
 }
 
-#[inline(never)]
+/// Queries the calling thread's NUMA node without caching, returning `None`
+/// when the platform does not expose the information.
+///
+/// Unlike [`current_numa_node`], which falls back to node 0 for callers that
+/// need a placement decision regardless, this preserves the stack-wide
+/// "unreported = `None`, never fabricated" contract for consumers that must
+/// distinguish "node 0" from "unknown" (e.g. locality verification).
+#[must_use]
+#[inline]
+pub fn try_current_numa_node() -> Option<NumaNodeId> {
+    try_query_numa_node_os()
+}
+
+#[inline]
 fn query_numa_node_os() -> NumaNodeId {
+    try_query_numa_node_os().unwrap_or(NumaNodeId::ZERO)
+}
+
+#[inline(never)]
+fn try_query_numa_node_os() -> Option<NumaNodeId> {
     #[cfg(all(feature = "std", target_os = "linux", target_arch = "x86_64"))]
     {
         let mut cpu = 0u32;
@@ -96,9 +114,9 @@ fn query_numa_node_os() -> NumaNodeId {
             );
         }
         if ret == 0 {
-            NumaNodeId::new(node)
+            Some(NumaNodeId::new(node))
         } else {
-            NumaNodeId::ZERO
+            None
         }
     }
 
@@ -114,9 +132,9 @@ fn query_numa_node_os() -> NumaNodeId {
             let cpu = GetCurrentProcessorNumber();
             let mut node = 0u8;
             if GetNumaProcessorNode(cpu as u8, &mut node) != 0 {
-                NumaNodeId::new(node as u32)
+                Some(NumaNodeId::new(node as u32))
             } else {
-                NumaNodeId::ZERO
+                None
             }
         }
     }
@@ -126,7 +144,7 @@ fn query_numa_node_os() -> NumaNodeId {
         all(feature = "std", windows)
     )))]
     {
-        NumaNodeId::ZERO
+        None
     }
 }
 
