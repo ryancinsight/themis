@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 0.9.2 - 2026-06-12
+
+### Changed
+
+- Split topology tests into `topology/tests/{cpu,gpu,tpu}.rs`, keeping each
+  topology family’s value-semantic assertions with its bounded context.
+
 ## 0.9.1 - 2026-06-12
 
 ### Changed

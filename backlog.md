@@ -74,6 +74,12 @@ properties into themis types).
   modules. Evidence: no removal of existing public exports; verification gates
   recorded in the change commit.
 
+## Topology test hierarchy [patch]
+
+- [x] [patch] Split topology tests into CPU, GPU, and TPU leaf modules.
+  Evidence: value-semantic assertions preserved; verification gates recorded
+  in the change commit.
+
 ## Placement law structure [patch]
 
 - [x] [patch] Split placement law value types into identity, epoch, memory, and
