@@ -34,14 +34,21 @@ themis
 
 mnemosyne -> themis   allocation placement
 moirai    -> themis   worker and task placement
+leto      -> themis   cache-sized tiling hints
 ```
 
 No Themis API stores allocator state, scheduler state, or raw thread-local
 storage pointers.
+
+`CacheLevel` is topology law, not a cache detector. Leto consumes cache sizes
+as tiling hints, and Moirai consumes shared-processor rows as chunk-locality
+hints. Unknown cache properties stay represented by conservative provider
+defaults until a platform backend supplies stronger data.
 
 ## Evidence
 
 Current correctness claims rest on type-level encoding plus value-semantic unit
 tests. Branded placement-state claims rest on Melinoe token invariants. OS
 topology discovery is empirical and falls back to a single-node topology when
-platform data is unavailable.
+platform data is unavailable. Cache consumer contracts are documentation-level
+evidence until leto and moirai add contract tests against the public surface.

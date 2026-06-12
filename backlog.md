@@ -34,6 +34,22 @@ properties into themis types).
 - [ ] [minor] Minimal `TpuTopology` vocabulary (core count, HBM capacity per
   core) — types only, no detection, gated on a real PJRT consumer in
   hephaestus.
-- [ ] [patch] `CacheLevel` consumers note: document the leto tiling and
+- [x] [patch] `CacheLevel` consumers note: document the leto tiling and
   moirai chunking contracts that read L1/L2/L3 sizes, so changes to the type
-  surface treat them as consumers.
+  surface treat them as consumers. Evidence: README boundary/evidence sync;
+  `cargo fmt --check`; `cargo clippy --all-targets --all-features -- -D
+  warnings`; `cargo nextest run`; `cargo test --doc`; `cargo doc --no-deps`.
+
+## Verification infrastructure [patch]
+
+- [x] [patch] Commit the nextest timeout gate at `.config/nextest.toml`
+  (`30s` slow threshold, hard stop after two periods). Evidence:
+  `cargo nextest run`.
+
+## Locality query performance [patch]
+
+- [x] [patch] Consolidate current-processor and current-NUMA OS probes through
+  one internal locality query path so cache refresh and processor reads share
+  one platform syscall/API implementation. Evidence: clippy/test/doc gates;
+  empirical benchmark tier from `cargo nextest run` wall-time only, no
+  criterion baseline claimed.

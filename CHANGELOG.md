@@ -7,6 +7,16 @@
 - Default `parallel` and `mnemosyne-memory` feature markers for the placement
   law crate, keeping Atlas provider feature policy uniform without adding a
   runtime dependency or changing topology semantics.
+- Committed `.config/nextest.toml` with the 30s slow-test and 60s termination
+  gate used by the local verification policy.
+
+### Changed
+
+- Consolidated current CPU and NUMA OS probing through one internal locality
+  query implementation, removing duplicate platform syscall/API code without
+  changing the public query contract.
+- Documented `CacheLevel` consumers: leto uses cache sizes for tiling hints,
+  and moirai uses shared-processor rows for chunk-locality hints.
 
 ## 0.7.0 - 2026-06-12
 

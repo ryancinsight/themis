@@ -2,6 +2,12 @@
 
 use crate::law::NumaNodeId;
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct CpuLocality {
+    processor: u32,
+    numa_node: NumaNodeId,
+}
+
 #[cfg(all(feature = "std", nightly_tls_active))]
 #[thread_local]
 static mut CACHED_NODE_NIGHTLY: Option<NumaNodeId> = None;
@@ -88,68 +94,23 @@ pub fn try_current_numa_node() -> Option<NumaNodeId> {
 
 #[inline]
 fn query_numa_node_os() -> NumaNodeId {
-    try_query_numa_node_os().unwrap_or(NumaNodeId::ZERO)
+    query_cpu_locality_os()
+        .map(|locality| locality.numa_node)
+        .unwrap_or(NumaNodeId::ZERO)
 }
 
 #[inline(never)]
 fn try_query_numa_node_os() -> Option<NumaNodeId> {
-    #[cfg(all(feature = "std", target_os = "linux", target_arch = "x86_64"))]
-    {
-        let mut cpu = 0u32;
-        let mut node = 0u32;
-        let ret: isize;
-        // SAFETY: `getcpu` writes two `u32` outputs through valid pointers and
-        // does not retain them after the syscall returns.
-        unsafe {
-            core::arch::asm!(
-                "syscall",
-                in("rax") 309isize,
-                in("rdi") &mut cpu as *mut u32,
-                in("rsi") &mut node as *mut u32,
-                in("rdx") core::ptr::null_mut::<u8>(),
-                lateout("rax") ret,
-                lateout("rcx") _,
-                lateout("r11") _,
-                options(nostack, preserves_flags)
-            );
-        }
-        if ret == 0 {
-            Some(NumaNodeId::new(node))
-        } else {
-            None
-        }
-    }
-
-    #[cfg(all(feature = "std", windows))]
-    {
-        // SAFETY: Windows APIs write to the provided node output pointer during
-        // the call and do not retain it.
-        unsafe {
-            extern "system" {
-                fn GetCurrentProcessorNumber() -> u32;
-                fn GetNumaProcessorNode(processor: u8, node_number: *mut u8) -> i32;
-            }
-            let cpu = GetCurrentProcessorNumber();
-            let mut node = 0u8;
-            if GetNumaProcessorNode(cpu as u8, &mut node) != 0 {
-                Some(NumaNodeId::new(node as u32))
-            } else {
-                None
-            }
-        }
-    }
-
-    #[cfg(not(any(
-        all(feature = "std", target_os = "linux", target_arch = "x86_64"),
-        all(feature = "std", windows)
-    )))]
-    {
-        None
-    }
+    query_cpu_locality_os().map(|locality| locality.numa_node)
 }
 
 #[inline(never)]
 fn query_processor_os() -> Option<u32> {
+    query_cpu_locality_os().map(|locality| locality.processor)
+}
+
+#[inline(never)]
+fn query_cpu_locality_os() -> Option<CpuLocality> {
     #[cfg(all(feature = "std", target_os = "linux", target_arch = "x86_64"))]
     {
         let mut cpu = 0u32;
@@ -171,7 +132,10 @@ fn query_processor_os() -> Option<u32> {
             );
         }
         if ret == 0 {
-            Some(cpu)
+            Some(CpuLocality {
+                processor: cpu,
+                numa_node: NumaNodeId::new(node),
+            })
         } else {
             None
         }
@@ -180,12 +144,23 @@ fn query_processor_os() -> Option<u32> {
     #[cfg(all(feature = "std", windows))]
     {
         // SAFETY: `GetCurrentProcessorNumber` takes no pointers and returns the
-        // current processor number for the calling thread.
+        // current processor number. `GetNumaProcessorNode` writes one node
+        // output during the call and does not retain the pointer.
         unsafe {
             extern "system" {
                 fn GetCurrentProcessorNumber() -> u32;
+                fn GetNumaProcessorNode(processor: u8, node_number: *mut u8) -> i32;
             }
-            Some(GetCurrentProcessorNumber())
+            let processor = GetCurrentProcessorNumber();
+            let mut node = 0u8;
+            if GetNumaProcessorNode(processor as u8, &mut node) != 0 {
+                Some(CpuLocality {
+                    processor,
+                    numa_node: NumaNodeId::new(node as u32),
+                })
+            } else {
+                None
+            }
         }
     }
 
