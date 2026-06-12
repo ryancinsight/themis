@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.7.0 - 2026-06-12
+
+### Added
+
+- `try_current_numa_node() -> Option<NumaNodeId>`: uncached NUMA-node query
+  preserving the stack-wide "unreported = None, never fabricated" contract for
+  consumers that must distinguish node 0 from unknown (driver: hermes NUMA
+  detection consolidation onto themis). `current_numa_node` keeps its cached
+  node-0 fallback for placement decisions.
+
 ## 0.6.0 - 2026-06-11
 
 ### Added

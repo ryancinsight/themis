@@ -28,5 +28,7 @@ pub use law::{
     LocalityDomainId, MemoryTier, NumaBucketIndex, NumaNodeId, PlacementHint, TopologyEpoch,
     WorkerId,
 };
-pub use query::{current_numa_node, current_processor, refresh_current_numa_node};
+pub use query::{
+    current_numa_node, current_processor, refresh_current_numa_node, try_current_numa_node,
+};
 pub use topology::{CacheLevel, CpuTopology, GpuDeviceProperties, GpuTopology, NumaNode};
