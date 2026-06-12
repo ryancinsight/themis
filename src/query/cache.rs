@@ -5,8 +5,7 @@ use crate::law::NumaNodeId;
 
 #[cfg(feature = "std")]
 melinoe::thread_cached! {
-    /// Per-thread cached NUMA node (melinoe `thread_cached!` SSOT; replaces
-    /// the crate-local nightly/stable TLS pair).
+    /// Cached NUMA node for the calling thread.
     mod cached_node: NumaNodeId;
 }
 
@@ -31,6 +30,8 @@ pub fn current_numa_node() -> NumaNodeId {
 pub fn refresh_current_numa_node() -> NumaNodeId {
     let node = query_numa_node_or_default();
     #[cfg(feature = "std")]
-    cached_node::set(node);
+    {
+        cached_node::set(node);
+    }
     node
 }

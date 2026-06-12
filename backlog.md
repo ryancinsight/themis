@@ -56,3 +56,9 @@ properties into themis types).
 - [x] [patch] Split current-locality query code into cache, platform, and test
   leaf modules. Evidence: module-level ownership separation; no public API
   change; verification gates recorded in the change commit.
+
+## CPU topology structure [patch]
+
+- [x] [patch] Split CPU topology into snapshot/accessor, platform detection,
+  dense-table builder, and cache-default leaf modules. Evidence: no public API
+  change; verification gates recorded in the change commit.

@@ -18,6 +18,10 @@
 - Split current-locality queries into `query/{cache,platform,tests}.rs` so TLS
   caching, OS probing, and verification have separate module ownership without
   changing the public query API.
+- Split CPU topology into `topology/cpu/{mod,detect,tables,cache}.rs`, keeping
+  snapshot accessors, OS detection, dense lookup construction, and conservative
+  cache defaults in separate leaf modules without changing the public topology
+  API.
 - Documented `CacheLevel` consumers: leto uses cache sizes for tiling hints,
   and moirai uses shared-processor rows for chunk-locality hints.
 
