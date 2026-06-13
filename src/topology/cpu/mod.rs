@@ -20,9 +20,9 @@ use alloc::vec;
 use alloc::vec::Vec;
 
 pub(in crate::topology) use cache::default_cache_levels;
-pub(in crate::topology) use tables::{
-    build_adjacent_nodes, build_node_to_index, build_processor_to_node,
-};
+#[cfg(any(test, feature = "std"))]
+pub(in crate::topology) use tables::build_processor_to_node;
+pub(in crate::topology) use tables::{build_adjacent_nodes, build_node_to_index};
 
 /// CPU topology snapshot.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -44,10 +44,6 @@ impl CpuTopology {
         let logical_processors = logical_processors.max(1);
         let processors: Vec<u32> = (0..logical_processors as u32).collect();
         let node_id = NumaNodeId::ZERO;
-        let processor_node_pairs: Vec<(u32, NumaNodeId)> = processors
-            .iter()
-            .map(|processor| (*processor, node_id))
-            .collect();
         let numa_nodes = vec![NumaNode {
             id: node_id,
             processors: processors.into_boxed_slice(),
@@ -57,7 +53,7 @@ impl CpuTopology {
 
         Self {
             epoch: TopologyEpoch::INITIAL,
-            processor_to_node: build_processor_to_node(logical_processors, &processor_node_pairs),
+            processor_to_node: vec![Some(node_id); logical_processors].into_boxed_slice(),
             node_to_index: build_node_to_index(&numa_nodes),
             adjacent_nodes: build_adjacent_nodes(&numa_nodes),
             numa_nodes: numa_nodes.into_boxed_slice(),

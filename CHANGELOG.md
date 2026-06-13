@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 0.9.4 - 2026-06-12
+
+### Changed
+
+- Built `CpuTopology::single_node` processor-to-node storage directly as a
+  dense boxed slice, removing the temporary processor/node pair allocation
+  while preserving the same single-node topology semantics.
+
 ## 0.9.3 - 2026-06-12
 
 ### Changed

@@ -67,6 +67,11 @@ properties into themis types).
 - [x] [patch] Split CPU topology into snapshot/accessor, platform detection,
   dense-table builder, and cache-default leaf modules. Evidence: no public API
   change; verification gates recorded in the change commit.
+- [x] [patch] Build `CpuTopology::single_node` processor-to-node storage
+  directly, removing the temporary processor/node pair allocation. Evidence:
+  value-semantic CPU topology tests retained; verification gates recorded in
+  the change commit. Benchmark tier: bench-profile compilation and test
+  harness only, no criterion latency/allocation baseline claimed.
 
 ## Topology type hierarchy [patch]
 

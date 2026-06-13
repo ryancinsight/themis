@@ -15,6 +15,7 @@ use alloc::vec;
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 
+#[cfg(any(test, feature = "std"))]
 pub(in crate::topology) fn build_processor_to_node(
     logical_processors: usize,
     mappings: &[(u32, NumaNodeId)],
