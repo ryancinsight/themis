@@ -21,7 +21,7 @@ pub(super) fn detect() -> Option<CpuTopology> {
 
     let node_count = highest_node.saturating_add(1) as usize;
     let mut numa_nodes = Vec::with_capacity(node_count);
-    let mut processor_node_pairs = Vec::new();
+    let mut processor_node_pairs = Vec::with_capacity(logical_processor_count());
     let mut logical_processors = 0usize;
 
     for raw_node in 0..=highest_node {
@@ -31,7 +31,7 @@ pub(super) fn detect() -> Option<CpuTopology> {
             continue;
         }
         let node_id = NumaNodeId::new(raw_node);
-        let mut processors = Vec::new();
+        let mut processors = Vec::with_capacity(mask.count_ones() as usize);
         for processor in 0..64u32 {
             if (mask & (1u64 << processor)) != 0 {
                 processors.push(processor);

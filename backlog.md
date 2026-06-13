@@ -84,6 +84,10 @@ properties into themis types).
   get compiler feedback when discarding the lazy processor-to-node traversal.
   Evidence: compiler-enforced API annotation; verification gates recorded in
   the change commit.
+- [x] [patch] Pre-size Windows NUMA detector processor buffers from the
+  reported logical processor count and per-node processor mask population.
+  Evidence: code-inspection allocation cleanup plus verification gates recorded
+  in the change commit; no latency/allocation benchmark baseline claimed.
 
 ## Topology type hierarchy [patch]
 

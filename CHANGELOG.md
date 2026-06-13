@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 0.9.8 - 2026-06-13
+
+### Changed
+
+- Pre-sized Windows NUMA processor mapping buffers from the logical processor
+  count and per-node processor masks, avoiding growth reallocations while
+  preserving detected topology values.
+
 ## 0.9.7 - 2026-06-13
 
 ### Changed
