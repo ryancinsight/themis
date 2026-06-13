@@ -72,6 +72,11 @@ properties into themis types).
   value-semantic CPU topology tests retained; verification gates recorded in
   the change commit. Benchmark tier: bench-profile compilation and test
   harness only, no criterion latency/allocation baseline claimed.
+- [x] [patch] Build fixed-size single-node NUMA rows and default cache-level
+  rows as boxed arrays instead of temporary vectors. Evidence: value-semantic
+  CPU topology tests retained; verification gates recorded in the change
+  commit. Benchmark tier: code-inspection allocation cleanup plus bench-profile
+  compilation, no criterion latency/allocation baseline claimed.
 
 ## Topology type hierarchy [patch]
 

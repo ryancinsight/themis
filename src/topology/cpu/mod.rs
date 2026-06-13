@@ -16,9 +16,6 @@ use alloc::boxed::Box;
 #[cfg(not(feature = "std"))]
 use alloc::vec;
 
-#[cfg(not(feature = "std"))]
-use alloc::vec::Vec;
-
 pub(in crate::topology) use cache::default_cache_levels;
 #[cfg(any(test, feature = "std"))]
 pub(in crate::topology) use tables::build_processor_to_node;
@@ -42,21 +39,21 @@ impl CpuTopology {
     #[must_use]
     pub fn single_node(logical_processors: usize) -> Self {
         let logical_processors = logical_processors.max(1);
-        let processors: Vec<u32> = (0..logical_processors as u32).collect();
+        let processors: Box<[u32]> = (0..logical_processors as u32).collect();
         let node_id = NumaNodeId::ZERO;
-        let numa_nodes = vec![NumaNode {
+        let numa_nodes: Box<[NumaNode]> = Box::new([NumaNode {
             id: node_id,
-            processors: processors.into_boxed_slice(),
-            distances: vec![10].into_boxed_slice(),
+            processors,
+            distances: Box::new([10]),
             memory_tier: MemoryTier::Dram,
-        }];
+        }]);
 
         Self {
             epoch: TopologyEpoch::INITIAL,
             processor_to_node: vec![Some(node_id); logical_processors].into_boxed_slice(),
             node_to_index: build_node_to_index(&numa_nodes),
             adjacent_nodes: build_adjacent_nodes(&numa_nodes),
-            numa_nodes: numa_nodes.into_boxed_slice(),
+            numa_nodes,
             logical_processors,
             cache_levels: default_cache_levels(logical_processors),
         }

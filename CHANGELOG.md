@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 0.9.5 - 2026-06-12
+
+### Changed
+
+- Built fixed-size single-node NUMA rows and default cache-level rows as boxed
+  arrays, removing temporary vector construction for fixed topology tables
+  while preserving the same public topology values.
+
 ## 0.9.4 - 2026-06-12
 
 ### Changed
