@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 0.9.6 - 2026-06-12
+
+### Changed
+
+- Split CPU platform topology detection into `cpu/detect/{linux,windows}.rs`,
+  keeping OS-specific sysfs and Windows API logic in separate leaf modules
+  behind the existing `CpuTopology::detect()` entry point.
+
 ## 0.9.5 - 2026-06-12
 
 ### Changed

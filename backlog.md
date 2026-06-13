@@ -67,6 +67,9 @@ properties into themis types).
 - [x] [patch] Split CPU topology into snapshot/accessor, platform detection,
   dense-table builder, and cache-default leaf modules. Evidence: no public API
   change; verification gates recorded in the change commit.
+- [x] [patch] Split CPU platform detection into Linux sysfs and Windows API
+  leaf modules. Evidence: no public API change; value-semantic CPU topology
+  tests retained; verification gates recorded in the change commit.
 - [x] [patch] Build `CpuTopology::single_node` processor-to-node storage
   directly, removing the temporary processor/node pair allocation. Evidence:
   value-semantic CPU topology tests retained; verification gates recorded in
