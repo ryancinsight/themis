@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 0.9.7 - 2026-06-13
+
+### Changed
+
+- Marked `CpuTopology::processor_node_pairs()` as must-use so ignored lazy
+  mapping traversals produce compiler feedback without changing topology
+  storage or iteration semantics.
+
 ## 0.9.6 - 2026-06-12
 
 ### Changed

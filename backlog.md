@@ -80,6 +80,10 @@ properties into themis types).
   CPU topology tests retained; verification gates recorded in the change
   commit. Benchmark tier: code-inspection allocation cleanup plus bench-profile
   compilation, no criterion latency/allocation baseline claimed.
+- [x] [patch] Mark `CpuTopology::processor_node_pairs()` as must-use so callers
+  get compiler feedback when discarding the lazy processor-to-node traversal.
+  Evidence: compiler-enforced API annotation; verification gates recorded in
+  the change commit.
 
 ## Topology type hierarchy [patch]
 

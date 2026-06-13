@@ -93,6 +93,7 @@ impl CpuTopology {
     }
 
     /// Iterates over known processor-to-node mappings.
+    #[must_use = "iterators are lazy; consume the returned mapping iterator"]
     pub fn processor_node_pairs(&self) -> impl Iterator<Item = (u32, NumaNodeId)> + '_ {
         self.processor_to_node
             .iter()
