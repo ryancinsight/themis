@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 0.9.9 - 2026-06-13
+
+### Added
+
+- Added a dependency-free topology benchmark target that measures real
+  single-node topology construction and processor-to-node iterator traversal
+  under `cargo bench`.
+
 ## 0.9.8 - 2026-06-13
 
 ### Changed

@@ -1,6 +1,6 @@
 [package]
 name = "themis"
-version = "0.9.8"
+version = "0.9.9"
 edition = "2021"
 authors = ["Ryan Clanton <ryanclanton@outlook.com>"]
 license = "MIT OR Apache-2.0"
@@ -23,3 +23,7 @@ melinoe = []
 
 [dependencies]
 melinoe = { git = "https://github.com/ryancinsight/melinoe.git", version = "0.7.0", default-features = false }
+
+[[bench]]
+name = "topology"
+harness = false

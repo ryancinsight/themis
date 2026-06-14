@@ -50,6 +50,11 @@ properties into themis types).
 - [x] [patch] Commit the nextest timeout gate at `.config/nextest.toml`
   (`30s` slow threshold, hard stop after two periods). Evidence:
   `cargo nextest run`.
+- [x] [patch] Add a stable, dependency-free topology benchmark target that
+  exercises real `CpuTopology::single_node` construction and lazy
+  processor-to-node traversal. Evidence: `cargo bench --no-run`; `cargo
+  bench`. Benchmark tier: empirical harness output only, no statistical
+  baseline or speedup claim.
 
 ## Locality query performance [patch]
 
