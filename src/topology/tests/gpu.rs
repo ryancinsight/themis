@@ -47,10 +47,14 @@ fn max_resident_warps_is_units_times_threads_over_width() {
 
 #[test]
 fn budgeted_tiers_are_not_host_allocatable() {
-    assert!(!MemoryTier::Registers.is_host_allocatable());
-    assert!(!MemoryTier::SharedMem.is_host_allocatable());
-    assert!(MemoryTier::Gddr.is_host_allocatable());
-    assert!(MemoryTier::HostPinned.is_host_allocatable());
-    assert!(MemoryTier::Hbm.is_host_allocatable());
-    assert!(MemoryTier::Dram.is_host_allocatable());
+    let host_allocatable = [
+        MemoryTier::Registers.is_host_allocatable(),
+        MemoryTier::SharedMem.is_host_allocatable(),
+        MemoryTier::Gddr.is_host_allocatable(),
+        MemoryTier::HostPinned.is_host_allocatable(),
+        MemoryTier::Hbm.is_host_allocatable(),
+        MemoryTier::Dram.is_host_allocatable(),
+    ];
+
+    assert_eq!(host_allocatable, [false, false, true, true, true, true]);
 }

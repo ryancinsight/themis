@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 0.9.11 - 2026-06-14
+
+### Changed
+
+- Replaced topology smoke-test assertions with value-semantic checks for
+  queryable NUMA node indices, self-distance, adjacency length, and explicit
+  memory-tier host-allocation contracts.
+
 ## 0.9.10 - 2026-06-14
 
 ### Changed

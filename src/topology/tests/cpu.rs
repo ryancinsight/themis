@@ -34,10 +34,19 @@ fn distance_defaults_preserve_self_and_remote_values() {
 }
 
 #[test]
-fn detected_topology_has_at_least_one_node() {
+fn detected_topology_has_queryable_first_node() {
     let topology = CpuTopology::detect().expect("topology detection should return fallback");
-    assert!(!topology.numa_nodes().is_empty());
-    assert!(topology.logical_processors() > 0);
+    let first_node = topology
+        .numa_nodes()
+        .first()
+        .expect("invariant: detection fallback always returns at least one NUMA node");
+
+    assert_eq!(topology.node_index(first_node.id), Some(0));
+    assert_eq!(topology.distance(first_node.id, first_node.id), 10);
+    assert_eq!(
+        topology.adjacent_nodes(first_node.id).len(),
+        topology.numa_nodes().len().saturating_sub(1)
+    );
 }
 
 #[test]
