@@ -55,6 +55,9 @@ properties into themis types).
   processor-to-node traversal. Evidence: `cargo bench --no-run`; `cargo
   bench`. Benchmark tier: empirical harness output only, no statistical
   baseline or speedup claim.
+- [x] [patch] Document the topology benchmark command and evidence tier in the
+  README. Evidence: doc sync plus verification gates recorded in the change
+  commit.
 
 ## Locality query performance [patch]
 

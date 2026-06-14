@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 0.9.10 - 2026-06-14
+
+### Changed
+
+- Documented the topology benchmark command and its evidence tier in the
+  README so benchmark output is not mistaken for a statistical baseline.
+
 ## 0.9.9 - 2026-06-13
 
 ### Added

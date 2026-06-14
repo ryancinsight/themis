@@ -45,6 +45,18 @@ as tiling hints, and Moirai consumes shared-processor rows as chunk-locality
 hints. Unknown cache properties stay represented by conservative provider
 defaults until a platform backend supplies stronger data.
 
+## Benchmarks
+
+Run the topology benchmark with:
+
+```text
+cargo bench --bench topology
+```
+
+The benchmark exercises real `CpuTopology::single_node` construction and
+`processor_node_pairs` traversal. Its output is empirical local timing only;
+it is not a statistical baseline or a speedup claim.
+
 ## Evidence
 
 Current correctness claims rest on type-level encoding plus value-semantic unit
@@ -52,3 +64,6 @@ tests. Branded placement-state claims rest on Melinoe token invariants. OS
 topology discovery is empirical and falls back to a single-node topology when
 platform data is unavailable. Cache consumer contracts are documentation-level
 evidence until leto and moirai add contract tests against the public surface.
+Benchmark claims currently rest on the dependency-free topology benchmark
+harness and must be treated as empirical local timing unless a criterion
+baseline is added.
