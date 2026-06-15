@@ -43,6 +43,10 @@ impl NumaNodeId {
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct NumaBucketIndex<const BUCKETS: usize>(usize);
 
+const fn assert_nonzero_buckets<const BUCKETS: usize>() {
+    assert!(BUCKETS > 0, "NUMA bucket count must be non-zero");
+}
+
 impl<const BUCKETS: usize> NumaBucketIndex<BUCKETS> {
     /// Creates a bucket index from an already-normalized raw index.
     ///
@@ -51,7 +55,7 @@ impl<const BUCKETS: usize> NumaBucketIndex<BUCKETS> {
     /// Panics when `BUCKETS == 0`; zero buckets cannot represent a placement target.
     #[must_use]
     pub const fn new(raw: usize) -> Self {
-        assert!(BUCKETS > 0, "NUMA bucket count must be non-zero");
+        assert_nonzero_buckets::<BUCKETS>();
         Self(raw % BUCKETS)
     }
 
@@ -64,7 +68,7 @@ impl<const BUCKETS: usize> NumaBucketIndex<BUCKETS> {
     /// Returns the next bucket after `offset` positions, wrapping inside the bucket table.
     #[must_use]
     pub const fn wrapping_add(self, offset: usize) -> Self {
-        assert!(BUCKETS > 0, "NUMA bucket count must be non-zero");
+        assert_nonzero_buckets::<BUCKETS>();
         let offset = offset % BUCKETS;
         let remaining = BUCKETS - self.0;
         if offset < remaining {

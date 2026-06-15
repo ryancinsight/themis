@@ -130,6 +130,10 @@ properties into themis types).
   zero bucket counts use the documented domain panic and valid counts perform
   one modulo operation. Evidence: regression panic-contract test plus
   verification gates recorded in the change commit.
+- [x] [patch] Centralize the const-generic nonzero bucket invariant behind one
+  private helper used by `NumaBucketIndex` construction and wrapping
+  arithmetic. Evidence: existing panic-contract regression plus verification
+  gates recorded in the change commit.
 
 ## Branded placement structure [patch]
 

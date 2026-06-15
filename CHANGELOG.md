@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 0.9.15 - 2026-06-15
+
+### Changed
+
+- Centralized the const-generic nonzero bucket invariant behind one private
+  helper used by `NumaBucketIndex` construction and wrapping arithmetic.
+
 ## 0.9.14 - 2026-06-15
 
 ### Fixed
