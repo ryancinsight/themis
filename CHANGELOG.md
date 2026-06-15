@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 0.9.14 - 2026-06-15
+
+### Fixed
+
+- Removed redundant pre-normalization in `NumaNodeId::bucket_index` so zero
+  bucket counts use the documented domain panic and valid bucket counts perform
+  one modulo operation.
+
 ## 0.9.13 - 2026-06-15
 
 ### Changed

@@ -21,6 +21,12 @@ fn typed_ids_preserve_values() {
 }
 
 #[test]
+#[should_panic(expected = "NUMA bucket count must be non-zero")]
+fn zero_bucket_count_uses_domain_panic() {
+    let _ = NumaNodeId::new(19).bucket_index::<0>();
+}
+
+#[test]
 fn default_placement_is_current_dram() {
     assert_eq!(PlacementHint::default(), PlacementHint::Current);
     assert_eq!(MemoryTier::default(), MemoryTier::Dram);

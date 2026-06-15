@@ -126,6 +126,10 @@ properties into themis types).
 - [x] [patch] Split placement law value types into identity, epoch, memory, and
   placement leaf modules. Evidence: no public API removal; value-semantic tests
   retained in the law module; verification gates recorded in the change commit.
+- [x] [patch] Remove redundant `NumaNodeId::bucket_index` pre-normalization so
+  zero bucket counts use the documented domain panic and valid counts perform
+  one modulo operation. Evidence: regression panic-contract test plus
+  verification gates recorded in the change commit.
 
 ## Branded placement structure [patch]
 

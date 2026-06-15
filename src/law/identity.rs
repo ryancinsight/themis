@@ -34,7 +34,7 @@ impl NumaNodeId {
     /// Panics when `BUCKETS == 0`; zero buckets cannot represent a placement target.
     #[must_use]
     pub const fn bucket_index<const BUCKETS: usize>(self) -> NumaBucketIndex<BUCKETS> {
-        NumaBucketIndex::new(self.index() % BUCKETS)
+        NumaBucketIndex::new(self.index())
     }
 }
 
