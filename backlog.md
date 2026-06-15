@@ -75,6 +75,10 @@ properties into themis types).
 - [x] [patch] Split CPU topology into snapshot/accessor, platform detection,
   dense-table builder, and cache-default leaf modules. Evidence: no public API
   change; verification gates recorded in the change commit.
+- [x] [patch] Centralize default NUMA distance-row construction in the CPU
+  table builder so platform detector fallbacks share one `10` local / `20`
+  remote law. Evidence: value-semantic row test plus verification gates
+  recorded in the change commit.
 - [x] [patch] Split CPU platform detection into Linux sysfs and Windows API
   leaf modules. Evidence: no public API change; value-semantic CPU topology
   tests retained; verification gates recorded in the change commit.

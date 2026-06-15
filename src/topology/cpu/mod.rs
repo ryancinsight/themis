@@ -17,9 +17,9 @@ use alloc::boxed::Box;
 use alloc::vec;
 
 pub(in crate::topology) use cache::default_cache_levels;
-#[cfg(any(test, feature = "std"))]
-pub(in crate::topology) use tables::build_processor_to_node;
 pub(in crate::topology) use tables::{build_adjacent_nodes, build_node_to_index};
+#[cfg(any(test, feature = "std"))]
+pub(in crate::topology) use tables::{build_default_distance_row, build_processor_to_node};
 
 /// CPU topology snapshot.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -109,7 +109,7 @@ impl CpuTopology {
                 .numa_nodes
                 .get(from_index)
                 .and_then(|node| node.distances.get(to_index).copied())
-                .unwrap_or(if from == to { 10 } else { 20 }),
+                .unwrap_or_else(|| tables::default_distance(from_index, to_index)),
             _ => {
                 if from == to {
                     10

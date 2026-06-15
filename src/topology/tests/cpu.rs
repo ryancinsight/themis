@@ -1,8 +1,8 @@
 //! CPU topology unit tests.
 
 use super::super::cpu::{
-    build_adjacent_nodes, build_node_to_index, build_processor_to_node, default_cache_levels,
-    CpuTopology,
+    build_adjacent_nodes, build_default_distance_row, build_node_to_index, build_processor_to_node,
+    default_cache_levels, CpuTopology,
 };
 use super::super::types::NumaNode;
 use crate::law::{MemoryTier, NumaNodeId, TopologyEpoch};
@@ -31,6 +31,11 @@ fn distance_defaults_preserve_self_and_remote_values() {
     let topology = CpuTopology::single_node(1);
     assert_eq!(topology.distance(NumaNodeId::ZERO, NumaNodeId::ZERO), 10);
     assert_eq!(topology.distance(NumaNodeId::ZERO, NumaNodeId::new(9)), 20);
+}
+
+#[test]
+fn default_distance_rows_preserve_local_and_remote_costs() {
+    assert_eq!(build_default_distance_row(4, 2).as_ref(), &[20, 20, 10, 20]);
 }
 
 #[test]

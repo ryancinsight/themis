@@ -1,8 +1,8 @@
 //! Windows NUMA API CPU topology detection.
 
 use super::super::{
-    build_adjacent_nodes, build_node_to_index, build_processor_to_node, default_cache_levels,
-    logical_processor_count, CpuTopology,
+    build_adjacent_nodes, build_default_distance_row, build_node_to_index, build_processor_to_node,
+    default_cache_levels, logical_processor_count, CpuTopology,
 };
 use crate::law::{MemoryTier, NumaNodeId, TopologyEpoch};
 use crate::topology::types::NumaNode;
@@ -42,10 +42,7 @@ pub(super) fn detect() -> Option<CpuTopology> {
         numa_nodes.push(NumaNode {
             id: node_id,
             processors: processors.into_boxed_slice(),
-            distances: (0..node_count)
-                .map(|index| if index == raw_node as usize { 10 } else { 20 })
-                .collect::<Vec<_>>()
-                .into_boxed_slice(),
+            distances: build_default_distance_row(node_count, raw_node as usize),
             memory_tier: MemoryTier::Dram,
         });
     }

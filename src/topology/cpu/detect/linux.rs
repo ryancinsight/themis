@@ -1,8 +1,8 @@
 //! Linux sysfs CPU topology detection.
 
 use super::super::{
-    build_adjacent_nodes, build_node_to_index, build_processor_to_node, default_cache_levels,
-    logical_processor_count, CpuTopology,
+    build_adjacent_nodes, build_default_distance_row, build_node_to_index, build_processor_to_node,
+    default_cache_levels, logical_processor_count, CpuTopology,
 };
 use crate::law::{MemoryTier, NumaNodeId, TopologyEpoch};
 use crate::topology::types::NumaNode;
@@ -27,7 +27,7 @@ pub(super) fn detect() -> Option<CpuTopology> {
     let mut numa_nodes = Vec::with_capacity(node_ids.len());
     let mut processor_node_pairs = Vec::new();
 
-    for node_id_raw in &node_ids {
+    for (from_index, node_id_raw) in node_ids.iter().enumerate() {
         let node_id = NumaNodeId::new(*node_id_raw);
         let cpulist_path = format!("{nodes_path}/node{node_id_raw}/cpulist");
         let processors = fs::read_to_string(cpulist_path)
@@ -46,7 +46,7 @@ pub(super) fn detect() -> Option<CpuTopology> {
                     .filter_map(|part| part.parse::<u32>().ok())
                     .collect::<Vec<_>>()
             })
-            .unwrap_or_else(|_| vec![10; node_ids.len()]);
+            .unwrap_or_else(|_| build_default_distance_row(node_ids.len(), from_index).into_vec());
 
         numa_nodes.push(NumaNode {
             id: node_id,

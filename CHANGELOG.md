@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 0.9.12 - 2026-06-15
+
+### Fixed
+
+- Centralized default NUMA distance-row construction so detector fallbacks use
+  one `10` local / `20` remote distance law instead of duplicating the rule.
+
 ## 0.9.11 - 2026-06-14
 
 ### Changed

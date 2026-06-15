@@ -15,6 +15,25 @@ use alloc::vec;
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 
+pub(in crate::topology) const fn default_distance(from_index: usize, to_index: usize) -> u32 {
+    if from_index == to_index {
+        10
+    } else {
+        20
+    }
+}
+
+#[cfg(any(test, feature = "std"))]
+pub(in crate::topology) fn build_default_distance_row(
+    node_count: usize,
+    from_index: usize,
+) -> Box<[u32]> {
+    (0..node_count)
+        .map(|to_index| default_distance(from_index, to_index))
+        .collect::<Vec<_>>()
+        .into_boxed_slice()
+}
+
 #[cfg(any(test, feature = "std"))]
 pub(in crate::topology) fn build_processor_to_node(
     logical_processors: usize,
@@ -55,7 +74,7 @@ pub(in crate::topology) fn build_adjacent_nodes(nodes: &[NumaNode]) -> Box<[Box<
                         .distances
                         .get(to_index)
                         .copied()
-                        .unwrap_or(if from_node.id == to_node.id { 10 } else { 20 });
+                        .unwrap_or(default_distance(from_index, to_index));
                     (to_node.id, distance)
                 })
                 .collect();
