@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 0.9.13 - 2026-06-15
+
+### Changed
+
+- Named the default NUMA local and remote distance constants so topology code
+  and tests share one internal source of truth for fallback distance values.
+
 ## 0.9.12 - 2026-06-15
 
 ### Fixed

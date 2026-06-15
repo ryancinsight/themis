@@ -2,7 +2,7 @@
 
 use super::super::cpu::{
     build_adjacent_nodes, build_default_distance_row, build_node_to_index, build_processor_to_node,
-    default_cache_levels, CpuTopology,
+    default_cache_levels, CpuTopology, LOCAL_DISTANCE, REMOTE_DISTANCE,
 };
 use super::super::types::NumaNode;
 use crate::law::{MemoryTier, NumaNodeId, TopologyEpoch};
@@ -29,13 +29,27 @@ fn single_node_maps_every_processor_to_node_zero() {
 #[test]
 fn distance_defaults_preserve_self_and_remote_values() {
     let topology = CpuTopology::single_node(1);
-    assert_eq!(topology.distance(NumaNodeId::ZERO, NumaNodeId::ZERO), 10);
-    assert_eq!(topology.distance(NumaNodeId::ZERO, NumaNodeId::new(9)), 20);
+    assert_eq!(
+        topology.distance(NumaNodeId::ZERO, NumaNodeId::ZERO),
+        LOCAL_DISTANCE
+    );
+    assert_eq!(
+        topology.distance(NumaNodeId::ZERO, NumaNodeId::new(9)),
+        REMOTE_DISTANCE
+    );
 }
 
 #[test]
 fn default_distance_rows_preserve_local_and_remote_costs() {
-    assert_eq!(build_default_distance_row(4, 2).as_ref(), &[20, 20, 10, 20]);
+    assert_eq!(
+        build_default_distance_row(4, 2).as_ref(),
+        &[
+            REMOTE_DISTANCE,
+            REMOTE_DISTANCE,
+            LOCAL_DISTANCE,
+            REMOTE_DISTANCE
+        ]
+    );
 }
 
 #[test]
@@ -47,7 +61,10 @@ fn detected_topology_has_queryable_first_node() {
         .expect("invariant: detection fallback always returns at least one NUMA node");
 
     assert_eq!(topology.node_index(first_node.id), Some(0));
-    assert_eq!(topology.distance(first_node.id, first_node.id), 10);
+    assert_eq!(
+        topology.distance(first_node.id, first_node.id),
+        LOCAL_DISTANCE
+    );
     assert_eq!(
         topology.adjacent_nodes(first_node.id).len(),
         topology.numa_nodes().len().saturating_sub(1)
@@ -60,13 +77,13 @@ fn sparse_node_ids_use_compact_distance_rows() {
         NumaNode {
             id: NumaNodeId::new(2),
             processors: vec![0].into_boxed_slice(),
-            distances: vec![10, 31].into_boxed_slice(),
+            distances: vec![LOCAL_DISTANCE, 31].into_boxed_slice(),
             memory_tier: MemoryTier::Dram,
         },
         NumaNode {
             id: NumaNodeId::new(7),
             processors: vec![1].into_boxed_slice(),
-            distances: vec![31, 10].into_boxed_slice(),
+            distances: vec![31, LOCAL_DISTANCE].into_boxed_slice(),
             memory_tier: MemoryTier::Dram,
         },
     ];

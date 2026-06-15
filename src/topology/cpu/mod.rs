@@ -20,6 +20,7 @@ pub(in crate::topology) use cache::default_cache_levels;
 pub(in crate::topology) use tables::{build_adjacent_nodes, build_node_to_index};
 #[cfg(any(test, feature = "std"))]
 pub(in crate::topology) use tables::{build_default_distance_row, build_processor_to_node};
+pub(in crate::topology) use tables::{LOCAL_DISTANCE, REMOTE_DISTANCE};
 
 /// CPU topology snapshot.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -44,7 +45,7 @@ impl CpuTopology {
         let numa_nodes: Box<[NumaNode]> = Box::new([NumaNode {
             id: node_id,
             processors,
-            distances: Box::new([10]),
+            distances: Box::new([LOCAL_DISTANCE]),
             memory_tier: MemoryTier::Dram,
         }]);
 
@@ -112,9 +113,9 @@ impl CpuTopology {
                 .unwrap_or_else(|| tables::default_distance(from_index, to_index)),
             _ => {
                 if from == to {
-                    10
+                    LOCAL_DISTANCE
                 } else {
-                    20
+                    REMOTE_DISTANCE
                 }
             }
         }

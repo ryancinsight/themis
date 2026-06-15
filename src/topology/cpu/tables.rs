@@ -15,11 +15,14 @@ use alloc::vec;
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 
+pub(in crate::topology) const LOCAL_DISTANCE: u32 = 10;
+pub(in crate::topology) const REMOTE_DISTANCE: u32 = 20;
+
 pub(in crate::topology) const fn default_distance(from_index: usize, to_index: usize) -> u32 {
     if from_index == to_index {
-        10
+        LOCAL_DISTANCE
     } else {
-        20
+        REMOTE_DISTANCE
     }
 }
 

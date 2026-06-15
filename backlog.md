@@ -79,6 +79,10 @@ properties into themis types).
   table builder so platform detector fallbacks share one `10` local / `20`
   remote law. Evidence: value-semantic row test plus verification gates
   recorded in the change commit.
+- [x] [patch] Name the default NUMA local and remote distance constants so
+  topology code and tests share one internal SSOT for fallback distance values.
+  Evidence: value-semantic tests plus verification gates recorded in the
+  change commit.
 - [x] [patch] Split CPU platform detection into Linux sysfs and Windows API
   leaf modules. Evidence: no public API change; value-semantic CPU topology
   tests retained; verification gates recorded in the change commit.
