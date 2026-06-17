@@ -27,6 +27,22 @@ fn single_node_maps_every_processor_to_node_zero() {
 }
 
 #[test]
+fn default_cache_levels_share_only_last_level() {
+    let levels = default_cache_levels(4);
+
+    assert_eq!(levels.len(), 3);
+    assert_eq!(levels[0].level, 1);
+    assert_eq!(levels[0].size_bytes, 32 * 1024);
+    assert_eq!(levels[0].shared_processors.as_ref(), &[]);
+    assert_eq!(levels[1].level, 2);
+    assert_eq!(levels[1].size_bytes, 256 * 1024);
+    assert_eq!(levels[1].shared_processors.as_ref(), &[]);
+    assert_eq!(levels[2].level, 3);
+    assert_eq!(levels[2].size_bytes, 8 * 1024 * 1024);
+    assert_eq!(levels[2].shared_processors.as_ref(), &[0, 1, 2, 3]);
+}
+
+#[test]
 fn distance_defaults_preserve_self_and_remote_values() {
     let topology = CpuTopology::single_node(1);
     assert_eq!(

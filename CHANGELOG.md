@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 0.9.17 - 2026-06-17
+
+### Changed
+
+- Added value-semantic coverage for conservative CPU cache defaults, including
+  L1/L2 private rows and L3 shared-processor membership.
+
 ## 0.9.16 - 2026-06-17
 
 ### Fixed
