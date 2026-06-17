@@ -35,33 +35,25 @@ pub(super) fn query_numa_node_or_default() -> NumaNodeId {
 
 #[inline(never)]
 fn query_cpu_locality_os() -> Option<CpuLocality> {
-    #[cfg(all(feature = "std", target_os = "linux", target_arch = "x86_64"))]
+    #[cfg(all(feature = "std", target_os = "linux"))]
     {
         let mut cpu = 0u32;
         let mut node = 0u32;
-        let ret: isize;
-        // SAFETY: `getcpu` writes two `u32` outputs through valid pointers and
-        // does not retain them after the syscall returns.
+        // SAFETY: `getcpu` is a standard glibc/musl library function.
+        // It writes two `u32` outputs through valid pointers and does not
+        // retain them after the call.
         unsafe {
-            core::arch::asm!(
-                "syscall",
-                in("rax") 309isize,
-                in("rdi") &mut cpu as *mut u32,
-                in("rsi") &mut node as *mut u32,
-                in("rdx") core::ptr::null_mut::<u8>(),
-                lateout("rax") ret,
-                lateout("rcx") _,
-                lateout("r11") _,
-                options(nostack, preserves_flags)
-            );
-        }
-        if ret == 0 {
-            Some(CpuLocality {
-                processor: cpu,
-                numa_node: NumaNodeId::new(node),
-            })
-        } else {
-            None
+            extern "C" {
+                fn getcpu(cpu: *mut u32, node: *mut u32, tcache: *mut core::ffi::c_void) -> i32;
+            }
+            if getcpu(&mut cpu, &mut node, core::ptr::null_mut()) == 0 {
+                Some(CpuLocality {
+                    processor: cpu,
+                    numa_node: NumaNodeId::new(node),
+                })
+            } else {
+                None
+            }
         }
     }
 
@@ -89,7 +81,7 @@ fn query_cpu_locality_os() -> Option<CpuLocality> {
     }
 
     #[cfg(not(any(
-        all(feature = "std", target_os = "linux", target_arch = "x86_64"),
+        all(feature = "std", target_os = "linux"),
         all(feature = "std", windows)
     )))]
     {

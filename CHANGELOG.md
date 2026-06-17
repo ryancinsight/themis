@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 0.9.16 - 2026-06-17
+
+### Fixed
+
+- Aligned Linux current-locality cfg gates with the `getcpu` probe so non-x86_64
+  Linux targets do not also compile the unsupported-platform fallback branch.
+
 ## 0.9.15 - 2026-06-15
 
 ### Changed
