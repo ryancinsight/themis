@@ -27,7 +27,7 @@ pub(in crate::topology) const fn default_distance(from_index: usize, to_index: u
 }
 
 #[cfg(any(test, feature = "std"))]
-pub(in crate::topology) fn build_default_distance_row(
+pub(crate) fn build_default_distance_row(
     node_count: usize,
     from_index: usize,
 ) -> Box<[u32]> {
@@ -38,36 +38,61 @@ pub(in crate::topology) fn build_default_distance_row(
 }
 
 #[cfg(any(test, feature = "std"))]
-pub(in crate::topology) fn build_processor_to_node(
+pub(crate) fn build_processor_to_node(
     logical_processors: usize,
     mappings: &[(u32, NumaNodeId)],
-) -> Box<[Option<NumaNodeId>]> {
+) -> Box<[NumaNodeId]> {
     let max_processor = mappings
         .iter()
         .map(|(processor, _)| *processor as usize)
         .max()
         .unwrap_or(0);
-    let mut processor_to_node = vec![None; logical_processors.max(max_processor + 1).max(1)];
+    let mut processor_to_node = vec![NumaNodeId::INVALID; logical_processors.max(max_processor + 1).max(1)];
     for (processor, node) in mappings {
-        processor_to_node[*processor as usize] = Some(*node);
+        processor_to_node[*processor as usize] = *node;
     }
     processor_to_node.into_boxed_slice()
 }
 
-pub(in crate::topology) fn build_node_to_index(nodes: &[NumaNode]) -> Box<[Option<usize>]> {
+pub(crate) fn build_node_to_index(nodes: &[NumaNode]) -> Box<[usize]> {
     let max_node = nodes.iter().map(|node| node.id.index()).max().unwrap_or(0);
-    let mut node_to_index = vec![None; max_node + 1];
+    let mut node_to_index = vec![usize::MAX; max_node + 1];
     for (index, node) in nodes.iter().enumerate() {
-        node_to_index[node.id.index()] = Some(index);
+        node_to_index[node.id.index()] = index;
     }
     node_to_index.into_boxed_slice()
 }
 
-pub(in crate::topology) fn build_adjacent_nodes(nodes: &[NumaNode]) -> Box<[Box<[NumaNodeId]>]> {
-    nodes
-        .iter()
-        .enumerate()
-        .map(|(from_index, from_node)| {
+pub(crate) fn build_adjacent_nodes(nodes: &[NumaNode]) -> Box<[NumaNodeId]> {
+    let node_count = nodes.len();
+    if node_count <= 1 {
+        return Box::default();
+    }
+    let stride = node_count - 1;
+    let mut flat = Vec::with_capacity(node_count * stride);
+    const STACK_LIMIT: usize = 128;
+    if node_count <= STACK_LIMIT {
+        let mut adjacent = [(NumaNodeId::ZERO, 0u32); STACK_LIMIT];
+        for (from_index, from_node) in nodes.iter().enumerate() {
+            let mut count = 0;
+            for (to_index, to_node) in nodes.iter().enumerate() {
+                if to_index != from_index {
+                    let distance = from_node
+                        .distances
+                        .get(to_index)
+                        .copied()
+                        .unwrap_or(default_distance(from_index, to_index));
+                    adjacent[count] = (to_node.id, distance);
+                    count += 1;
+                }
+            }
+            adjacent[..count].sort_by_key(|(_, distance)| *distance);
+            for &(node_id, _) in adjacent.iter().take(count) {
+                flat.push(node_id);
+            }
+        }
+    } else {
+        for (from_index, from_node) in nodes.iter().enumerate() {
             let mut adjacent: Vec<(NumaNodeId, u32)> = nodes
                 .iter()
                 .enumerate()
@@ -82,12 +107,10 @@ pub(in crate::topology) fn build_adjacent_nodes(nodes: &[NumaNode]) -> Box<[Box<
                 })
                 .collect();
             adjacent.sort_by_key(|(_, distance)| *distance);
-            adjacent
-                .into_iter()
-                .map(|(node_id, _)| node_id)
-                .collect::<Vec<_>>()
-                .into_boxed_slice()
-        })
-        .collect::<Vec<_>>()
-        .into_boxed_slice()
+            for (node_id, _) in adjacent {
+                flat.push(node_id);
+            }
+        }
+    }
+    flat.into_boxed_slice()
 }

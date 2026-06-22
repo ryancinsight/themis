@@ -9,6 +9,9 @@ impl NumaNodeId {
     /// Node zero.
     pub const ZERO: Self = Self(0);
 
+    /// Sentinel representing an invalid/unknown node.
+    pub const INVALID: Self = Self(u32::MAX);
+
     /// Creates a NUMA node identifier.
     #[must_use]
     pub const fn new(raw: u32) -> Self {
@@ -27,11 +30,14 @@ impl NumaNodeId {
         self.0 as usize
     }
 
+    /// Returns true when the node identifier is valid.
+    #[must_use]
+    #[inline]
+    pub const fn is_valid(self) -> bool {
+        self.0 != Self::INVALID.0
+    }
+
     /// Maps this NUMA node into a fixed-size bucket table.
-    ///
-    /// # Panics
-    ///
-    /// Panics when `BUCKETS == 0`; zero buckets cannot represent a placement target.
     #[must_use]
     pub const fn bucket_index<const BUCKETS: usize>(self) -> NumaBucketIndex<BUCKETS> {
         NumaBucketIndex::new(self.index())
@@ -43,19 +49,15 @@ impl NumaNodeId {
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct NumaBucketIndex<const BUCKETS: usize>(usize);
 
-const fn assert_nonzero_buckets<const BUCKETS: usize>() {
-    assert!(BUCKETS > 0, "NUMA bucket count must be non-zero");
-}
-
 impl<const BUCKETS: usize> NumaBucketIndex<BUCKETS> {
+    const ASSERT_NONZERO: () = {
+        assert!(BUCKETS > 0, "NUMA bucket count must be non-zero");
+    };
+
     /// Creates a bucket index from an already-normalized raw index.
-    ///
-    /// # Panics
-    ///
-    /// Panics when `BUCKETS == 0`; zero buckets cannot represent a placement target.
     #[must_use]
     pub const fn new(raw: usize) -> Self {
-        assert_nonzero_buckets::<BUCKETS>();
+        let () = Self::ASSERT_NONZERO;
         Self(raw % BUCKETS)
     }
 
@@ -68,7 +70,7 @@ impl<const BUCKETS: usize> NumaBucketIndex<BUCKETS> {
     /// Returns the next bucket after `offset` positions, wrapping inside the bucket table.
     #[must_use]
     pub const fn wrapping_add(self, offset: usize) -> Self {
-        assert_nonzero_buckets::<BUCKETS>();
+        let () = Self::ASSERT_NONZERO;
         let offset = offset % BUCKETS;
         let remaining = BUCKETS - self.0;
         if offset < remaining {
@@ -85,6 +87,9 @@ impl<const BUCKETS: usize> NumaBucketIndex<BUCKETS> {
 pub struct WorkerId(u32);
 
 impl WorkerId {
+    /// Sentinel representing an invalid/unknown worker.
+    pub const INVALID: Self = Self(u32::MAX);
+
     /// Creates a worker identifier.
     #[must_use]
     pub const fn new(raw: u32) -> Self {
@@ -102,6 +107,13 @@ impl WorkerId {
     pub const fn index(self) -> usize {
         self.0 as usize
     }
+
+    /// Returns true when the worker identifier is valid.
+    #[must_use]
+    #[inline]
+    pub const fn is_valid(self) -> bool {
+        self.0 != Self::INVALID.0
+    }
 }
 
 /// Coarse memory locality domain.
@@ -110,6 +122,9 @@ impl WorkerId {
 pub struct LocalityDomainId(u32);
 
 impl LocalityDomainId {
+    /// Sentinel representing an invalid/unknown locality domain.
+    pub const INVALID: Self = Self(u32::MAX);
+
     /// Creates a locality domain identifier.
     #[must_use]
     pub const fn new(raw: u32) -> Self {
@@ -120,5 +135,12 @@ impl LocalityDomainId {
     #[must_use]
     pub const fn get(self) -> u32 {
         self.0
+    }
+
+    /// Returns true when the locality domain identifier is valid.
+    #[must_use]
+    #[inline]
+    pub const fn is_valid(self) -> bool {
+        self.0 != Self::INVALID.0
     }
 }

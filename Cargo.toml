@@ -14,15 +14,14 @@ rust-version = "1.75.0"
 
 [features]
 default = ["std", "parallel", "mnemosyne-memory", "melinoe"]
-std = ["melinoe/std"]
+std = ["melinoe?/std"]
 parallel = []
 mnemosyne-memory = []
-# Branded placement extras; the melinoe dependency itself is unconditional
-# (thread_cached!, placement law utilities).
-melinoe = []
+# Branded placement extras
+melinoe = ["dep:melinoe"]
 
 [dependencies]
-melinoe = { git = "https://github.com/ryancinsight/melinoe.git", version = "0.7.0", default-features = false }
+melinoe = { git = "https://github.com/ryancinsight/melinoe.git", version = "0.7.0", default-features = false, optional = true }
 
 [[bench]]
 name = "topology"

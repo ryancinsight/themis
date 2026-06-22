@@ -20,4 +20,10 @@ impl TopologyEpoch {
     pub const fn get(self) -> u64 {
         self.0
     }
+
+    /// Returns the next epoch version.
+    #[must_use]
+    pub const fn next(self) -> Self {
+        Self(self.0.wrapping_add(1))
+    }
 }

@@ -18,13 +18,16 @@ fn typed_ids_preserve_values() {
     assert_eq!(WorkerId::new(3).index(), 3);
     assert_eq!(LocalityDomainId::new(11).get(), 11);
     assert_eq!(TopologyEpoch::new(19).get(), 19);
+    assert_eq!(TopologyEpoch::new(19).next().get(), 20);
+    assert_eq!(TopologyEpoch::new(u64::MAX).next().get(), 0);
+    assert!(NumaNodeId::new(7).is_valid());
+    assert!(!NumaNodeId::INVALID.is_valid());
+    assert!(WorkerId::new(3).is_valid());
+    assert!(!WorkerId::INVALID.is_valid());
+    assert!(LocalityDomainId::new(11).is_valid());
+    assert!(!LocalityDomainId::INVALID.is_valid());
 }
 
-#[test]
-#[should_panic(expected = "NUMA bucket count must be non-zero")]
-fn zero_bucket_count_uses_domain_panic() {
-    let _ = NumaNodeId::new(19).bucket_index::<0>();
-}
 
 #[test]
 fn default_placement_is_current_dram() {

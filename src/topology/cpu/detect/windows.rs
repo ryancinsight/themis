@@ -8,9 +8,17 @@ use crate::law::{MemoryTier, NumaNodeId, TopologyEpoch};
 use crate::topology::types::NumaNode;
 
 pub(super) fn detect() -> Option<CpuTopology> {
+    #[repr(C)]
+    #[derive(Clone, Copy, Debug)]
+    struct GroupAffinity {
+        mask: usize,
+        group: u16,
+        reserved: [u16; 3],
+    }
+
     extern "system" {
         fn GetNumaHighestNodeNumber(highest_node_number: *mut u32) -> i32;
-        fn GetNumaNodeProcessorMask(node: u8, processor_mask: *mut u64) -> i32;
+        fn GetNumaNodeProcessorMaskEx(node: u16, processor_mask: *mut GroupAffinity) -> i32;
     }
 
     let mut highest_node = 0u32;
@@ -25,18 +33,27 @@ pub(super) fn detect() -> Option<CpuTopology> {
     let mut logical_processors = 0usize;
 
     for raw_node in 0..=highest_node {
-        let mut mask = 0u64;
-        // SAFETY: The API writes one processor mask through a valid pointer.
-        if unsafe { GetNumaNodeProcessorMask(raw_node as u8, &mut mask) } == 0 || mask == 0 {
+        if raw_node > u16::MAX as u32 {
+            continue;
+        }
+        let mut affinity = GroupAffinity {
+            mask: 0,
+            group: 0,
+            reserved: [0; 3],
+        };
+        // SAFETY: The API writes one GROUP_AFFINITY structure through a valid pointer.
+        if unsafe { GetNumaNodeProcessorMaskEx(raw_node as u16, &mut affinity) } == 0 || affinity.mask == 0 {
             continue;
         }
         let node_id = NumaNodeId::new(raw_node);
+        let mask = affinity.mask as u64;
         let mut processors = Vec::with_capacity(mask.count_ones() as usize);
-        for processor in 0..64u32 {
-            if (mask & (1u64 << processor)) != 0 {
-                processors.push(processor);
-                processor_node_pairs.push((processor, node_id));
-                logical_processors = logical_processors.max(processor as usize + 1);
+        for bit in 0..64u32 {
+            if (mask & (1u64 << bit)) != 0 {
+                let system_processor = (affinity.group as u32) * 64 + bit;
+                processors.push(system_processor);
+                processor_node_pairs.push((system_processor, node_id));
+                logical_processors = logical_processors.max(system_processor as usize + 1);
             }
         }
         numa_nodes.push(NumaNode {

@@ -16,23 +16,23 @@ use alloc::boxed::Box;
 #[cfg(not(feature = "std"))]
 use alloc::vec;
 
-pub(in crate::topology) use cache::default_cache_levels;
-pub(in crate::topology) use tables::{build_adjacent_nodes, build_node_to_index};
+pub(crate) use cache::default_cache_levels;
+pub(crate) use tables::{build_adjacent_nodes, build_node_to_index};
 #[cfg(any(test, feature = "std"))]
-pub(in crate::topology) use tables::{build_default_distance_row, build_processor_to_node};
+pub(crate) use tables::{build_default_distance_row, build_processor_to_node};
 pub(in crate::topology) use tables::{LOCAL_DISTANCE, REMOTE_DISTANCE};
 
 /// CPU topology snapshot.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CpuTopology {
     /// Snapshot epoch.
-    pub(super) epoch: TopologyEpoch,
-    pub(super) numa_nodes: Box<[NumaNode]>,
-    pub(super) processor_to_node: Box<[Option<NumaNodeId>]>,
-    pub(super) node_to_index: Box<[Option<usize>]>,
-    pub(super) adjacent_nodes: Box<[Box<[NumaNodeId]>]>,
-    pub(super) logical_processors: usize,
-    pub(super) cache_levels: Box<[CacheLevel]>,
+    pub(crate) epoch: TopologyEpoch,
+    pub(crate) numa_nodes: Box<[NumaNode]>,
+    pub(crate) processor_to_node: Box<[NumaNodeId]>,
+    pub(crate) node_to_index: Box<[usize]>,
+    pub(crate) adjacent_nodes: Box<[NumaNodeId]>,
+    pub(crate) logical_processors: usize,
+    pub(crate) cache_levels: Box<[CacheLevel]>,
 }
 
 impl CpuTopology {
@@ -51,7 +51,7 @@ impl CpuTopology {
 
         Self {
             epoch: TopologyEpoch::INITIAL,
-            processor_to_node: vec![Some(node_id); logical_processors].into_boxed_slice(),
+            processor_to_node: vec![node_id; logical_processors].into_boxed_slice(),
             node_to_index: build_node_to_index(&numa_nodes),
             adjacent_nodes: build_adjacent_nodes(&numa_nodes),
             numa_nodes,
@@ -90,7 +90,7 @@ impl CpuTopology {
         self.processor_to_node
             .get(processor as usize)
             .copied()
-            .flatten()
+            .filter(|&node_id| node_id != NumaNodeId::INVALID)
     }
 
     /// Iterates over known processor-to-node mappings.
@@ -99,7 +99,13 @@ impl CpuTopology {
         self.processor_to_node
             .iter()
             .enumerate()
-            .filter_map(|(processor, node)| Some((processor as u32, (*node)?)))
+            .filter_map(|(processor, &node)| {
+                if node != NumaNodeId::INVALID {
+                    Some((processor as u32, node))
+                } else {
+                    None
+                }
+            })
     }
 
     /// Returns node distance.
@@ -124,15 +130,27 @@ impl CpuTopology {
     /// Returns the compact topology index for a NUMA node ID.
     #[must_use]
     pub fn node_index(&self, node_id: NumaNodeId) -> Option<usize> {
-        self.node_to_index.get(node_id.index()).copied().flatten()
+        self.node_to_index
+            .get(node_id.index())
+            .copied()
+            .filter(|&index| index != usize::MAX)
     }
 
     /// Returns adjacent nodes sorted by distance.
     #[must_use]
     pub fn adjacent_nodes(&self, node_id: NumaNodeId) -> &[NumaNodeId] {
-        self.node_index(node_id)
-            .and_then(|index| self.adjacent_nodes.get(index))
-            .map_or(&[], |nodes| nodes)
+        if let Some(index) = self.node_index(node_id) {
+            let node_count = self.numa_nodes.len();
+            if node_count <= 1 {
+                return &[];
+            }
+            let stride = node_count - 1;
+            let start = index * stride;
+            let end = start + stride;
+            self.adjacent_nodes.get(start..end).unwrap_or(&[])
+        } else {
+            &[]
+        }
     }
 }
 

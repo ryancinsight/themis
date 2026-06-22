@@ -21,8 +21,10 @@ mod branded;
 
 #[cfg(feature = "melinoe")]
 pub use branded::{
-    sync_region_placement_scope, thread_local_placement_scope, SyncRegionPlacement,
-    ThreadLocalPlacement,
+    sync_region_placement_scope, thread_local_placement_scope, NumaNodePlacement, NumaPinnedCell,
+    NumaPinnedSlice, SyncRegionPlacement, ThreadLocalPlacement, ConstNumaNodePlacement,
+    ConstNumaPinnedCell, ConstNumaPinnedSlice, ThreadLocalNumaPlacement,
+    ConstThreadLocalNumaPlacement,
 };
 pub use law::{
     LocalityDomainId, MemoryTier, NumaBucketIndex, NumaNodeId, PlacementHint, TopologyEpoch,

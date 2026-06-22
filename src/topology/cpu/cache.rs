@@ -8,7 +8,7 @@ extern crate alloc;
 #[cfg(not(feature = "std"))]
 use alloc::boxed::Box;
 
-pub(in crate::topology) fn default_cache_levels(logical_processors: usize) -> Box<[CacheLevel]> {
+pub(crate) fn default_cache_levels(logical_processors: usize) -> Box<[CacheLevel]> {
     let processors: Box<[u32]> = (0..logical_processors.max(1) as u32).collect();
     Box::new([
         CacheLevel {

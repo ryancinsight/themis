@@ -3,10 +3,13 @@
 use super::platform::query_numa_node_or_default;
 use crate::law::NumaNodeId;
 
-#[cfg(feature = "std")]
-melinoe::thread_cached! {
-    /// Cached NUMA node for the calling thread.
-    mod cached_node: NumaNodeId;
+#[cfg(all(feature = "std", nightly_tls_active))]
+#[thread_local]
+static CACHED_NODE: core::cell::Cell<Option<NumaNodeId>> = core::cell::Cell::new(None);
+
+#[cfg(all(feature = "std", not(nightly_tls_active)))]
+thread_local! {
+    static CACHED_NODE: core::cell::Cell<Option<NumaNodeId>> = const { core::cell::Cell::new(None) };
 }
 
 /// Returns the cached NUMA node for the calling thread.
@@ -15,7 +18,28 @@ melinoe::thread_cached! {
 pub fn current_numa_node() -> NumaNodeId {
     #[cfg(feature = "std")]
     {
-        cached_node::get_or_init(query_numa_node_or_default)
+        #[cfg(nightly_tls_active)]
+        {
+            if let Some(node) = CACHED_NODE.get() {
+                node
+            } else {
+                let node = query_numa_node_or_default();
+                CACHED_NODE.set(Some(node));
+                node
+            }
+        }
+        #[cfg(not(nightly_tls_active))]
+        {
+            CACHED_NODE.with(|cell| {
+                if let Some(node) = cell.get() {
+                    node
+                } else {
+                    let node = query_numa_node_or_default();
+                    cell.set(Some(node));
+                    node
+                }
+            })
+        }
     }
 
     #[cfg(not(feature = "std"))]
@@ -31,7 +55,14 @@ pub fn refresh_current_numa_node() -> NumaNodeId {
     let node = query_numa_node_or_default();
     #[cfg(feature = "std")]
     {
-        cached_node::set(node);
+        #[cfg(nightly_tls_active)]
+        {
+            CACHED_NODE.set(Some(node));
+        }
+        #[cfg(not(nightly_tls_active))]
+        {
+            CACHED_NODE.with(|cell| cell.set(Some(node)));
+        }
     }
     node
 }

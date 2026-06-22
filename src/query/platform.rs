@@ -59,19 +59,28 @@ fn query_cpu_locality_os() -> Option<CpuLocality> {
 
     #[cfg(all(feature = "std", windows))]
     {
-        // SAFETY: `GetCurrentProcessorNumber` takes no pointers and returns the
-        // current processor number. `GetNumaProcessorNode` writes one node
-        // output during the call and does not retain the pointer.
+        // SAFETY: `GetCurrentProcessorNumberEx` writes to a valid local struct.
+        // `GetNumaProcessorNodeEx` reads from that struct and writes one node
+        // output. Neither API retains the pointers after the call.
         unsafe {
-            extern "system" {
-                fn GetCurrentProcessorNumber() -> u32;
-                fn GetNumaProcessorNode(processor: u8, node_number: *mut u8) -> i32;
+            #[repr(C)]
+            #[derive(Clone, Copy)]
+            struct ProcessorNumber {
+                group: u16,
+                number: u8,
+                reserved: u8,
             }
-            let processor = GetCurrentProcessorNumber();
-            let mut node = 0u8;
-            if GetNumaProcessorNode(processor as u8, &mut node) != 0 {
+            extern "system" {
+                fn GetCurrentProcessorNumberEx(proc_number: *mut ProcessorNumber);
+                fn GetNumaProcessorNodeEx(processor: *const ProcessorNumber, node_number: *mut u16) -> i32;
+            }
+            let mut proc_num = ProcessorNumber { group: 0, number: 0, reserved: 0 };
+            GetCurrentProcessorNumberEx(&mut proc_num);
+            let mut node = 0u16;
+            if GetNumaProcessorNodeEx(&proc_num, &mut node) != 0 {
+                let system_processor = (proc_num.group as u32) * 64 + (proc_num.number as u32);
                 Some(CpuLocality {
-                    processor,
+                    processor: system_processor,
                     numa_node: NumaNodeId::new(node as u32),
                 })
             } else {
