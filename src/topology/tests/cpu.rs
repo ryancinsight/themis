@@ -170,3 +170,62 @@ fn raw_indexed_sparse_node_ids_resolve_correct_distances() {
         &[NumaNodeId::new(7)]
     );
 }
+
+#[test]
+fn compact_distance_indexing_with_shifted_node_ids() {
+    let nodes = vec![
+        NumaNode {
+            id: NumaNodeId::new(1),
+            processors: vec![0].into_boxed_slice(),
+            distances: vec![LOCAL_DISTANCE, 35].into_boxed_slice(),
+            memory_tier: MemoryTier::Dram,
+        },
+        NumaNode {
+            id: NumaNodeId::new(2),
+            processors: vec![1].into_boxed_slice(),
+            distances: vec![35, LOCAL_DISTANCE].into_boxed_slice(),
+            memory_tier: MemoryTier::Dram,
+        },
+    ];
+    let topology = CpuTopology {
+        epoch: TopologyEpoch::INITIAL,
+        processor_to_node: build_processor_to_node(
+            2,
+            &[(0, NumaNodeId::new(1)), (1, NumaNodeId::new(2))],
+        ),
+        node_to_index: build_node_to_index(&nodes),
+        adjacent_nodes: build_adjacent_nodes(&nodes),
+        numa_nodes: nodes.into_boxed_slice(),
+        logical_processors: 2,
+        cache_levels: default_cache_levels(2),
+    };
+
+    assert_eq!(
+        topology.distance(NumaNodeId::new(2), NumaNodeId::new(1)),
+        35
+    );
+    assert_eq!(
+        topology.distance(NumaNodeId::new(1), NumaNodeId::new(2)),
+        35
+    );
+}
+
+#[test]
+#[should_panic(expected = "invariant check failed: duplicate NUMA node ID")]
+fn duplicate_node_ids_panics_on_construction() {
+    let nodes = vec![
+        NumaNode {
+            id: NumaNodeId::new(1),
+            processors: vec![0].into_boxed_slice(),
+            distances: vec![LOCAL_DISTANCE, LOCAL_DISTANCE].into_boxed_slice(),
+            memory_tier: MemoryTier::Dram,
+        },
+        NumaNode {
+            id: NumaNodeId::new(1),
+            processors: vec![1].into_boxed_slice(),
+            distances: vec![LOCAL_DISTANCE, LOCAL_DISTANCE].into_boxed_slice(),
+            memory_tier: MemoryTier::Dram,
+        },
+    ];
+    let _node_index = build_node_to_index(&nodes);
+}

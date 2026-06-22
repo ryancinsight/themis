@@ -116,7 +116,8 @@ impl CpuTopology {
                 .numa_nodes
                 .get(from_index)
                 .and_then(|node| {
-                    let idx = if to.index() < node.distances.len() {
+                    let max_node_id = self.node_to_index.len().saturating_sub(1);
+                    let idx = if node.distances.len() > max_node_id {
                         to.index()
                     } else {
                         to_index

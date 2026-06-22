@@ -58,7 +58,13 @@ pub(crate) fn build_node_to_index(nodes: &[NumaNode]) -> Box<[usize]> {
     let max_node = nodes.iter().map(|node| node.id.index()).max().unwrap_or(0);
     let mut node_to_index = vec![usize::MAX; max_node + 1];
     for (index, node) in nodes.iter().enumerate() {
-        node_to_index[node.id.index()] = index;
+        let node_idx = node.id.index();
+        assert!(
+            node_to_index[node_idx] == usize::MAX,
+            "invariant check failed: duplicate NUMA node ID {} found in topology",
+            node.id.get()
+        );
+        node_to_index[node_idx] = index;
     }
     node_to_index.into_boxed_slice()
 }
@@ -68,6 +74,7 @@ pub(crate) fn build_adjacent_nodes(nodes: &[NumaNode]) -> Box<[NumaNodeId]> {
     if node_count <= 1 {
         return Box::default();
     }
+    let max_node_id = nodes.iter().map(|node| node.id.index()).max().unwrap_or(0);
     let stride = node_count - 1;
     let mut flat = Vec::with_capacity(node_count * stride);
     const STACK_LIMIT: usize = 128;
@@ -77,7 +84,7 @@ pub(crate) fn build_adjacent_nodes(nodes: &[NumaNode]) -> Box<[NumaNodeId]> {
             let mut count = 0;
             for (to_index, to_node) in nodes.iter().enumerate() {
                 if to_index != from_index {
-                    let idx = if to_node.id.index() < from_node.distances.len() {
+                    let idx = if from_node.distances.len() > max_node_id {
                         to_node.id.index()
                     } else {
                         to_index
@@ -103,7 +110,7 @@ pub(crate) fn build_adjacent_nodes(nodes: &[NumaNode]) -> Box<[NumaNodeId]> {
                 .enumerate()
                 .filter(|(to_index, _)| *to_index != from_index)
                 .map(|(to_index, to_node)| {
-                    let idx = if to_node.id.index() < from_node.distances.len() {
+                    let idx = if from_node.distances.len() > max_node_id {
                         to_node.id.index()
                     } else {
                         to_index
