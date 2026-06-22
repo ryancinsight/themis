@@ -47,10 +47,14 @@ fn query_cpu_locality_os() -> Option<CpuLocality> {
                 fn getcpu(cpu: *mut u32, node: *mut u32, tcache: *mut core::ffi::c_void) -> i32;
             }
             if getcpu(&mut cpu, &mut node, core::ptr::null_mut()) == 0 {
-                Some(CpuLocality {
-                    processor: cpu,
-                    numa_node: NumaNodeId::new(node),
-                })
+                if cpu < 32768 && node < 1024 {
+                    Some(CpuLocality {
+                        processor: cpu,
+                        numa_node: NumaNodeId::new(node),
+                    })
+                } else {
+                    None
+                }
             } else {
                 None
             }
@@ -79,10 +83,14 @@ fn query_cpu_locality_os() -> Option<CpuLocality> {
             let mut node = 0u16;
             if GetNumaProcessorNodeEx(&proc_num, &mut node) != 0 {
                 let system_processor = (proc_num.group as u32) * 64 + (proc_num.number as u32);
-                Some(CpuLocality {
-                    processor: system_processor,
-                    numa_node: NumaNodeId::new(node as u32),
-                })
+                if system_processor < 32768 && node < 1024 {
+                    Some(CpuLocality {
+                        processor: system_processor,
+                        numa_node: NumaNodeId::new(node as u32),
+                    })
+                } else {
+                    None
+                }
             } else {
                 None
             }
