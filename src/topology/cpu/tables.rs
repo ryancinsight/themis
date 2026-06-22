@@ -77,9 +77,14 @@ pub(crate) fn build_adjacent_nodes(nodes: &[NumaNode]) -> Box<[NumaNodeId]> {
             let mut count = 0;
             for (to_index, to_node) in nodes.iter().enumerate() {
                 if to_index != from_index {
+                    let idx = if to_node.id.index() < from_node.distances.len() {
+                        to_node.id.index()
+                    } else {
+                        to_index
+                    };
                     let distance = from_node
                         .distances
-                        .get(to_index)
+                        .get(idx)
                         .copied()
                         .unwrap_or(default_distance(from_index, to_index));
                     adjacent[count] = (to_node.id, distance);
@@ -98,9 +103,14 @@ pub(crate) fn build_adjacent_nodes(nodes: &[NumaNode]) -> Box<[NumaNodeId]> {
                 .enumerate()
                 .filter(|(to_index, _)| *to_index != from_index)
                 .map(|(to_index, to_node)| {
+                    let idx = if to_node.id.index() < from_node.distances.len() {
+                        to_node.id.index()
+                    } else {
+                        to_index
+                    };
                     let distance = from_node
                         .distances
-                        .get(to_index)
+                        .get(idx)
                         .copied()
                         .unwrap_or(default_distance(from_index, to_index));
                     (to_node.id, distance)

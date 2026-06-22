@@ -115,7 +115,14 @@ impl CpuTopology {
             (Some(from_index), Some(to_index)) => self
                 .numa_nodes
                 .get(from_index)
-                .and_then(|node| node.distances.get(to_index).copied())
+                .and_then(|node| {
+                    let idx = if to.index() < node.distances.len() {
+                        to.index()
+                    } else {
+                        to_index
+                    };
+                    node.distances.get(idx).copied()
+                })
                 .unwrap_or_else(|| tables::default_distance(from_index, to_index)),
             _ => {
                 if from == to {

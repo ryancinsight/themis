@@ -127,3 +127,46 @@ fn sparse_node_ids_use_compact_distance_rows() {
         &[NumaNodeId::new(7)]
     );
 }
+
+#[test]
+fn raw_indexed_sparse_node_ids_resolve_correct_distances() {
+    let nodes = vec![
+        NumaNode {
+            id: NumaNodeId::new(2),
+            processors: vec![0].into_boxed_slice(),
+            distances: vec![20, 20, LOCAL_DISTANCE, 20, 20, 20, 20, 45].into_boxed_slice(),
+            memory_tier: MemoryTier::Dram,
+        },
+        NumaNode {
+            id: NumaNodeId::new(7),
+            processors: vec![1].into_boxed_slice(),
+            distances: vec![20, 20, 45, 20, 20, 20, 20, LOCAL_DISTANCE].into_boxed_slice(),
+            memory_tier: MemoryTier::Dram,
+        },
+    ];
+    let topology = CpuTopology {
+        epoch: TopologyEpoch::INITIAL,
+        processor_to_node: build_processor_to_node(
+            2,
+            &[(0, NumaNodeId::new(2)), (1, NumaNodeId::new(7))],
+        ),
+        node_to_index: build_node_to_index(&nodes),
+        adjacent_nodes: build_adjacent_nodes(&nodes),
+        numa_nodes: nodes.into_boxed_slice(),
+        logical_processors: 2,
+        cache_levels: default_cache_levels(2),
+    };
+
+    assert_eq!(
+        topology.distance(NumaNodeId::new(2), NumaNodeId::new(7)),
+        45
+    );
+    assert_eq!(
+        topology.distance(NumaNodeId::new(7), NumaNodeId::new(2)),
+        45
+    );
+    assert_eq!(
+        topology.adjacent_nodes(NumaNodeId::new(2)),
+        &[NumaNodeId::new(7)]
+    );
+}
