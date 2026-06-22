@@ -51,6 +51,9 @@ pub(super) fn detect() -> Option<CpuTopology> {
         for bit in 0..64u32 {
             if (mask & (1u64 << bit)) != 0 {
                 let system_processor = (affinity.group as u32) * 64 + bit;
+                if system_processor >= 32768 {
+                    continue;
+                }
                 processors.push(system_processor);
                 processor_node_pairs.push((system_processor, node_id));
                 logical_processors = logical_processors.max(system_processor as usize + 1);

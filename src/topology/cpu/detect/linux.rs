@@ -76,10 +76,14 @@ fn parse_cpu_list(cpulist: &str) -> Vec<u32> {
     for part in cpulist.trim().split(',') {
         if let Some((start, end)) = part.split_once('-') {
             if let (Ok(start), Ok(end)) = (start.parse::<u32>(), end.parse::<u32>()) {
-                processors.extend(start..=end);
+                if start < 32768 && end < 32768 && start <= end {
+                    processors.extend(start..=end);
+                }
             }
         } else if let Ok(processor) = part.parse::<u32>() {
-            processors.push(processor);
+            if processor < 32768 {
+                processors.push(processor);
+            }
         }
     }
     processors
