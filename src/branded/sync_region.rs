@@ -172,6 +172,36 @@ impl<'brand> SyncRegionPlacement<'brand> {
     }
 }
 
+/// A trait for cells pinned to a specific NUMA node.
+pub trait PinnedCell<'brand, T> {
+    /// Returns the pinned NUMA node ID.
+    fn node_id(&self) -> crate::law::NumaNodeId;
+
+    /// Access the underlying MelinoeCell.
+    fn cell(&self) -> &MelinoeCell<'brand, T>;
+}
+
+/// A trait for cells pinned statically to a specific NUMA node.
+pub trait ConstPinnedCell<'brand, const NODE_ID: u32, T> {
+    /// Access the underlying MelinoeCell.
+    fn cell(&self) -> &MelinoeCell<'brand, T>;
+}
+
+/// A trait for contiguous slices of cells pinned to a specific NUMA node.
+pub trait PinnedSlice<'brand, T> {
+    /// Returns the pinned NUMA node ID.
+    fn node_id(&self) -> crate::law::NumaNodeId;
+
+    /// Access the underlying slice of MelinoeCell.
+    fn cells(&self) -> &[MelinoeCell<'brand, T>];
+}
+
+/// A trait for contiguous slices of cells pinned statically to a specific NUMA node.
+pub trait ConstPinnedSlice<'brand, const NODE_ID: u32, T> {
+    /// Access the underlying slice of MelinoeCell.
+    fn cells(&self) -> &[MelinoeCell<'brand, T>];
+}
+
 /// A placement cell pinned to a specific NUMA node.
 pub struct NumaPinnedCell<'brand, T> {
     node_id: crate::law::NumaNodeId,
@@ -193,12 +223,44 @@ impl<'brand, T> NumaPinnedCell<'brand, T> {
     pub const fn node_id(&self) -> crate::law::NumaNodeId {
         self.node_id
     }
+}
 
-    /// Access the underlying MelinoeCell.
+impl<'brand, T> PinnedCell<'brand, T> for NumaPinnedCell<'brand, T> {
+    #[inline]
+    fn node_id(&self) -> crate::law::NumaNodeId {
+        self.node_id
+    }
+
+    #[inline]
+    fn cell(&self) -> &MelinoeCell<'brand, T> {
+        &self.cell
+    }
+}
+
+/// A borrowed reference to a cell pinned to a specific NUMA node.
+pub struct NumaPinnedCellRef<'a, 'brand, T> {
+    node_id: crate::law::NumaNodeId,
+    cell: &'a MelinoeCell<'brand, T>,
+}
+
+impl<'a, 'brand, T> NumaPinnedCellRef<'a, 'brand, T> {
+    /// Creates a new pinned cell reference.
     #[must_use]
     #[inline]
-    pub(crate) const fn cell(&self) -> &MelinoeCell<'brand, T> {
-        &self.cell
+    pub const fn new(node_id: crate::law::NumaNodeId, cell: &'a MelinoeCell<'brand, T>) -> Self {
+        Self { node_id, cell }
+    }
+}
+
+impl<'a, 'brand, T> PinnedCell<'brand, T> for NumaPinnedCellRef<'a, 'brand, T> {
+    #[inline]
+    fn node_id(&self) -> crate::law::NumaNodeId {
+        self.node_id
+    }
+
+    #[inline]
+    fn cell(&self) -> &MelinoeCell<'brand, T> {
+        self.cell
     }
 }
 
@@ -240,6 +302,45 @@ impl<'brand, T> NumaPinnedSlice<'brand, T> {
     }
 }
 
+impl<'brand, T> PinnedSlice<'brand, T> for NumaPinnedSlice<'brand, T> {
+    #[inline]
+    fn node_id(&self) -> crate::law::NumaNodeId {
+        self.node_id
+    }
+
+    #[inline]
+    fn cells(&self) -> &[MelinoeCell<'brand, T>] {
+        &self.cells
+    }
+}
+
+/// A borrowed reference to a contiguous slice of cells pinned to a specific NUMA node.
+pub struct NumaPinnedSliceRef<'a, 'brand, T> {
+    node_id: crate::law::NumaNodeId,
+    cells: &'a [MelinoeCell<'brand, T>],
+}
+
+impl<'a, 'brand, T> NumaPinnedSliceRef<'a, 'brand, T> {
+    /// Creates a new pinned slice reference.
+    #[must_use]
+    #[inline]
+    pub const fn new(node_id: crate::law::NumaNodeId, cells: &'a [MelinoeCell<'brand, T>]) -> Self {
+        Self { node_id, cells }
+    }
+}
+
+impl<'a, 'brand, T> PinnedSlice<'brand, T> for NumaPinnedSliceRef<'a, 'brand, T> {
+    #[inline]
+    fn node_id(&self) -> crate::law::NumaNodeId {
+        self.node_id
+    }
+
+    #[inline]
+    fn cells(&self) -> &[MelinoeCell<'brand, T>] {
+        self.cells
+    }
+}
+
 /// A node-specific placement capability.
 pub struct NumaNodePlacement<'brand> {
     node_id: crate::law::NumaNodeId,
@@ -255,9 +356,12 @@ impl<'brand> NumaNodePlacement<'brand> {
 
     /// Reads state from a cell pinned to the same NUMA node.
     #[inline]
-    pub fn read<'a, T>(&'a self, cell: &'a NumaPinnedCell<'brand, T>) -> Option<MelinoeRef<'a, 'brand, T>> {
-        if self.node_id == cell.node_id {
-            Some(cell.cell.borrow(&self.token))
+    pub fn read<'a, C, T>(&'a self, cell: &'a C) -> Option<MelinoeRef<'a, 'brand, T>>
+    where
+        C: PinnedCell<'brand, T> + ?Sized,
+    {
+        if self.node_id == cell.node_id() {
+            Some(cell.cell().borrow(&self.token))
         } else {
             None
         }
@@ -265,12 +369,15 @@ impl<'brand> NumaNodePlacement<'brand> {
 
     /// Writes state to a cell pinned to the same NUMA node.
     #[inline]
-    pub fn write<'a, T>(
+    pub fn write<'a, C, T>(
         &'a mut self,
-        cell: &'a NumaPinnedCell<'brand, T>,
-    ) -> Option<MelinoeMut<'a, 'brand, T>> {
-        if self.node_id == cell.node_id {
-            Some(cell.cell.borrow_mut(&mut self.token))
+        cell: &'a C,
+    ) -> Option<MelinoeMut<'a, 'brand, T>>
+    where
+        C: PinnedCell<'brand, T> + ?Sized,
+    {
+        if self.node_id == cell.node_id() {
+            Some(cell.cell().borrow_mut(&mut self.token))
         } else {
             None
         }
@@ -278,13 +385,16 @@ impl<'brand> NumaNodePlacement<'brand> {
 
     /// Reads a slice pinned to the same NUMA node.
     #[inline]
-    pub fn read_slice<'a, T>(
+    pub fn read_slice<'a, S, T>(
         &'a self,
-        slice: &'a NumaPinnedSlice<'brand, T>,
-    ) -> Option<&'a [T]> {
-        if self.node_id == slice.node_id {
+        slice: &'a S,
+    ) -> Option<&'a [T]>
+    where
+        S: PinnedSlice<'brand, T> + ?Sized,
+    {
+        if self.node_id == slice.node_id() {
             use melinoe::CellSliceExt;
-            Some(slice.cells.borrow_slice(&self.token))
+            Some(slice.cells().borrow_slice(&self.token))
         } else {
             None
         }
@@ -292,13 +402,16 @@ impl<'brand> NumaNodePlacement<'brand> {
 
     /// Writes to a slice pinned to the same NUMA node.
     #[inline]
-    pub fn write_slice<'a, T>(
+    pub fn write_slice<'a, S, T>(
         &'a mut self,
-        slice: &'a NumaPinnedSlice<'brand, T>,
-    ) -> Option<&'a mut [T]> {
-        if self.node_id == slice.node_id {
+        slice: &'a S,
+    ) -> Option<&'a mut [T]>
+    where
+        S: PinnedSlice<'brand, T> + ?Sized,
+    {
+        if self.node_id == slice.node_id() {
             use melinoe::CellSliceExt;
-            Some(slice.cells.borrow_slice_mut(&mut self.token))
+            Some(slice.cells().borrow_slice_mut(&mut self.token))
         } else {
             None
         }
@@ -318,12 +431,33 @@ impl<'brand, const NODE_ID: u32, T> ConstNumaPinnedCell<'brand, NODE_ID, T> {
             cell: MelinoeCell::new(value),
         }
     }
+}
 
-    /// Access the underlying MelinoeCell.
+impl<'brand, const NODE_ID: u32, T> ConstPinnedCell<'brand, NODE_ID, T> for ConstNumaPinnedCell<'brand, NODE_ID, T> {
+    #[inline]
+    fn cell(&self) -> &MelinoeCell<'brand, T> {
+        &self.cell
+    }
+}
+
+/// A borrowed reference to a cell pinned statically to a specific NUMA node.
+pub struct ConstNumaPinnedCellRef<'a, 'brand, const NODE_ID: u32, T> {
+    cell: &'a MelinoeCell<'brand, T>,
+}
+
+impl<'a, 'brand, const NODE_ID: u32, T> ConstNumaPinnedCellRef<'a, 'brand, NODE_ID, T> {
+    /// Creates a new statically pinned cell reference.
     #[must_use]
     #[inline]
-    pub(crate) const fn cell(&self) -> &MelinoeCell<'brand, T> {
-        &self.cell
+    pub const fn new(cell: &'a MelinoeCell<'brand, T>) -> Self {
+        Self { cell }
+    }
+}
+
+impl<'a, 'brand, const NODE_ID: u32, T> ConstPinnedCell<'brand, NODE_ID, T> for ConstNumaPinnedCellRef<'a, 'brand, NODE_ID, T> {
+    #[inline]
+    fn cell(&self) -> &MelinoeCell<'brand, T> {
+        self.cell
     }
 }
 
@@ -358,6 +492,34 @@ impl<'brand, const NODE_ID: u32, T> ConstNumaPinnedSlice<'brand, NODE_ID, T> {
     }
 }
 
+impl<'brand, const NODE_ID: u32, T> ConstPinnedSlice<'brand, NODE_ID, T> for ConstNumaPinnedSlice<'brand, NODE_ID, T> {
+    #[inline]
+    fn cells(&self) -> &[MelinoeCell<'brand, T>] {
+        &self.cells
+    }
+}
+
+/// A borrowed reference to a contiguous slice of cells pinned statically to a specific NUMA node.
+pub struct ConstNumaPinnedSliceRef<'a, 'brand, const NODE_ID: u32, T> {
+    cells: &'a [MelinoeCell<'brand, T>],
+}
+
+impl<'a, 'brand, const NODE_ID: u32, T> ConstNumaPinnedSliceRef<'a, 'brand, NODE_ID, T> {
+    /// Creates a new statically pinned slice reference.
+    #[must_use]
+    #[inline]
+    pub const fn new(cells: &'a [MelinoeCell<'brand, T>]) -> Self {
+        Self { cells }
+    }
+}
+
+impl<'a, 'brand, const NODE_ID: u32, T> ConstPinnedSlice<'brand, NODE_ID, T> for ConstNumaPinnedSliceRef<'a, 'brand, NODE_ID, T> {
+    #[inline]
+    fn cells(&self) -> &[MelinoeCell<'brand, T>] {
+        self.cells
+    }
+}
+
 /// A node-specific placement capability, verified at compile time.
 pub struct ConstNumaNodePlacement<'brand, const NODE_ID: u32> {
     token: SyncRegionToken<'brand>,
@@ -372,40 +534,52 @@ impl<'brand, const NODE_ID: u32> ConstNumaNodePlacement<'brand, NODE_ID> {
 
     /// Reads state from a cell pinned statically to the same NUMA node.
     #[inline]
-    pub fn read<'a, T>(
+    pub fn read<'a, C, T>(
         &'a self,
-        cell: &'a ConstNumaPinnedCell<'brand, NODE_ID, T>,
-    ) -> MelinoeRef<'a, 'brand, T> {
-        cell.cell.borrow(&self.token)
+        cell: &'a C,
+    ) -> MelinoeRef<'a, 'brand, T>
+    where
+        C: ConstPinnedCell<'brand, NODE_ID, T> + ?Sized,
+    {
+        cell.cell().borrow(&self.token)
     }
 
     /// Writes state to a cell pinned statically to the same NUMA node.
     #[inline]
-    pub fn write<'a, T>(
+    pub fn write<'a, C, T>(
         &'a mut self,
-        cell: &'a ConstNumaPinnedCell<'brand, NODE_ID, T>,
-    ) -> MelinoeMut<'a, 'brand, T> {
-        cell.cell.borrow_mut(&mut self.token)
+        cell: &'a C,
+    ) -> MelinoeMut<'a, 'brand, T>
+    where
+        C: ConstPinnedCell<'brand, NODE_ID, T> + ?Sized,
+    {
+        cell.cell().borrow_mut(&mut self.token)
     }
 
     /// Reads a slice pinned statically to the same NUMA node.
     #[inline]
-    pub fn read_slice<'a, T>(
+    pub fn read_slice<'a, S, T>(
         &'a self,
-        slice: &'a ConstNumaPinnedSlice<'brand, NODE_ID, T>,
-    ) -> &'a [T] {
+        slice: &'a S,
+    ) -> &'a [T]
+    where
+        S: ConstPinnedSlice<'brand, NODE_ID, T> + ?Sized,
+    {
         use melinoe::CellSliceExt;
-        slice.cells.borrow_slice(&self.token)
+        slice.cells().borrow_slice(&self.token)
     }
 
     /// Writes to a slice pinned statically to the same NUMA node.
     #[inline]
-    pub fn write_slice<'a, T>(
+    pub fn write_slice<'a, S, T>(
         &'a mut self,
-        slice: &'a ConstNumaPinnedSlice<'brand, NODE_ID, T>,
-    ) -> &'a mut [T] {
+        slice: &'a S,
+    ) -> &'a mut [T]
+    where
+        S: ConstPinnedSlice<'brand, NODE_ID, T> + ?Sized,
+    {
         use melinoe::CellSliceExt;
-        slice.cells.borrow_slice_mut(&mut self.token)
+        slice.cells().borrow_slice_mut(&mut self.token)
     }
 }
 

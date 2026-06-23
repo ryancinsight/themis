@@ -57,7 +57,7 @@ impl<'brand> ThreadLocalPlacement<'brand> {
 /// A node-specific thread-confined placement capability.
 pub struct ThreadLocalNumaPlacement<'brand> {
     node_id: crate::law::NumaNodeId,
-    token: ThreadLocalToken<'brand>,
+    token: melinoe::sync::ThreadLocalToken<'brand>,
 }
 
 impl<'brand> ThreadLocalNumaPlacement<'brand> {
@@ -69,10 +69,13 @@ impl<'brand> ThreadLocalNumaPlacement<'brand> {
 
     /// Reads state from a cell pinned to the same NUMA node.
     #[inline]
-    pub fn read<'a, T>(
+    pub fn read<'a, C, T>(
         &'a self,
-        cell: &'a crate::branded::NumaPinnedCell<'brand, T>,
-    ) -> Option<MelinoeRef<'a, 'brand, T>> {
+        cell: &'a C,
+    ) -> Option<MelinoeRef<'a, 'brand, T>>
+    where
+        C: crate::branded::PinnedCell<'brand, T> + ?Sized,
+    {
         if self.node_id == cell.node_id() {
             Some(cell.cell().borrow(&self.token))
         } else {
@@ -82,10 +85,13 @@ impl<'brand> ThreadLocalNumaPlacement<'brand> {
 
     /// Writes state to a cell pinned to the same NUMA node.
     #[inline]
-    pub fn write<'a, T>(
+    pub fn write<'a, C, T>(
         &'a mut self,
-        cell: &'a crate::branded::NumaPinnedCell<'brand, T>,
-    ) -> Option<MelinoeMut<'a, 'brand, T>> {
+        cell: &'a C,
+    ) -> Option<MelinoeMut<'a, 'brand, T>>
+    where
+        C: crate::branded::PinnedCell<'brand, T> + ?Sized,
+    {
         if self.node_id == cell.node_id() {
             Some(cell.cell().borrow_mut(&mut self.token))
         } else {
@@ -95,10 +101,13 @@ impl<'brand> ThreadLocalNumaPlacement<'brand> {
 
     /// Reads a slice pinned to the same NUMA node.
     #[inline]
-    pub fn read_slice<'a, T>(
+    pub fn read_slice<'a, S, T>(
         &'a self,
-        slice: &'a crate::branded::NumaPinnedSlice<'brand, T>,
-    ) -> Option<&'a [T]> {
+        slice: &'a S,
+    ) -> Option<&'a [T]>
+    where
+        S: crate::branded::PinnedSlice<'brand, T> + ?Sized,
+    {
         if self.node_id == slice.node_id() {
             use melinoe::CellSliceExt;
             Some(slice.cells().borrow_slice(&self.token))
@@ -109,10 +118,13 @@ impl<'brand> ThreadLocalNumaPlacement<'brand> {
 
     /// Writes to a slice pinned to the same NUMA node.
     #[inline]
-    pub fn write_slice<'a, T>(
+    pub fn write_slice<'a, S, T>(
         &'a mut self,
-        slice: &'a crate::branded::NumaPinnedSlice<'brand, T>,
-    ) -> Option<&'a mut [T]> {
+        slice: &'a S,
+    ) -> Option<&'a mut [T]>
+    where
+        S: crate::branded::PinnedSlice<'brand, T> + ?Sized,
+    {
         if self.node_id == slice.node_id() {
             use melinoe::CellSliceExt;
             Some(slice.cells().borrow_slice_mut(&mut self.token))
@@ -136,38 +148,50 @@ impl<'brand, const NODE_ID: u32> ConstThreadLocalNumaPlacement<'brand, NODE_ID> 
 
     /// Reads state from a cell pinned statically to the same NUMA node.
     #[inline]
-    pub fn read<'a, T>(
+    pub fn read<'a, C, T>(
         &'a self,
-        cell: &'a crate::branded::ConstNumaPinnedCell<'brand, NODE_ID, T>,
-    ) -> MelinoeRef<'a, 'brand, T> {
+        cell: &'a C,
+    ) -> MelinoeRef<'a, 'brand, T>
+    where
+        C: crate::branded::ConstPinnedCell<'brand, NODE_ID, T> + ?Sized,
+    {
         cell.cell().borrow(&self.token)
     }
 
     /// Writes state to a cell pinned statically to the same NUMA node.
     #[inline]
-    pub fn write<'a, T>(
+    pub fn write<'a, C, T>(
         &'a mut self,
-        cell: &'a crate::branded::ConstNumaPinnedCell<'brand, NODE_ID, T>,
-    ) -> MelinoeMut<'a, 'brand, T> {
+        cell: &'a C,
+    ) -> MelinoeMut<'a, 'brand, T>
+    where
+        C: crate::branded::ConstPinnedCell<'brand, NODE_ID, T> + ?Sized,
+    {
         cell.cell().borrow_mut(&mut self.token)
     }
 
     /// Reads a slice pinned statically to the same NUMA node.
     #[inline]
-    pub fn read_slice<'a, T>(
+    pub fn read_slice<'a, S, T>(
         &'a self,
-        slice: &'a crate::branded::ConstNumaPinnedSlice<'brand, NODE_ID, T>,
-    ) -> &'a [T] {
+        slice: &'a S,
+    ) -> &'a [T]
+    where
+        S: crate::branded::ConstPinnedSlice<'brand, NODE_ID, T> + ?Sized,
+    {
         use melinoe::CellSliceExt;
         slice.cells().borrow_slice(&self.token)
     }
 
     /// Writes to a slice pinned statically to the same NUMA node.
     #[inline]
-    pub fn write_slice<'a, T>(
+    pub fn write_slice<'a, S, T>(
         &'a mut self,
-        slice: &'a crate::branded::ConstNumaPinnedSlice<'brand, NODE_ID, T>,
-    ) -> &'a mut [T] {
+        slice: &'a S,
+    ) -> &'a mut [T]
+    where
+        S: crate::branded::ConstPinnedSlice<'brand, NODE_ID, T> + ?Sized,
+    {
         use melinoe::CellSliceExt;
         slice.cells().borrow_slice_mut(&mut self.token)
     }

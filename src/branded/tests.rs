@@ -285,3 +285,101 @@ fn const_thread_local_numa_placement_controls_static_access() {
     assert_eq!(val0, 150);
     assert_eq!(sum1_actual, 36);
 }
+
+#[test]
+fn cell_and_slice_reference_types_avoid_allocations() {
+    use super::{NumaPinnedCellRef, NumaPinnedSliceRef};
+    use melinoe::MelinoeCell;
+
+    let nodes = std::vec![
+        crate::NumaNode {
+            id: NumaNodeId::new(0),
+            processors: std::vec![0].into_boxed_slice(),
+            distances: std::vec![10, 20].into_boxed_slice(),
+            memory_tier: MemoryTier::Dram,
+        },
+        crate::NumaNode {
+            id: NumaNodeId::new(1),
+            processors: std::vec![1].into_boxed_slice(),
+            distances: std::vec![20, 10].into_boxed_slice(),
+            memory_tier: MemoryTier::Dram,
+        },
+    ];
+    let topology = crate::CpuTopology {
+        epoch: crate::TopologyEpoch::INITIAL,
+        processor_to_node: crate::topology::build_processor_to_node(
+            2,
+            &[(0, NumaNodeId::new(0)), (1, NumaNodeId::new(1))],
+        ),
+        node_to_index: crate::topology::build_node_to_index(&nodes),
+        adjacent_nodes: crate::topology::build_adjacent_nodes(&nodes),
+        numa_nodes: nodes.into_boxed_slice(),
+        logical_processors: 2,
+        cache_levels: crate::topology::default_cache_levels(2),
+    };
+
+    let (val, sum) = sync_region_placement_scope(|placement| {
+        // Stack-allocated cells and arrays
+        let cell_raw = MelinoeCell::new(42u32);
+        let cell_ref = NumaPinnedCellRef::new(NumaNodeId::new(0), &cell_raw);
+
+        let array_raw = [
+            MelinoeCell::new(10u32),
+            MelinoeCell::new(20u32),
+            MelinoeCell::new(30u32),
+        ];
+        let slice_ref = NumaPinnedSliceRef::new(NumaNodeId::new(0), &array_raw);
+
+        let mut permits = placement.split(&topology);
+        let mut permit0 = permits.remove(0);
+
+        *permit0.write(&cell_ref).unwrap() += 8;
+
+        let s = permit0.write_slice(&slice_ref).unwrap();
+        for x in s.iter_mut() {
+            *x += 1;
+        }
+
+        let final_val = *permit0.read(&cell_ref).unwrap();
+        let final_sum = permit0.read_slice(&slice_ref).unwrap().iter().sum::<u32>();
+
+        (final_val, final_sum)
+    });
+
+    assert_eq!(val, 50);
+    assert_eq!(sum, 63);
+}
+
+#[test]
+fn const_cell_and_slice_reference_types_work() {
+    use super::{ConstNumaPinnedCellRef, ConstNumaPinnedSliceRef};
+    use melinoe::MelinoeCell;
+
+    let (val, sum) = sync_region_placement_scope(|placement| {
+        let cell_raw = MelinoeCell::new(100u32);
+        let cell_ref = ConstNumaPinnedCellRef::<5, u32>::new(&cell_raw);
+
+        let array_raw = [
+            MelinoeCell::new(1u32),
+            MelinoeCell::new(2u32),
+        ];
+        let slice_ref = ConstNumaPinnedSliceRef::<5, u32>::new(&array_raw);
+
+        let mut permit = unsafe { placement.project_static::<5>() };
+
+        *permit.write(&cell_ref) += 50;
+
+        let s = permit.write_slice(&slice_ref);
+        for x in s.iter_mut() {
+            *x *= 10;
+        }
+
+        let final_val = *permit.read(&cell_ref);
+        let final_sum = permit.read_slice(&slice_ref).iter().sum::<u32>();
+
+        (final_val, final_sum)
+    });
+
+    assert_eq!(val, 150);
+    assert_eq!(sum, 30);
+}

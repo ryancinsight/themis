@@ -7,10 +7,12 @@ mod thread_local;
 mod tests;
 
 pub use sync_region::{
-    sync_region_placement_scope, NumaNodePlacement, NumaPinnedCell, NumaPinnedSlice,
-    SyncRegionPlacement, ConstNumaNodePlacement, ConstNumaPinnedCell, ConstNumaPinnedSlice,
+    sync_region_placement_scope, ConstNumaNodePlacement, ConstNumaPinnedCell,
+    ConstNumaPinnedCellRef, ConstNumaPinnedSlice, ConstNumaPinnedSliceRef, ConstPinnedCell,
+    ConstPinnedSlice, NumaNodePlacement, NumaPinnedCell, NumaPinnedCellRef, NumaPinnedSlice,
+    NumaPinnedSliceRef, PinnedCell, PinnedSlice, SyncRegionPlacement,
 };
 pub use thread_local::{
-    thread_local_placement_scope, ThreadLocalPlacement, ThreadLocalNumaPlacement,
-    ConstThreadLocalNumaPlacement,
+    thread_local_placement_scope, ConstThreadLocalNumaPlacement, ThreadLocalNumaPlacement,
+    ThreadLocalPlacement,
 };
