@@ -47,7 +47,13 @@ pub(crate) fn build_processor_to_node(
         .map(|(processor, _)| *processor as usize)
         .max()
         .unwrap_or(0);
-    let mut processor_to_node = vec![NumaNodeId::INVALID; logical_processors.max(max_processor + 1).max(1)];
+    let len = logical_processors.max(max_processor + 1).max(1);
+    assert!(
+        len <= 32768,
+        "invariant check failed: processor count {} exceeds maximum limit of 32768",
+        len
+    );
+    let mut processor_to_node = vec![NumaNodeId::INVALID; len];
     for (processor, node) in mappings {
         processor_to_node[*processor as usize] = *node;
     }
@@ -56,6 +62,11 @@ pub(crate) fn build_processor_to_node(
 
 pub(crate) fn build_node_to_index(nodes: &[NumaNode]) -> Box<[usize]> {
     let max_node = nodes.iter().map(|node| node.id.index()).max().unwrap_or(0);
+    assert!(
+        max_node < 1024,
+        "invariant check failed: NUMA node ID {} exceeds maximum limit of 1024",
+        max_node
+    );
     let mut node_to_index = vec![usize::MAX; max_node + 1];
     for (index, node) in nodes.iter().enumerate() {
         let node_idx = node.id.index();

@@ -17,6 +17,8 @@ pub(super) fn detect() -> Option<CpuTopology> {
         .filter_map(Result::ok)
         .filter_map(|entry| entry.file_name().into_string().ok())
         .filter_map(|name| name.strip_prefix("node")?.parse::<u32>().ok())
+        .filter(|&id| id < 1024)
+        .take(1024)
         .collect();
     node_ids.sort_unstable();
 
@@ -44,6 +46,7 @@ pub(super) fn detect() -> Option<CpuTopology> {
                 value
                     .split_whitespace()
                     .filter_map(|part| part.parse::<u32>().ok())
+                    .take(1024)
                     .collect::<Vec<_>>()
             })
             .unwrap_or_else(|_| build_default_distance_row(node_ids.len(), from_index).into_vec());
@@ -74,10 +77,14 @@ pub(super) fn detect() -> Option<CpuTopology> {
 fn parse_cpu_list(cpulist: &str) -> Vec<u32> {
     let mut processors = Vec::new();
     for part in cpulist.trim().split(',') {
+        if processors.len() >= 32768 {
+            break;
+        }
         if let Some((start, end)) = part.split_once('-') {
             if let (Ok(start), Ok(end)) = (start.parse::<u32>(), end.parse::<u32>()) {
                 if start < 32768 && end < 32768 && start <= end {
-                    processors.extend(start..=end);
+                    let limit = (32768 - processors.len()).min((end - start + 1) as usize);
+                    processors.extend(start..start + limit as u32);
                 }
             }
         } else if let Ok(processor) = part.parse::<u32>() {
