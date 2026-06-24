@@ -70,7 +70,10 @@ fn sync_region_split_allows_parallel_node_access() {
         assert!(permit0.write(&cell1).is_none());
         assert!(permit1.write(&cell0).is_none());
 
-        (*permit0.read(&cell0).unwrap(), *permit1.read(&cell1).unwrap())
+        (
+            *permit0.read(&cell0).unwrap(),
+            *permit1.read(&cell1).unwrap(),
+        )
     });
 
     assert_eq!(val0, 111);
@@ -122,7 +125,10 @@ fn sync_region_split_with_avoid_heap_allocations() {
             assert!(permit0.write(&cell1).is_none());
             assert!(permit1.write(&cell0).is_none());
 
-            (*permit0.read(&cell0).unwrap(), *permit1.read(&cell1).unwrap())
+            (
+                *permit0.read(&cell0).unwrap(),
+                *permit1.read(&cell1).unwrap(),
+            )
         })
     });
 
@@ -187,8 +193,14 @@ fn sync_region_pinned_slice_allows_efficient_bulk_access() {
         // Try writing to slice 0 with permit 1 (mismatch node ID)
         assert!(permit1.write_slice(&slice0).is_none());
 
-        let sum0 = permit0.read_slice(&slice0).map(|s| s.iter().sum::<i32>()).unwrap();
-        let sum1 = permit1.read_slice(&slice1).map(|s| s.iter().sum::<i32>()).unwrap();
+        let sum0 = permit0
+            .read_slice(&slice0)
+            .map(|s| s.iter().sum::<i32>())
+            .unwrap();
+        let sum1 = permit1
+            .read_slice(&slice1)
+            .map(|s| s.iter().sum::<i32>())
+            .unwrap();
         (sum0, sum1)
     });
 
@@ -212,6 +224,49 @@ fn const_numa_branding_provides_zero_cost_static_access() {
 
     assert_eq!(val0, 777);
     assert_eq!(val1, 888);
+}
+
+#[test]
+fn const_numa_split_static_3_gives_three_disjoint_permits() {
+    let (v0, v1, v2) = sync_region_placement_scope(|placement| {
+        let cell0 = super::ConstNumaPinnedCell::<0, u32>::new(0);
+        let cell1 = super::ConstNumaPinnedCell::<1, u32>::new(0);
+        let cell2 = super::ConstNumaPinnedCell::<2, u32>::new(0);
+
+        let (mut p0, mut p1, mut p2) = placement.split_static_3::<0, 1, 2>();
+        *p0.write(&cell0) = 10;
+        *p1.write(&cell1) = 20;
+        *p2.write(&cell2) = 30;
+
+        (*p0.read(&cell0), *p1.read(&cell1), *p2.read(&cell2))
+    });
+
+    assert_eq!((v0, v1, v2), (10, 20, 30));
+}
+
+#[test]
+fn const_numa_split_static_4_gives_four_disjoint_permits() {
+    let (v0, v1, v2, v3) = sync_region_placement_scope(|placement| {
+        let cell0 = super::ConstNumaPinnedCell::<0, u32>::new(0);
+        let cell1 = super::ConstNumaPinnedCell::<1, u32>::new(0);
+        let cell2 = super::ConstNumaPinnedCell::<2, u32>::new(0);
+        let cell3 = super::ConstNumaPinnedCell::<3, u32>::new(0);
+
+        let (mut p0, mut p1, mut p2, mut p3) = placement.split_static_4::<0, 1, 2, 3>();
+        *p0.write(&cell0) = 11;
+        *p1.write(&cell1) = 22;
+        *p2.write(&cell2) = 33;
+        *p3.write(&cell3) = 44;
+
+        (
+            *p0.read(&cell0),
+            *p1.read(&cell1),
+            *p2.read(&cell2),
+            *p3.read(&cell3),
+        )
+    });
+
+    assert_eq!((v0, v1, v2, v3), (11, 22, 33, 44));
 }
 
 #[test]
@@ -359,10 +414,7 @@ fn const_cell_and_slice_reference_types_work() {
         let cell_raw = MelinoeCell::new(100u32);
         let cell_ref = ConstNumaPinnedCellRef::<5, u32>::new(&cell_raw);
 
-        let array_raw = [
-            MelinoeCell::new(1u32),
-            MelinoeCell::new(2u32),
-        ];
+        let array_raw = [MelinoeCell::new(1u32), MelinoeCell::new(2u32)];
         let slice_ref = ConstNumaPinnedSliceRef::<5, u32>::new(&array_raw);
 
         let mut permit = unsafe { placement.project_static::<5>() };

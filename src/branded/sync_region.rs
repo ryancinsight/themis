@@ -90,7 +90,8 @@ impl<'brand> SyncRegionPlacement<'brand> {
                 }
             }
 
-            let mut buf = core::mem::MaybeUninit::<[NumaNodePlacement<'brand>; MAX_STACK_NODES]>::uninit();
+            let mut buf =
+                core::mem::MaybeUninit::<[NumaNodePlacement<'brand>; MAX_STACK_NODES]>::uninit();
             let buf_ptr = buf.as_mut_ptr() as *mut NumaNodePlacement<'brand>;
             let mut guard = DropGuard {
                 ptr: buf_ptr,
@@ -145,6 +146,90 @@ impl<'brand> SyncRegionPlacement<'brand> {
         let this = core::mem::ManuallyDrop::new(self);
         unsafe {
             (
+                ConstNumaNodePlacement {
+                    token: core::ptr::read(&this.token),
+                },
+                ConstNumaNodePlacement {
+                    token: core::ptr::read(&this.token),
+                },
+            )
+        }
+    }
+
+    /// Splits this global capability into three disjoint compile-time checked node capabilities.
+    ///
+    /// The distinctness of `A`, `B`, and `C` is enforced at compile time, so two
+    /// capabilities can never alias the same NUMA node.
+    #[must_use]
+    #[inline]
+    pub fn split_static_3<const A: u32, const B: u32, const C: u32>(
+        self,
+    ) -> (
+        ConstNumaNodePlacement<'brand, A>,
+        ConstNumaNodePlacement<'brand, B>,
+        ConstNumaNodePlacement<'brand, C>,
+    ) {
+        struct AssertDisjoint<const A: u32, const B: u32, const C: u32>;
+        impl<const A: u32, const B: u32, const C: u32> AssertDisjoint<A, B, C> {
+            const OK: () = {
+                assert!(
+                    A != B && A != C && B != C,
+                    "Static NUMA node split must be disjoint"
+                );
+            };
+        }
+        let () = AssertDisjoint::<A, B, C>::OK;
+
+        let this = core::mem::ManuallyDrop::new(self);
+        unsafe {
+            (
+                ConstNumaNodePlacement {
+                    token: core::ptr::read(&this.token),
+                },
+                ConstNumaNodePlacement {
+                    token: core::ptr::read(&this.token),
+                },
+                ConstNumaNodePlacement {
+                    token: core::ptr::read(&this.token),
+                },
+            )
+        }
+    }
+
+    /// Splits this global capability into four disjoint compile-time checked node capabilities.
+    ///
+    /// The distinctness of `A`, `B`, `C`, and `D` is enforced at compile time, so
+    /// two capabilities can never alias the same NUMA node.
+    #[must_use]
+    #[inline]
+    pub fn split_static_4<const A: u32, const B: u32, const C: u32, const D: u32>(
+        self,
+    ) -> (
+        ConstNumaNodePlacement<'brand, A>,
+        ConstNumaNodePlacement<'brand, B>,
+        ConstNumaNodePlacement<'brand, C>,
+        ConstNumaNodePlacement<'brand, D>,
+    ) {
+        struct AssertDisjoint<const A: u32, const B: u32, const C: u32, const D: u32>;
+        impl<const A: u32, const B: u32, const C: u32, const D: u32> AssertDisjoint<A, B, C, D> {
+            const OK: () = {
+                assert!(
+                    A != B && A != C && A != D && B != C && B != D && C != D,
+                    "Static NUMA node split must be disjoint"
+                );
+            };
+        }
+        let () = AssertDisjoint::<A, B, C, D>::OK;
+
+        let this = core::mem::ManuallyDrop::new(self);
+        unsafe {
+            (
+                ConstNumaNodePlacement {
+                    token: core::ptr::read(&this.token),
+                },
+                ConstNumaNodePlacement {
+                    token: core::ptr::read(&this.token),
+                },
                 ConstNumaNodePlacement {
                     token: core::ptr::read(&this.token),
                 },
@@ -284,7 +369,10 @@ impl<'brand, T> NumaPinnedSlice<'brand, T> {
 
     /// Creates a new pinned slice directly from a boxed slice of cells.
     #[must_use]
-    pub const fn from_cells(node_id: crate::law::NumaNodeId, cells: Box<[MelinoeCell<'brand, T>]>) -> Self {
+    pub const fn from_cells(
+        node_id: crate::law::NumaNodeId,
+        cells: Box<[MelinoeCell<'brand, T>]>,
+    ) -> Self {
         Self { node_id, cells }
     }
 
@@ -369,10 +457,7 @@ impl<'brand> NumaNodePlacement<'brand> {
 
     /// Writes state to a cell pinned to the same NUMA node.
     #[inline]
-    pub fn write<'a, C, T>(
-        &'a mut self,
-        cell: &'a C,
-    ) -> Option<MelinoeMut<'a, 'brand, T>>
+    pub fn write<'a, C, T>(&'a mut self, cell: &'a C) -> Option<MelinoeMut<'a, 'brand, T>>
     where
         C: PinnedCell<'brand, T> + ?Sized,
     {
@@ -385,10 +470,7 @@ impl<'brand> NumaNodePlacement<'brand> {
 
     /// Reads a slice pinned to the same NUMA node.
     #[inline]
-    pub fn read_slice<'a, S, T>(
-        &'a self,
-        slice: &'a S,
-    ) -> Option<&'a [T]>
+    pub fn read_slice<'a, S, T>(&'a self, slice: &'a S) -> Option<&'a [T]>
     where
         S: PinnedSlice<'brand, T> + ?Sized,
     {
@@ -402,10 +484,7 @@ impl<'brand> NumaNodePlacement<'brand> {
 
     /// Writes to a slice pinned to the same NUMA node.
     #[inline]
-    pub fn write_slice<'a, S, T>(
-        &'a mut self,
-        slice: &'a S,
-    ) -> Option<&'a mut [T]>
+    pub fn write_slice<'a, S, T>(&'a mut self, slice: &'a S) -> Option<&'a mut [T]>
     where
         S: PinnedSlice<'brand, T> + ?Sized,
     {
@@ -433,7 +512,9 @@ impl<'brand, const NODE_ID: u32, T> ConstNumaPinnedCell<'brand, NODE_ID, T> {
     }
 }
 
-impl<'brand, const NODE_ID: u32, T> ConstPinnedCell<'brand, NODE_ID, T> for ConstNumaPinnedCell<'brand, NODE_ID, T> {
+impl<'brand, const NODE_ID: u32, T> ConstPinnedCell<'brand, NODE_ID, T>
+    for ConstNumaPinnedCell<'brand, NODE_ID, T>
+{
     #[inline]
     fn cell(&self) -> &MelinoeCell<'brand, T> {
         &self.cell
@@ -454,7 +535,9 @@ impl<'a, 'brand, const NODE_ID: u32, T> ConstNumaPinnedCellRef<'a, 'brand, NODE_
     }
 }
 
-impl<'a, 'brand, const NODE_ID: u32, T> ConstPinnedCell<'brand, NODE_ID, T> for ConstNumaPinnedCellRef<'a, 'brand, NODE_ID, T> {
+impl<'a, 'brand, const NODE_ID: u32, T> ConstPinnedCell<'brand, NODE_ID, T>
+    for ConstNumaPinnedCellRef<'a, 'brand, NODE_ID, T>
+{
     #[inline]
     fn cell(&self) -> &MelinoeCell<'brand, T> {
         self.cell
@@ -492,7 +575,9 @@ impl<'brand, const NODE_ID: u32, T> ConstNumaPinnedSlice<'brand, NODE_ID, T> {
     }
 }
 
-impl<'brand, const NODE_ID: u32, T> ConstPinnedSlice<'brand, NODE_ID, T> for ConstNumaPinnedSlice<'brand, NODE_ID, T> {
+impl<'brand, const NODE_ID: u32, T> ConstPinnedSlice<'brand, NODE_ID, T>
+    for ConstNumaPinnedSlice<'brand, NODE_ID, T>
+{
     #[inline]
     fn cells(&self) -> &[MelinoeCell<'brand, T>] {
         &self.cells
@@ -513,7 +598,9 @@ impl<'a, 'brand, const NODE_ID: u32, T> ConstNumaPinnedSliceRef<'a, 'brand, NODE
     }
 }
 
-impl<'a, 'brand, const NODE_ID: u32, T> ConstPinnedSlice<'brand, NODE_ID, T> for ConstNumaPinnedSliceRef<'a, 'brand, NODE_ID, T> {
+impl<'a, 'brand, const NODE_ID: u32, T> ConstPinnedSlice<'brand, NODE_ID, T>
+    for ConstNumaPinnedSliceRef<'a, 'brand, NODE_ID, T>
+{
     #[inline]
     fn cells(&self) -> &[MelinoeCell<'brand, T>] {
         self.cells
@@ -534,10 +621,7 @@ impl<'brand, const NODE_ID: u32> ConstNumaNodePlacement<'brand, NODE_ID> {
 
     /// Reads state from a cell pinned statically to the same NUMA node.
     #[inline]
-    pub fn read<'a, C, T>(
-        &'a self,
-        cell: &'a C,
-    ) -> MelinoeRef<'a, 'brand, T>
+    pub fn read<'a, C, T>(&'a self, cell: &'a C) -> MelinoeRef<'a, 'brand, T>
     where
         C: ConstPinnedCell<'brand, NODE_ID, T> + ?Sized,
     {
@@ -546,10 +630,7 @@ impl<'brand, const NODE_ID: u32> ConstNumaNodePlacement<'brand, NODE_ID> {
 
     /// Writes state to a cell pinned statically to the same NUMA node.
     #[inline]
-    pub fn write<'a, C, T>(
-        &'a mut self,
-        cell: &'a C,
-    ) -> MelinoeMut<'a, 'brand, T>
+    pub fn write<'a, C, T>(&'a mut self, cell: &'a C) -> MelinoeMut<'a, 'brand, T>
     where
         C: ConstPinnedCell<'brand, NODE_ID, T> + ?Sized,
     {
@@ -558,10 +639,7 @@ impl<'brand, const NODE_ID: u32> ConstNumaNodePlacement<'brand, NODE_ID> {
 
     /// Reads a slice pinned statically to the same NUMA node.
     #[inline]
-    pub fn read_slice<'a, S, T>(
-        &'a self,
-        slice: &'a S,
-    ) -> &'a [T]
+    pub fn read_slice<'a, S, T>(&'a self, slice: &'a S) -> &'a [T]
     where
         S: ConstPinnedSlice<'brand, NODE_ID, T> + ?Sized,
     {
@@ -571,10 +649,7 @@ impl<'brand, const NODE_ID: u32> ConstNumaNodePlacement<'brand, NODE_ID> {
 
     /// Writes to a slice pinned statically to the same NUMA node.
     #[inline]
-    pub fn write_slice<'a, S, T>(
-        &'a mut self,
-        slice: &'a S,
-    ) -> &'a mut [T]
+    pub fn write_slice<'a, S, T>(&'a mut self, slice: &'a S) -> &'a mut [T]
     where
         S: ConstPinnedSlice<'brand, NODE_ID, T> + ?Sized,
     {
