@@ -28,7 +28,6 @@ fn typed_ids_preserve_values() {
     assert!(!LocalityDomainId::INVALID.is_valid());
 }
 
-
 #[test]
 fn default_placement_is_current_dram() {
     assert_eq!(PlacementHint::default(), PlacementHint::Current);

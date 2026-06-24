@@ -76,9 +76,16 @@ fn query_cpu_locality_os() -> Option<CpuLocality> {
             }
             extern "system" {
                 fn GetCurrentProcessorNumberEx(proc_number: *mut ProcessorNumber);
-                fn GetNumaProcessorNodeEx(processor: *const ProcessorNumber, node_number: *mut u16) -> i32;
+                fn GetNumaProcessorNodeEx(
+                    processor: *const ProcessorNumber,
+                    node_number: *mut u16,
+                ) -> i32;
             }
-            let mut proc_num = ProcessorNumber { group: 0, number: 0, reserved: 0 };
+            let mut proc_num = ProcessorNumber {
+                group: 0,
+                number: 0,
+                reserved: 0,
+            };
             GetCurrentProcessorNumberEx(&mut proc_num);
             let mut node = 0u16;
             if GetNumaProcessorNodeEx(&proc_num, &mut node) != 0 {

@@ -69,10 +69,7 @@ impl<'brand> ThreadLocalNumaPlacement<'brand> {
 
     /// Reads state from a cell pinned to the same NUMA node.
     #[inline]
-    pub fn read<'a, C, T>(
-        &'a self,
-        cell: &'a C,
-    ) -> Option<MelinoeRef<'a, 'brand, T>>
+    pub fn read<'a, C, T>(&'a self, cell: &'a C) -> Option<MelinoeRef<'a, 'brand, T>>
     where
         C: crate::branded::PinnedCell<'brand, T> + ?Sized,
     {
@@ -85,10 +82,7 @@ impl<'brand> ThreadLocalNumaPlacement<'brand> {
 
     /// Writes state to a cell pinned to the same NUMA node.
     #[inline]
-    pub fn write<'a, C, T>(
-        &'a mut self,
-        cell: &'a C,
-    ) -> Option<MelinoeMut<'a, 'brand, T>>
+    pub fn write<'a, C, T>(&'a mut self, cell: &'a C) -> Option<MelinoeMut<'a, 'brand, T>>
     where
         C: crate::branded::PinnedCell<'brand, T> + ?Sized,
     {
@@ -101,10 +95,7 @@ impl<'brand> ThreadLocalNumaPlacement<'brand> {
 
     /// Reads a slice pinned to the same NUMA node.
     #[inline]
-    pub fn read_slice<'a, S, T>(
-        &'a self,
-        slice: &'a S,
-    ) -> Option<&'a [T]>
+    pub fn read_slice<'a, S, T>(&'a self, slice: &'a S) -> Option<&'a [T]>
     where
         S: crate::branded::PinnedSlice<'brand, T> + ?Sized,
     {
@@ -118,10 +109,7 @@ impl<'brand> ThreadLocalNumaPlacement<'brand> {
 
     /// Writes to a slice pinned to the same NUMA node.
     #[inline]
-    pub fn write_slice<'a, S, T>(
-        &'a mut self,
-        slice: &'a S,
-    ) -> Option<&'a mut [T]>
+    pub fn write_slice<'a, S, T>(&'a mut self, slice: &'a S) -> Option<&'a mut [T]>
     where
         S: crate::branded::PinnedSlice<'brand, T> + ?Sized,
     {
@@ -148,10 +136,7 @@ impl<'brand, const NODE_ID: u32> ConstThreadLocalNumaPlacement<'brand, NODE_ID> 
 
     /// Reads state from a cell pinned statically to the same NUMA node.
     #[inline]
-    pub fn read<'a, C, T>(
-        &'a self,
-        cell: &'a C,
-    ) -> MelinoeRef<'a, 'brand, T>
+    pub fn read<'a, C, T>(&'a self, cell: &'a C) -> MelinoeRef<'a, 'brand, T>
     where
         C: crate::branded::ConstPinnedCell<'brand, NODE_ID, T> + ?Sized,
     {
@@ -160,10 +145,7 @@ impl<'brand, const NODE_ID: u32> ConstThreadLocalNumaPlacement<'brand, NODE_ID> 
 
     /// Writes state to a cell pinned statically to the same NUMA node.
     #[inline]
-    pub fn write<'a, C, T>(
-        &'a mut self,
-        cell: &'a C,
-    ) -> MelinoeMut<'a, 'brand, T>
+    pub fn write<'a, C, T>(&'a mut self, cell: &'a C) -> MelinoeMut<'a, 'brand, T>
     where
         C: crate::branded::ConstPinnedCell<'brand, NODE_ID, T> + ?Sized,
     {
@@ -172,10 +154,7 @@ impl<'brand, const NODE_ID: u32> ConstThreadLocalNumaPlacement<'brand, NODE_ID> 
 
     /// Reads a slice pinned statically to the same NUMA node.
     #[inline]
-    pub fn read_slice<'a, S, T>(
-        &'a self,
-        slice: &'a S,
-    ) -> &'a [T]
+    pub fn read_slice<'a, S, T>(&'a self, slice: &'a S) -> &'a [T]
     where
         S: crate::branded::ConstPinnedSlice<'brand, NODE_ID, T> + ?Sized,
     {
@@ -185,10 +164,7 @@ impl<'brand, const NODE_ID: u32> ConstThreadLocalNumaPlacement<'brand, NODE_ID> 
 
     /// Writes to a slice pinned statically to the same NUMA node.
     #[inline]
-    pub fn write_slice<'a, S, T>(
-        &'a mut self,
-        slice: &'a S,
-    ) -> &'a mut [T]
+    pub fn write_slice<'a, S, T>(&'a mut self, slice: &'a S) -> &'a mut [T]
     where
         S: crate::branded::ConstPinnedSlice<'brand, NODE_ID, T> + ?Sized,
     {

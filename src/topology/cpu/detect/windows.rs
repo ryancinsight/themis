@@ -42,7 +42,9 @@ pub(super) fn detect() -> Option<CpuTopology> {
             reserved: [0; 3],
         };
         // SAFETY: The API writes one GROUP_AFFINITY structure through a valid pointer.
-        if unsafe { GetNumaNodeProcessorMaskEx(raw_node as u16, &mut affinity) } == 0 || affinity.mask == 0 {
+        if unsafe { GetNumaNodeProcessorMaskEx(raw_node as u16, &mut affinity) } == 0
+            || affinity.mask == 0
+        {
             continue;
         }
         let node_id = NumaNodeId::new(raw_node);

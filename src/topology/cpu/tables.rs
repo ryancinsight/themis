@@ -27,10 +27,7 @@ pub(in crate::topology) const fn default_distance(from_index: usize, to_index: u
 }
 
 #[cfg(any(test, feature = "std"))]
-pub(crate) fn build_default_distance_row(
-    node_count: usize,
-    from_index: usize,
-) -> Box<[u32]> {
+pub(crate) fn build_default_distance_row(node_count: usize, from_index: usize) -> Box<[u32]> {
     (0..node_count)
         .map(|to_index| default_distance(from_index, to_index))
         .collect::<Vec<_>>()
