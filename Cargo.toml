@@ -23,6 +23,9 @@ melinoe = ["dep:melinoe"]
 [dependencies]
 melinoe = { git = "https://github.com/ryancinsight/melinoe.git", version = "0.7.0", default-features = false, optional = true }
 
+[dev-dependencies]
+proptest = "1"
+
 [[bench]]
 name = "topology"
 harness = false
