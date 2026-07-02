@@ -73,6 +73,20 @@ impl CpuTopology {
     }
 
     /// Returns the cache hierarchy table.
+    ///
+    /// # Provenance
+    ///
+    /// CPU cache is **not yet probed on any platform**: both the Linux and
+    /// Windows detection backends currently attach the conservative synthetic
+    /// defaults from `default_cache_levels` (L1 = 32 KiB, L2 = 256 KiB,
+    /// L3 = 8 MiB, L1/L2 unshared, L3 shared by all processors) rather than
+    /// the machine's actual cache. These are plausible-typical placeholders,
+    /// not measurements — unlike the GPU/TPU path, which reports `0` for
+    /// unknown capacities and never fabricates. Consumers that tile on cache
+    /// size (e.g. `leto`) must treat these as a conservative hint, not
+    /// ground truth. A real cache backend (Linux `sysfs` cache indices,
+    /// Windows `GetLogicalProcessorInformationEx`) is tracked in the backlog;
+    /// until it lands, this value is uniform across every host.
     #[must_use]
     pub fn cache_levels(&self) -> &[CacheLevel] {
         &self.cache_levels
@@ -108,7 +122,19 @@ impl CpuTopology {
             })
     }
 
-    /// Returns node distance.
+    /// Returns node distance (ACPI SLIT convention: `10` = local, higher =
+    /// farther).
+    ///
+    /// # Provenance
+    ///
+    /// Only the **Linux** backend reads real inter-node distances (from
+    /// `/sys/devices/system/node/nodeN/distance`), falling back to the
+    /// synthetic `10`/`20` matrix on read failure. The **Windows** backend has
+    /// no distance API without `GetLogicalProcessorInformationEx` relative-
+    /// distance parsing, so it always returns the synthetic `10` (local) /
+    /// `20` (remote) — uniform regardless of true inter-node latency. Consumers
+    /// that weight placement by distance must treat a Windows result as a
+    /// two-tier local/remote hint, not a measured latency.
     #[must_use]
     pub fn distance(&self, from: NumaNodeId, to: NumaNodeId) -> u32 {
         match (self.node_index(from), self.node_index(to)) {

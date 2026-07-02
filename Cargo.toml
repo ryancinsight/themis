@@ -13,10 +13,8 @@ categories = ["concurrency", "memory-management", "hardware-support"]
 rust-version = "1.75.0"
 
 [features]
-default = ["std", "parallel", "mnemosyne-memory", "melinoe"]
+default = ["std", "melinoe"]
 std = ["melinoe?/std"]
-parallel = []
-mnemosyne-memory = []
 # Branded placement extras
 melinoe = ["dep:melinoe"]
 
