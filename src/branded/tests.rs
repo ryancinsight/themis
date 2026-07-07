@@ -435,3 +435,85 @@ fn const_cell_and_slice_reference_types_work() {
     assert_eq!(val, 150);
     assert_eq!(sum, 30);
 }
+
+// ── `split` vs `split_with` differential coverage ──
+//
+// `split_with` has two code paths selected by node count against a
+// `MAX_STACK_NODES` limit of 128: a `MaybeUninit` stack array with a manual
+// `DropGuard` for the common small case, a heap `Vec` fallback above it. Both
+// must return the same per-node capabilities, in the same order, as the
+// always-heap `split`. The stack path's raw-pointer writes are the highest-
+// risk unsafe surface in this module; only a topology crossing the 128-node
+// boundary exercises both branches.
+
+/// A synthetic `CpuTopology` of `node_count` single-processor nodes with
+/// distinct ids `0..node_count`.
+fn synthetic_topology(node_count: usize) -> crate::CpuTopology {
+    let nodes: std::vec::Vec<crate::NumaNode> = (0..node_count as u32)
+        .map(|id| crate::NumaNode {
+            id: NumaNodeId::new(id),
+            processors: std::vec![id].into_boxed_slice(),
+            distances: std::vec![10; node_count].into_boxed_slice(),
+            memory_tier: MemoryTier::Dram,
+        })
+        .collect();
+    let mappings: std::vec::Vec<(u32, NumaNodeId)> =
+        (0..node_count as u32).map(|id| (id, NumaNodeId::new(id))).collect();
+    crate::CpuTopology {
+        epoch: crate::TopologyEpoch::INITIAL,
+        processor_to_node: crate::topology::build_processor_to_node(node_count, &mappings),
+        node_to_index: crate::topology::build_node_to_index(&nodes),
+        adjacent_nodes: crate::topology::build_adjacent_nodes(&nodes),
+        numa_nodes: nodes.into_boxed_slice(),
+        logical_processors: node_count,
+        cache_levels: crate::topology::default_cache_levels(node_count),
+    }
+}
+
+fn node_ids_via_split(topology: &crate::CpuTopology) -> std::vec::Vec<u32> {
+    sync_region_placement_scope(|placement| {
+        placement
+            .split(topology)
+            .iter()
+            .map(|p| p.node_id().get())
+            .collect()
+    })
+}
+
+fn node_ids_via_split_with(topology: &crate::CpuTopology) -> std::vec::Vec<u32> {
+    sync_region_placement_scope(|placement| {
+        placement.split_with(topology, |permits| {
+            permits.iter().map(|p| p.node_id().get()).collect()
+        })
+    })
+}
+
+#[test]
+fn split_with_matches_split_across_the_stack_heap_boundary() {
+    // 1 (degenerate), well within the stack path, exactly at the boundary
+    // (127/128), and just past it (129/140) into the heap fallback.
+    for node_count in [1usize, 2, 64, 127, 128, 129, 140] {
+        let topology = synthetic_topology(node_count);
+        let via_split = node_ids_via_split(&topology);
+        let via_split_with = node_ids_via_split_with(&topology);
+        assert_eq!(
+            via_split.len(),
+            node_count,
+            "split: wrong count at node_count={node_count}"
+        );
+        assert_eq!(
+            via_split, via_split_with,
+            "split vs split_with diverged at node_count={node_count}"
+        );
+    }
+}
+
+proptest::proptest! {
+    #[test]
+    fn split_with_matches_split_proptest(node_count in 1usize..=200) {
+        let topology = synthetic_topology(node_count);
+        let via_split = node_ids_via_split(&topology);
+        let via_split_with = node_ids_via_split_with(&topology);
+        proptest::prop_assert_eq!(via_split, via_split_with);
+    }
+}
