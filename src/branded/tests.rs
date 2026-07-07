@@ -457,8 +457,9 @@ fn synthetic_topology(node_count: usize) -> crate::CpuTopology {
             memory_tier: MemoryTier::Dram,
         })
         .collect();
-    let mappings: std::vec::Vec<(u32, NumaNodeId)> =
-        (0..node_count as u32).map(|id| (id, NumaNodeId::new(id))).collect();
+    let mappings: std::vec::Vec<(u32, NumaNodeId)> = (0..node_count as u32)
+        .map(|id| (id, NumaNodeId::new(id)))
+        .collect();
     crate::CpuTopology {
         epoch: crate::TopologyEpoch::INITIAL,
         processor_to_node: crate::topology::build_processor_to_node(node_count, &mappings),
