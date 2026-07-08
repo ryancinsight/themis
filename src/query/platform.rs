@@ -35,7 +35,13 @@ pub(super) fn query_numa_node_or_default() -> NumaNodeId {
 
 #[inline(never)]
 fn query_cpu_locality_os() -> Option<CpuLocality> {
-    #[cfg(all(feature = "std", target_os = "linux"))]
+    // Miri does not emulate raw `getcpu`/`GetCurrentProcessorNumberEx`
+    // syscalls ("unsupported operation"); under Miri neither OS-specific
+    // arm below compiles, falling through to the existing "unsupported
+    // platform" `None` arm — consistent with this function's own contract
+    // (unreported locality is `None`, never fabricated), and Miri is not a
+    // real platform to report locality for.
+    #[cfg(all(feature = "std", target_os = "linux", not(miri)))]
     {
         let mut cpu = 0u32;
         let mut node = 0u32;
@@ -61,7 +67,7 @@ fn query_cpu_locality_os() -> Option<CpuLocality> {
         }
     }
 
-    #[cfg(all(feature = "std", windows))]
+    #[cfg(all(feature = "std", windows, not(miri)))]
     {
         // SAFETY: `GetCurrentProcessorNumberEx` writes to a valid local struct.
         // `GetNumaProcessorNodeEx` reads from that struct and writes one node
@@ -105,8 +111,8 @@ fn query_cpu_locality_os() -> Option<CpuLocality> {
     }
 
     #[cfg(not(any(
-        all(feature = "std", target_os = "linux"),
-        all(feature = "std", windows)
+        all(feature = "std", target_os = "linux", not(miri)),
+        all(feature = "std", windows, not(miri))
     )))]
     {
         None
