@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Changed
+
+- Updated the optional Melinoe contract to 0.9.0 so placement-law consumers
+  share the validated parallel-executor capability version. Themis does not use
+  the changed registration API, so its public surface is unchanged.
+
 ## 0.9.17 - 2026-06-17
 
 ### Changed

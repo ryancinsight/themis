@@ -6,6 +6,10 @@ mnemosyne (allocation), moirai (scheduling), and hephaestus (devices) consume.
 
 ## Delivered
 
+- [x] [patch] Update the optional Melinoe dependency to 0.9.0 as part of the
+  executor-safety co-evolution sweep. Evidence: Clippy, 50/50 nextest, doctests,
+  and rustdoc pass under all features; Themis value semantics are unchanged.
+
 - [x] [patch] Add default `parallel` and `mnemosyne-memory` feature markers to
   the placement-law crate. Evidence: `cargo metadata --no-deps --locked
   --format-version 1`; full Atlas feature-policy metadata audit; `cargo fmt
