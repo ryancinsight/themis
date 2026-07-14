@@ -74,7 +74,8 @@ fn read_level(index_path: &Path) -> Option<u32> {
     let level = fs::read_to_string(index_path.join("level"))
         .ok()?
         .trim()
-        .parse::<u32>()?;
+        .parse::<u32>()
+        .ok()?;
     (1..=3).contains(&level).then_some(level)
 }
 
@@ -104,7 +105,7 @@ fn parse_cache_size(value: &str) -> Option<usize> {
         Some(b'G' | b'g') => (&value[..value.len().saturating_sub(1)], 1024u64.pow(3)),
         _ => (value, 1),
     };
-    let bytes = digits.trim().parse::<u64>()?.checked_mul(multiplier)?;
+    let bytes = digits.trim().parse::<u64>().ok()?.checked_mul(multiplier)?;
     usize::try_from(bytes).ok().filter(|bytes| *bytes > 0)
 }
 
