@@ -6,6 +6,13 @@ mnemosyne (allocation), moirai (scheduling), and hephaestus (devices) consume.
 
 ## Delivered
 
+- [x] [minor] Replace fabricated CPU cache defaults with provider-reported
+  cache levels. Linux sysfs and Windows native cache relationships are parsed
+  into `Option<Box<[CacheLevel]>>`; unavailable data stays absent. Leto and
+  Moirai consumers preserve the typed absence. Evidence: provider nextest
+  50/50 and clippy/doc gates; consumer contract tests land in the dependent
+  increments.
+
 - [x] [patch] Update the optional Melinoe dependency to 0.9.0 as part of the
   executor-safety co-evolution sweep. Evidence: Clippy, 50/50 nextest, doctests,
   and rustdoc pass under all features; Themis value semantics are unchanged.

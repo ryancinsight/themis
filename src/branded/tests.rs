@@ -51,7 +51,7 @@ fn sync_region_split_allows_parallel_node_access() {
         adjacent_nodes: crate::topology::build_adjacent_nodes(&nodes),
         numa_nodes: nodes.into_boxed_slice(),
         logical_processors: 2,
-        cache_levels: crate::topology::default_cache_levels(2),
+        cache_levels: None,
     };
 
     let (val0, val1) = sync_region_placement_scope(|placement| {
@@ -106,7 +106,7 @@ fn sync_region_split_with_avoid_heap_allocations() {
         adjacent_nodes: crate::topology::build_adjacent_nodes(&nodes),
         numa_nodes: nodes.into_boxed_slice(),
         logical_processors: 2,
-        cache_levels: crate::topology::default_cache_levels(2),
+        cache_levels: None,
     };
 
     let (val0, val1) = sync_region_placement_scope(|placement| {
@@ -162,7 +162,7 @@ fn sync_region_pinned_slice_allows_efficient_bulk_access() {
         adjacent_nodes: crate::topology::build_adjacent_nodes(&nodes),
         numa_nodes: nodes.into_boxed_slice(),
         logical_processors: 2,
-        cache_levels: crate::topology::default_cache_levels(2),
+        cache_levels: None,
     };
 
     let (s0_sum, s1_sum) = sync_region_placement_scope(|placement| {
@@ -370,7 +370,7 @@ fn cell_and_slice_reference_types_avoid_allocations() {
         adjacent_nodes: crate::topology::build_adjacent_nodes(&nodes),
         numa_nodes: nodes.into_boxed_slice(),
         logical_processors: 2,
-        cache_levels: crate::topology::default_cache_levels(2),
+        cache_levels: None,
     };
 
     let (val, sum) = sync_region_placement_scope(|placement| {
@@ -467,7 +467,7 @@ fn synthetic_topology(node_count: usize) -> crate::CpuTopology {
         adjacent_nodes: crate::topology::build_adjacent_nodes(&nodes),
         numa_nodes: nodes.into_boxed_slice(),
         logical_processors: node_count,
-        cache_levels: crate::topology::default_cache_levels(node_count),
+        cache_levels: None,
     }
 }
 

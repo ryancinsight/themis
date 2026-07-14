@@ -2,11 +2,29 @@
 
 ## Unreleased
 
+## 0.10.0 - 2026-07-14
+
 ### Changed
 
 - Updated the optional Melinoe contract to 0.9.0 so placement-law consumers
   share the validated parallel-executor capability version. Themis does not use
   the changed registration API, so its public surface is unchanged.
+- Replaced fabricated CPU cache defaults with provider-reported cache levels.
+  Linux reads sysfs cache indices and Windows reads the native logical
+  processor cache relationship; unavailable or malformed data is typed absence.
+  `CpuTopology::cache_levels` now returns `Option`, and each reported level
+  carries an optional provider line size.
+
+### Breaking
+
+- `CpuTopology::cache_levels()` returns `Option<&[CacheLevel]>`; consumers must
+  handle unavailable cache topology instead of reading synthetic defaults.
+
+### Migration
+
+- Match on `cache_levels()` before deriving cache-aware tiling or locality
+  policy. `CacheLevel::line_bytes` is optional because providers may omit line
+  size even when they report cache capacity.
 
 ## 0.9.17 - 2026-06-17
 

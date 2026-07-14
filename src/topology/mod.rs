@@ -14,6 +14,4 @@ pub use tpu::TpuTopology;
 pub use types::{CacheLevel, GpuDeviceProperties, NumaNode, TpuDeviceProperties};
 
 #[cfg(test)]
-pub(crate) use cpu::{
-    build_adjacent_nodes, build_node_to_index, build_processor_to_node, default_cache_levels,
-};
+pub(crate) use cpu::{build_adjacent_nodes, build_node_to_index, build_processor_to_node};

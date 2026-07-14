@@ -2,7 +2,7 @@
 
 use super::super::{
     build_adjacent_nodes, build_default_distance_row, build_node_to_index, build_processor_to_node,
-    default_cache_levels, logical_processor_count, CpuTopology,
+    detect_cache_levels, logical_processor_count, parse_cpu_list, CpuTopology,
 };
 use crate::law::{MemoryTier, NumaNodeId, TopologyEpoch};
 use crate::topology::types::NumaNode;
@@ -70,28 +70,6 @@ pub(super) fn detect() -> Option<CpuTopology> {
         processor_to_node,
         adjacent_nodes,
         logical_processors,
-        cache_levels: default_cache_levels(logical_processors),
+        cache_levels: detect_cache_levels(logical_processors),
     })
-}
-
-fn parse_cpu_list(cpulist: &str) -> Vec<u32> {
-    let mut processors = Vec::new();
-    for part in cpulist.trim().split(',') {
-        if processors.len() >= 32768 {
-            break;
-        }
-        if let Some((start, end)) = part.split_once('-') {
-            if let (Ok(start), Ok(end)) = (start.parse::<u32>(), end.parse::<u32>()) {
-                if start < 32768 && end < 32768 && start <= end {
-                    let limit = (32768 - processors.len()).min((end - start + 1) as usize);
-                    processors.extend(start..start + limit as u32);
-                }
-            }
-        } else if let Ok(processor) = part.parse::<u32>() {
-            if processor < 32768 {
-                processors.push(processor);
-            }
-        }
-    }
-    processors
 }

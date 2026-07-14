@@ -28,6 +28,8 @@ pub struct CacheLevel {
     pub level: u32,
     /// Cache size in bytes.
     pub size_bytes: usize,
+    /// Cache-line size in bytes when the provider reports it.
+    pub line_bytes: Option<usize>,
     /// Processors sharing this cache.
     pub shared_processors: Box<[u32]>,
 }
