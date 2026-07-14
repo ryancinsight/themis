@@ -1,6 +1,8 @@
 //! CPU topology snapshot and accessors.
 
 mod cache;
+#[cfg(all(feature = "std", target_os = "linux"))]
+mod cpulist;
 mod detect;
 mod tables;
 
@@ -16,7 +18,9 @@ use alloc::boxed::Box;
 #[cfg(not(feature = "std"))]
 use alloc::vec;
 
-pub(crate) use cache::default_cache_levels;
+pub(crate) use cache::detect_cache_levels;
+#[cfg(all(feature = "std", target_os = "linux"))]
+pub(crate) use cpulist::parse_cpu_list;
 pub(crate) use tables::{build_adjacent_nodes, build_node_to_index};
 #[cfg(any(test, feature = "std"))]
 pub(crate) use tables::{build_default_distance_row, build_processor_to_node};
@@ -32,7 +36,7 @@ pub struct CpuTopology {
     pub(crate) node_to_index: Box<[usize]>,
     pub(crate) adjacent_nodes: Box<[NumaNodeId]>,
     pub(crate) logical_processors: usize,
-    pub(crate) cache_levels: Box<[CacheLevel]>,
+    pub(crate) cache_levels: Option<Box<[CacheLevel]>>,
 }
 
 impl CpuTopology {
@@ -56,7 +60,7 @@ impl CpuTopology {
             adjacent_nodes: build_adjacent_nodes(&numa_nodes),
             numa_nodes,
             logical_processors,
-            cache_levels: default_cache_levels(logical_processors),
+            cache_levels: None,
         }
     }
 
@@ -72,24 +76,20 @@ impl CpuTopology {
         &self.numa_nodes
     }
 
-    /// Returns the cache hierarchy table.
+    /// Returns the platform-reported cache hierarchy table.
     ///
     /// # Provenance
     ///
-    /// CPU cache is **not yet probed on any platform**: both the Linux and
-    /// Windows detection backends currently attach the conservative synthetic
-    /// defaults from `default_cache_levels` (L1 = 32 KiB, L2 = 256 KiB,
-    /// L3 = 8 MiB, L1/L2 unshared, L3 shared by all processors) rather than
-    /// the machine's actual cache. These are plausible-typical placeholders,
-    /// not measurements — unlike the GPU/TPU path, which reports `0` for
-    /// unknown capacities and never fabricates. Consumers that tile on cache
-    /// size (e.g. `leto`) must treat these as a conservative hint, not
-    /// ground truth. A real cache backend (Linux `sysfs` cache indices,
-    /// Windows `GetLogicalProcessorInformationEx`) is tracked in the backlog;
-    /// until it lands, this value is uniform across every host.
+    /// `None` means the platform did not report a complete cache hierarchy.
+    /// The single-node constructor never fabricates cache values. Linux reads
+    /// cache-index records from sysfs, and Windows reads
+    /// `GetLogicalProcessorInformationEx`; malformed or unavailable platform
+    /// data remains typed absence. Consumers that tile on cache size must
+    /// preserve that absence instead of substituting a machine-independent
+    /// guess.
     #[must_use]
-    pub fn cache_levels(&self) -> &[CacheLevel] {
-        &self.cache_levels
+    pub fn cache_levels(&self) -> Option<&[CacheLevel]> {
+        self.cache_levels.as_deref()
     }
 
     /// Returns the logical processor count.

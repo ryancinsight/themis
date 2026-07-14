@@ -40,10 +40,11 @@ leto      -> themis   cache-sized tiling hints
 No Themis API stores allocator state, scheduler state, or raw thread-local
 storage pointers.
 
-`CacheLevel` is topology law, not a cache detector. Leto consumes cache sizes
-as tiling hints, and Moirai consumes shared-processor rows as chunk-locality
-hints. Unknown cache properties stay represented by conservative provider
-defaults until a platform backend supplies stronger data.
+`CacheLevel` is provider-reported topology law. Linux reads cache-index records
+from sysfs and Windows reads `GetLogicalProcessorInformationEx`; unavailable or
+malformed cache data is `None`, never a synthetic capacity. Leto consumes cache
+sizes as tiling hints, and Moirai consumes shared-processor rows as
+chunk-locality hints. Consumers must preserve typed cache absence.
 
 ## Benchmarks
 
@@ -62,8 +63,10 @@ it is not a statistical baseline or a speedup claim.
 Current correctness claims rest on type-level encoding plus value-semantic unit
 tests. Branded placement-state claims rest on Melinoe token invariants. OS
 topology discovery is empirical and falls back to a single-node topology when
-platform data is unavailable. Cache consumer contracts are documentation-level
-evidence until leto and moirai add contract tests against the public surface.
+platform data is unavailable. Cache discovery is empirical platform data with
+value-semantic parser tests; cache absence remains explicit until a provider
+reports a complete hierarchy. Leto and Moirai carry the typed absence through
+their public consumer surfaces.
 Benchmark claims currently rest on the dependency-free topology benchmark
 harness and must be treated as empirical local timing unless a criterion
 baseline is added.

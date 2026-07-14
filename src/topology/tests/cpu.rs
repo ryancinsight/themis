@@ -2,7 +2,7 @@
 
 use super::super::cpu::{
     build_adjacent_nodes, build_default_distance_row, build_node_to_index, build_processor_to_node,
-    default_cache_levels, CpuTopology, LOCAL_DISTANCE, REMOTE_DISTANCE,
+    CpuTopology, LOCAL_DISTANCE, REMOTE_DISTANCE,
 };
 use super::super::types::NumaNode;
 use crate::law::{MemoryTier, NumaNodeId, TopologyEpoch};
@@ -27,19 +27,8 @@ fn single_node_maps_every_processor_to_node_zero() {
 }
 
 #[test]
-fn default_cache_levels_share_only_last_level() {
-    let levels = default_cache_levels(4);
-
-    assert_eq!(levels.len(), 3);
-    assert_eq!(levels[0].level, 1);
-    assert_eq!(levels[0].size_bytes, 32 * 1024);
-    assert_eq!(levels[0].shared_processors.as_ref(), &[]);
-    assert_eq!(levels[1].level, 2);
-    assert_eq!(levels[1].size_bytes, 256 * 1024);
-    assert_eq!(levels[1].shared_processors.as_ref(), &[]);
-    assert_eq!(levels[2].level, 3);
-    assert_eq!(levels[2].size_bytes, 8 * 1024 * 1024);
-    assert_eq!(levels[2].shared_processors.as_ref(), &[0, 1, 2, 3]);
+fn single_node_does_not_fabricate_cache_levels() {
+    assert_eq!(CpuTopology::single_node(4).cache_levels(), None);
 }
 
 #[test]
@@ -113,7 +102,7 @@ fn sparse_node_ids_use_compact_distance_rows() {
         adjacent_nodes: build_adjacent_nodes(&nodes),
         numa_nodes: nodes.into_boxed_slice(),
         logical_processors: 2,
-        cache_levels: default_cache_levels(2),
+        cache_levels: None,
     };
 
     assert_eq!(topology.processor_to_numa_node(1), Some(NumaNodeId::new(7)));
@@ -154,7 +143,7 @@ fn raw_indexed_sparse_node_ids_resolve_correct_distances() {
         adjacent_nodes: build_adjacent_nodes(&nodes),
         numa_nodes: nodes.into_boxed_slice(),
         logical_processors: 2,
-        cache_levels: default_cache_levels(2),
+        cache_levels: None,
     };
 
     assert_eq!(
@@ -197,7 +186,7 @@ fn compact_distance_indexing_with_shifted_node_ids() {
         adjacent_nodes: build_adjacent_nodes(&nodes),
         numa_nodes: nodes.into_boxed_slice(),
         logical_processors: 2,
-        cache_levels: default_cache_levels(2),
+        cache_levels: None,
     };
 
     assert_eq!(
