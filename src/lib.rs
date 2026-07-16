@@ -38,3 +38,11 @@ pub use topology::{
     CacheLevel, CpuTopology, GpuDeviceProperties, GpuTopology, NumaNode, TpuDeviceProperties,
     TpuTopology,
 };
+
+// Test-only re-exports for integration tests (they are `pub` at definition
+// site but live inside a private `mod topology`, so crate-root re-export
+// is required for integration-test access).
+#[cfg(test)]
+pub use topology::{
+    build_adjacent_nodes, build_default_distance_row, build_node_to_index, build_processor_to_node,
+};

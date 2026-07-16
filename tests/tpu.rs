@@ -1,8 +1,6 @@
-//! TPU topology unit tests.
+//! TPU topology integration tests.
 
-use super::super::tpu::TpuTopology;
-use super::super::types::TpuDeviceProperties;
-use crate::law::TopologyEpoch;
+use themis::{TopologyEpoch, TpuDeviceProperties, TpuTopology};
 
 fn sample_properties() -> TpuDeviceProperties {
     TpuDeviceProperties {

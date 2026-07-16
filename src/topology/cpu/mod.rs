@@ -21,10 +21,10 @@ use alloc::vec;
 pub(crate) use cache::detect_cache_levels;
 #[cfg(all(feature = "std", target_os = "linux"))]
 pub(crate) use cpulist::parse_cpu_list;
-pub(crate) use tables::{build_adjacent_nodes, build_node_to_index};
+pub use tables::{build_adjacent_nodes, build_node_to_index};
 #[cfg(any(test, feature = "std"))]
-pub(crate) use tables::{build_default_distance_row, build_processor_to_node};
-pub(in crate::topology) use tables::{LOCAL_DISTANCE, REMOTE_DISTANCE};
+pub use tables::{build_default_distance_row, build_processor_to_node};
+pub use tables::{LOCAL_DISTANCE, REMOTE_DISTANCE};
 
 /// CPU topology snapshot.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -61,6 +61,31 @@ impl CpuTopology {
             numa_nodes,
             logical_processors,
             cache_levels: None,
+        }
+    }
+
+    /// Construct a topology from primary fields for testing.
+    ///
+    /// `node_to_index` and `adjacent_nodes` are derived from `numa_nodes`.
+    #[cfg(test)]
+    #[must_use]
+    pub fn new_for_test(
+        epoch: TopologyEpoch,
+        numa_nodes: Box<[NumaNode]>,
+        processor_to_node: Box<[NumaNodeId]>,
+        logical_processors: usize,
+        cache_levels: Option<Box<[CacheLevel]>>,
+    ) -> Self {
+        let node_to_index = build_node_to_index(&numa_nodes);
+        let adjacent_nodes = build_adjacent_nodes(&numa_nodes);
+        Self {
+            epoch,
+            numa_nodes,
+            processor_to_node,
+            node_to_index,
+            adjacent_nodes,
+            logical_processors,
+            cache_levels,
         }
     }
 
