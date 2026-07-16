@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Changed
+
+- Pin the optional Melinoe dependency to `bb07447f`, matching the exact source
+  consumed by Atlas providers. This prevents Cargo from resolving both default-
+  branch and revision identities for the same branded-placement dependency.
+
 ## 0.10.0 - 2026-07-14
 
 ### Changed
