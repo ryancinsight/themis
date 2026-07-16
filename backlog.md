@@ -6,10 +6,10 @@ mnemosyne (allocation), moirai (scheduling), and hephaestus (devices) consume.
 
 ## Delivered
 
-- [x] [patch] Pin optional Melinoe to `bb07447f`, matching the transitive Atlas
-  provider source identity without a consumer-side patch. Evidence: formatting,
-  all-feature check and warning-denied Clippy, 50/50 Nextest cases, doctest,
-  rustdoc, and a single resolved Melinoe source.
+- [x] [patch] Resolve optional Melinoe from its default source, removing the
+  revision identity that duplicated the Atlas provider graph. Evidence:
+  formatting, all-feature check and warning-denied Clippy, value-semantic
+  nextest, doctest, rustdoc, and a single resolved Melinoe source.
 
 - [x] [minor] Replace fabricated CPU cache defaults with provider-reported
   cache levels. Linux sysfs and Windows native cache relationships are parsed
