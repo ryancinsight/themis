@@ -19,7 +19,7 @@ std = ["melinoe?/std"]
 melinoe = ["dep:melinoe"]
 
 [dependencies]
-melinoe = { git = "https://github.com/ryancinsight/melinoe.git", version = "0.9.0", default-features = false, optional = true }
+melinoe = { git = "https://github.com/ryancinsight/melinoe.git", rev = "bb07447f6c71978c6fed47114ba9ecfda965ddc9", version = "0.9.0", default-features = false, optional = true }
 
 [dev-dependencies]
 proptest = "1"
