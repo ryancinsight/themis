@@ -4,9 +4,8 @@
 
 ### Changed
 
-- Pin the optional Melinoe dependency to `bb07447f`, matching the exact source
-  consumed by Atlas providers. This prevents Cargo from resolving both default-
-  branch and revision identities for the same branded-placement dependency.
+- Resolve the optional Melinoe dependency from its default source, removing the
+  revision identity that duplicated the provider graph in Atlas consumers.
 
 ## 0.10.0 - 2026-07-14
 
