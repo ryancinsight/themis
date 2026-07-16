@@ -15,8 +15,8 @@ use alloc::vec;
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 
-pub(in crate::topology) const LOCAL_DISTANCE: u32 = 10;
-pub(in crate::topology) const REMOTE_DISTANCE: u32 = 20;
+pub const LOCAL_DISTANCE: u32 = 10;
+pub const REMOTE_DISTANCE: u32 = 20;
 
 pub(in crate::topology) const fn default_distance(from_index: usize, to_index: usize) -> u32 {
     if from_index == to_index {
@@ -27,7 +27,7 @@ pub(in crate::topology) const fn default_distance(from_index: usize, to_index: u
 }
 
 #[cfg(any(test, feature = "std"))]
-pub(crate) fn build_default_distance_row(node_count: usize, from_index: usize) -> Box<[u32]> {
+pub fn build_default_distance_row(node_count: usize, from_index: usize) -> Box<[u32]> {
     (0..node_count)
         .map(|to_index| default_distance(from_index, to_index))
         .collect::<Vec<_>>()
@@ -35,7 +35,7 @@ pub(crate) fn build_default_distance_row(node_count: usize, from_index: usize) -
 }
 
 #[cfg(any(test, feature = "std"))]
-pub(crate) fn build_processor_to_node(
+pub fn build_processor_to_node(
     logical_processors: usize,
     mappings: &[(u32, NumaNodeId)],
 ) -> Box<[NumaNodeId]> {
@@ -57,7 +57,7 @@ pub(crate) fn build_processor_to_node(
     processor_to_node.into_boxed_slice()
 }
 
-pub(crate) fn build_node_to_index(nodes: &[NumaNode]) -> Box<[usize]> {
+pub fn build_node_to_index(nodes: &[NumaNode]) -> Box<[usize]> {
     let max_node = nodes.iter().map(|node| node.id.index()).max().unwrap_or(0);
     assert!(
         max_node < 1024,
@@ -77,7 +77,7 @@ pub(crate) fn build_node_to_index(nodes: &[NumaNode]) -> Box<[usize]> {
     node_to_index.into_boxed_slice()
 }
 
-pub(crate) fn build_adjacent_nodes(nodes: &[NumaNode]) -> Box<[NumaNodeId]> {
+pub fn build_adjacent_nodes(nodes: &[NumaNode]) -> Box<[NumaNodeId]> {
     let node_count = nodes.len();
     if node_count <= 1 {
         return Box::default();

@@ -1,8 +1,6 @@
-//! GPU topology unit tests.
+//! GPU topology integration tests.
 
-use super::super::gpu::GpuTopology;
-use super::super::types::GpuDeviceProperties;
-use crate::law::{MemoryTier, TopologyEpoch};
+use themis::{GpuDeviceProperties, GpuTopology, MemoryTier, TopologyEpoch};
 
 fn sample_properties() -> GpuDeviceProperties {
     GpuDeviceProperties {

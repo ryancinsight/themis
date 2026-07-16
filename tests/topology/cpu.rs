@@ -1,17 +1,10 @@
 //! CPU topology unit tests.
 
-use super::super::cpu::{
+use themis::{
     build_adjacent_nodes, build_default_distance_row, build_node_to_index, build_processor_to_node,
-    CpuTopology, LOCAL_DISTANCE, REMOTE_DISTANCE,
+    CpuTopology, MemoryTier, NumaNode, NumaNodeId, TopologyEpoch,
 };
-use super::super::types::NumaNode;
-use crate::law::{MemoryTier, NumaNodeId, TopologyEpoch};
-
-#[cfg(not(feature = "std"))]
-extern crate alloc;
-
-#[cfg(not(feature = "std"))]
-use alloc::vec;
+use themis::{LOCAL_DISTANCE, REMOTE_DISTANCE};
 
 #[test]
 fn single_node_maps_every_processor_to_node_zero() {
@@ -92,18 +85,15 @@ fn sparse_node_ids_use_compact_distance_rows() {
             memory_tier: MemoryTier::Dram,
         },
     ];
-    let topology = CpuTopology {
-        epoch: TopologyEpoch::INITIAL,
-        processor_to_node: build_processor_to_node(
-            2,
-            &[(0, NumaNodeId::new(2)), (1, NumaNodeId::new(7))],
-        ),
-        node_to_index: build_node_to_index(&nodes),
-        adjacent_nodes: build_adjacent_nodes(&nodes),
-        numa_nodes: nodes.into_boxed_slice(),
-        logical_processors: 2,
-        cache_levels: None,
-    };
+    let processor_to_node =
+        build_processor_to_node(2, &[(0, NumaNodeId::new(2)), (1, NumaNodeId::new(7))]);
+    let topology = CpuTopology::new_for_test(
+        TopologyEpoch::INITIAL,
+        nodes.into_boxed_slice(),
+        processor_to_node,
+        2,
+        None,
+    );
 
     assert_eq!(topology.processor_to_numa_node(1), Some(NumaNodeId::new(7)));
     assert_eq!(
@@ -133,18 +123,15 @@ fn raw_indexed_sparse_node_ids_resolve_correct_distances() {
             memory_tier: MemoryTier::Dram,
         },
     ];
-    let topology = CpuTopology {
-        epoch: TopologyEpoch::INITIAL,
-        processor_to_node: build_processor_to_node(
-            2,
-            &[(0, NumaNodeId::new(2)), (1, NumaNodeId::new(7))],
-        ),
-        node_to_index: build_node_to_index(&nodes),
-        adjacent_nodes: build_adjacent_nodes(&nodes),
-        numa_nodes: nodes.into_boxed_slice(),
-        logical_processors: 2,
-        cache_levels: None,
-    };
+    let processor_to_node =
+        build_processor_to_node(2, &[(0, NumaNodeId::new(2)), (1, NumaNodeId::new(7))]);
+    let topology = CpuTopology::new_for_test(
+        TopologyEpoch::INITIAL,
+        nodes.into_boxed_slice(),
+        processor_to_node,
+        2,
+        None,
+    );
 
     assert_eq!(
         topology.distance(NumaNodeId::new(2), NumaNodeId::new(7)),
@@ -176,18 +163,15 @@ fn compact_distance_indexing_with_shifted_node_ids() {
             memory_tier: MemoryTier::Dram,
         },
     ];
-    let topology = CpuTopology {
-        epoch: TopologyEpoch::INITIAL,
-        processor_to_node: build_processor_to_node(
-            2,
-            &[(0, NumaNodeId::new(1)), (1, NumaNodeId::new(2))],
-        ),
-        node_to_index: build_node_to_index(&nodes),
-        adjacent_nodes: build_adjacent_nodes(&nodes),
-        numa_nodes: nodes.into_boxed_slice(),
-        logical_processors: 2,
-        cache_levels: None,
-    };
+    let processor_to_node =
+        build_processor_to_node(2, &[(0, NumaNodeId::new(1)), (1, NumaNodeId::new(2))]);
+    let topology = CpuTopology::new_for_test(
+        TopologyEpoch::INITIAL,
+        nodes.into_boxed_slice(),
+        processor_to_node,
+        2,
+        None,
+    );
 
     assert_eq!(
         topology.distance(NumaNodeId::new(2), NumaNodeId::new(1)),
@@ -230,8 +214,8 @@ fn duplicate_node_ids_panics_on_construction() {
 
 use proptest::prelude::*;
 
-/// Mirror of the crate-private `default_distance` (self = local, other =
-/// remote), expressed through the public distance constants.
+/// Mirror of `default_distance` (self = local, other = remote), expressed
+/// through the public distance constants.
 fn ref_default_distance(from_index: usize, to_index: usize) -> u32 {
     if from_index == to_index {
         LOCAL_DISTANCE

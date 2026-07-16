@@ -1,7 +1,14 @@
 //! Branded placement scope unit tests.
 
-use super::{sync_region_placement_scope, thread_local_placement_scope};
-use crate::{MemoryTier, NumaNodeId, PlacementHint};
+use themis::{
+    build_adjacent_nodes, build_node_to_index, build_processor_to_node, CpuTopology, MemoryTier,
+    NumaNode, NumaNodeId, PlacementHint, TopologyEpoch,
+};
+use themis::{
+    sync_region_placement_scope, thread_local_placement_scope, ConstNumaPinnedCell,
+    ConstNumaPinnedCellRef, ConstNumaPinnedSlice, ConstNumaPinnedSliceRef, NumaPinnedCell,
+    NumaPinnedCellRef, NumaPinnedSlice, NumaPinnedSliceRef,
+};
 
 #[test]
 fn thread_local_scope_controls_placement_state() {
@@ -27,36 +34,33 @@ fn sync_region_scope_controls_portable_placement_state() {
 
 #[test]
 fn sync_region_split_allows_parallel_node_access() {
-    let nodes = std::vec![
-        crate::NumaNode {
+    let nodes = vec![
+        NumaNode {
             id: NumaNodeId::new(0),
-            processors: std::vec![0].into_boxed_slice(),
-            distances: std::vec![10, 20].into_boxed_slice(),
+            processors: vec![0].into_boxed_slice(),
+            distances: vec![10, 20].into_boxed_slice(),
             memory_tier: MemoryTier::Dram,
         },
-        crate::NumaNode {
+        NumaNode {
             id: NumaNodeId::new(1),
-            processors: std::vec![1].into_boxed_slice(),
-            distances: std::vec![20, 10].into_boxed_slice(),
+            processors: vec![1].into_boxed_slice(),
+            distances: vec![20, 10].into_boxed_slice(),
             memory_tier: MemoryTier::Dram,
         },
     ];
-    let topology = crate::CpuTopology {
-        epoch: crate::TopologyEpoch::INITIAL,
-        processor_to_node: crate::topology::build_processor_to_node(
-            2,
-            &[(0, NumaNodeId::new(0)), (1, NumaNodeId::new(1))],
-        ),
-        node_to_index: crate::topology::build_node_to_index(&nodes),
-        adjacent_nodes: crate::topology::build_adjacent_nodes(&nodes),
-        numa_nodes: nodes.into_boxed_slice(),
-        logical_processors: 2,
-        cache_levels: None,
-    };
+    let processor_to_node =
+        build_processor_to_node(2, &[(0, NumaNodeId::new(0)), (1, NumaNodeId::new(1))]);
+    let topology = CpuTopology::new_for_test(
+        TopologyEpoch::INITIAL,
+        nodes.into_boxed_slice(),
+        processor_to_node,
+        2,
+        None,
+    );
 
     let (val0, val1) = sync_region_placement_scope(|placement| {
-        let cell0 = super::NumaPinnedCell::new(NumaNodeId::new(0), 100u32);
-        let cell1 = super::NumaPinnedCell::new(NumaNodeId::new(1), 200u32);
+        let cell0 = NumaPinnedCell::new(NumaNodeId::new(0), 100u32);
+        let cell1 = NumaPinnedCell::new(NumaNodeId::new(1), 200u32);
 
         let mut permits = placement.split(&topology);
         assert_eq!(permits.len(), 2);
@@ -82,36 +86,33 @@ fn sync_region_split_allows_parallel_node_access() {
 
 #[test]
 fn sync_region_split_with_avoid_heap_allocations() {
-    let nodes = std::vec![
-        crate::NumaNode {
+    let nodes = vec![
+        NumaNode {
             id: NumaNodeId::new(0),
-            processors: std::vec![0].into_boxed_slice(),
-            distances: std::vec![10, 20].into_boxed_slice(),
+            processors: vec![0].into_boxed_slice(),
+            distances: vec![10, 20].into_boxed_slice(),
             memory_tier: MemoryTier::Dram,
         },
-        crate::NumaNode {
+        NumaNode {
             id: NumaNodeId::new(1),
-            processors: std::vec![1].into_boxed_slice(),
-            distances: std::vec![20, 10].into_boxed_slice(),
+            processors: vec![1].into_boxed_slice(),
+            distances: vec![20, 10].into_boxed_slice(),
             memory_tier: MemoryTier::Dram,
         },
     ];
-    let topology = crate::CpuTopology {
-        epoch: crate::TopologyEpoch::INITIAL,
-        processor_to_node: crate::topology::build_processor_to_node(
-            2,
-            &[(0, NumaNodeId::new(0)), (1, NumaNodeId::new(1))],
-        ),
-        node_to_index: crate::topology::build_node_to_index(&nodes),
-        adjacent_nodes: crate::topology::build_adjacent_nodes(&nodes),
-        numa_nodes: nodes.into_boxed_slice(),
-        logical_processors: 2,
-        cache_levels: None,
-    };
+    let processor_to_node =
+        build_processor_to_node(2, &[(0, NumaNodeId::new(0)), (1, NumaNodeId::new(1))]);
+    let topology = CpuTopology::new_for_test(
+        TopologyEpoch::INITIAL,
+        nodes.into_boxed_slice(),
+        processor_to_node,
+        2,
+        None,
+    );
 
     let (val0, val1) = sync_region_placement_scope(|placement| {
-        let cell0 = super::NumaPinnedCell::new(NumaNodeId::new(0), 500u32);
-        let cell1 = super::NumaPinnedCell::new(NumaNodeId::new(1), 600u32);
+        let cell0 = NumaPinnedCell::new(NumaNodeId::new(0), 500u32);
+        let cell1 = NumaPinnedCell::new(NumaNodeId::new(1), 600u32);
 
         placement.split_with(&topology, |permits| {
             assert_eq!(permits.len(), 2);
@@ -138,36 +139,33 @@ fn sync_region_split_with_avoid_heap_allocations() {
 
 #[test]
 fn sync_region_pinned_slice_allows_efficient_bulk_access() {
-    let nodes = std::vec![
-        crate::NumaNode {
+    let nodes = vec![
+        NumaNode {
             id: NumaNodeId::new(0),
-            processors: std::vec![0].into_boxed_slice(),
-            distances: std::vec![10, 20].into_boxed_slice(),
+            processors: vec![0].into_boxed_slice(),
+            distances: vec![10, 20].into_boxed_slice(),
             memory_tier: MemoryTier::Dram,
         },
-        crate::NumaNode {
+        NumaNode {
             id: NumaNodeId::new(1),
-            processors: std::vec![1].into_boxed_slice(),
-            distances: std::vec![20, 10].into_boxed_slice(),
+            processors: vec![1].into_boxed_slice(),
+            distances: vec![20, 10].into_boxed_slice(),
             memory_tier: MemoryTier::Dram,
         },
     ];
-    let topology = crate::CpuTopology {
-        epoch: crate::TopologyEpoch::INITIAL,
-        processor_to_node: crate::topology::build_processor_to_node(
-            2,
-            &[(0, NumaNodeId::new(0)), (1, NumaNodeId::new(1))],
-        ),
-        node_to_index: crate::topology::build_node_to_index(&nodes),
-        adjacent_nodes: crate::topology::build_adjacent_nodes(&nodes),
-        numa_nodes: nodes.into_boxed_slice(),
-        logical_processors: 2,
-        cache_levels: None,
-    };
+    let processor_to_node =
+        build_processor_to_node(2, &[(0, NumaNodeId::new(0)), (1, NumaNodeId::new(1))]);
+    let topology = CpuTopology::new_for_test(
+        TopologyEpoch::INITIAL,
+        nodes.into_boxed_slice(),
+        processor_to_node,
+        2,
+        None,
+    );
 
     let (s0_sum, s1_sum) = sync_region_placement_scope(|placement| {
-        let slice0 = super::NumaPinnedSlice::new(NumaNodeId::new(0), std::vec![1, 2, 3]);
-        let slice1 = super::NumaPinnedSlice::new(NumaNodeId::new(1), std::vec![10, 20, 30]);
+        let slice0 = NumaPinnedSlice::new(NumaNodeId::new(0), vec![1, 2, 3]);
+        let slice1 = NumaPinnedSlice::new(NumaNodeId::new(1), vec![10, 20, 30]);
 
         let mut permits = placement.split(&topology);
         assert_eq!(permits.len(), 2);
@@ -211,8 +209,8 @@ fn sync_region_pinned_slice_allows_efficient_bulk_access() {
 #[test]
 fn const_numa_branding_provides_zero_cost_static_access() {
     let (val0, val1) = sync_region_placement_scope(|placement| {
-        let cell0 = super::ConstNumaPinnedCell::<0, u32>::new(700);
-        let cell1 = super::ConstNumaPinnedCell::<1, u32>::new(800);
+        let cell0 = ConstNumaPinnedCell::<0, u32>::new(700);
+        let cell1 = ConstNumaPinnedCell::<1, u32>::new(800);
 
         let (mut permit0, mut permit1) = placement.split_static::<0, 1>();
 
@@ -229,9 +227,9 @@ fn const_numa_branding_provides_zero_cost_static_access() {
 #[test]
 fn const_numa_split_static_3_gives_three_disjoint_permits() {
     let (v0, v1, v2) = sync_region_placement_scope(|placement| {
-        let cell0 = super::ConstNumaPinnedCell::<0, u32>::new(0);
-        let cell1 = super::ConstNumaPinnedCell::<1, u32>::new(0);
-        let cell2 = super::ConstNumaPinnedCell::<2, u32>::new(0);
+        let cell0 = ConstNumaPinnedCell::<0, u32>::new(0);
+        let cell1 = ConstNumaPinnedCell::<1, u32>::new(0);
+        let cell2 = ConstNumaPinnedCell::<2, u32>::new(0);
 
         let (mut p0, mut p1, mut p2) = placement.split_static_3::<0, 1, 2>();
         *p0.write(&cell0) = 10;
@@ -247,10 +245,10 @@ fn const_numa_split_static_3_gives_three_disjoint_permits() {
 #[test]
 fn const_numa_split_static_4_gives_four_disjoint_permits() {
     let (v0, v1, v2, v3) = sync_region_placement_scope(|placement| {
-        let cell0 = super::ConstNumaPinnedCell::<0, u32>::new(0);
-        let cell1 = super::ConstNumaPinnedCell::<1, u32>::new(0);
-        let cell2 = super::ConstNumaPinnedCell::<2, u32>::new(0);
-        let cell3 = super::ConstNumaPinnedCell::<3, u32>::new(0);
+        let cell0 = ConstNumaPinnedCell::<0, u32>::new(0);
+        let cell1 = ConstNumaPinnedCell::<1, u32>::new(0);
+        let cell2 = ConstNumaPinnedCell::<2, u32>::new(0);
+        let cell3 = ConstNumaPinnedCell::<3, u32>::new(0);
 
         let (mut p0, mut p1, mut p2, mut p3) = placement.split_static_4::<0, 1, 2, 3>();
         *p0.write(&cell0) = 11;
@@ -272,7 +270,7 @@ fn const_numa_split_static_4_gives_four_disjoint_permits() {
 #[test]
 fn const_numa_pinned_slices_support_direct_borrowing() {
     let sum = sync_region_placement_scope(|placement| {
-        let slice = super::ConstNumaPinnedSlice::<0, u32>::new(std::vec![10, 20, 30]);
+        let slice = ConstNumaPinnedSlice::<0, u32>::new(vec![10, 20, 30]);
         let mut permit = unsafe { placement.project_static::<0>() };
 
         let elements = permit.write_slice(&slice);
@@ -289,8 +287,8 @@ fn const_numa_pinned_slices_support_direct_borrowing() {
 #[test]
 fn thread_local_numa_placement_controls_local_access() {
     let (s0_val, s1_val) = thread_local_placement_scope(|placement| {
-        let cell0 = super::NumaPinnedCell::new(NumaNodeId::new(0), 10u32);
-        let cell1 = super::NumaPinnedCell::new(NumaNodeId::new(1), 20u32);
+        let cell0 = NumaPinnedCell::new(NumaNodeId::new(0), 10u32);
+        let cell1 = NumaPinnedCell::new(NumaNodeId::new(1), 20u32);
 
         let mut permit = placement.pin_local();
         let target_node = permit.node_id();
@@ -321,14 +319,14 @@ fn thread_local_numa_placement_controls_local_access() {
 #[test]
 fn const_thread_local_numa_placement_controls_static_access() {
     let (val0, _) = thread_local_placement_scope(|placement| {
-        let cell0 = super::ConstNumaPinnedCell::<0, u32>::new(100);
+        let cell0 = ConstNumaPinnedCell::<0, u32>::new(100);
         let mut permit = placement.pin_local_static::<0>();
         *permit.write(&cell0) += 50;
         (*permit.read(&cell0), 0)
     });
 
     let sum1_actual = thread_local_placement_scope(|placement| {
-        let slice1 = super::ConstNumaPinnedSlice::<1, u32>::new(std::vec![1, 2, 3]);
+        let slice1 = ConstNumaPinnedSlice::<1, u32>::new(vec![1, 2, 3]);
         let mut permit = placement.pin_local_static::<1>();
         let slice = permit.write_slice(&slice1);
         for x in slice.iter_mut() {
@@ -343,35 +341,31 @@ fn const_thread_local_numa_placement_controls_static_access() {
 
 #[test]
 fn cell_and_slice_reference_types_avoid_allocations() {
-    use super::{NumaPinnedCellRef, NumaPinnedSliceRef};
     use melinoe::MelinoeCell;
 
-    let nodes = std::vec![
-        crate::NumaNode {
+    let nodes = vec![
+        NumaNode {
             id: NumaNodeId::new(0),
-            processors: std::vec![0].into_boxed_slice(),
-            distances: std::vec![10, 20].into_boxed_slice(),
+            processors: vec![0].into_boxed_slice(),
+            distances: vec![10, 20].into_boxed_slice(),
             memory_tier: MemoryTier::Dram,
         },
-        crate::NumaNode {
+        NumaNode {
             id: NumaNodeId::new(1),
-            processors: std::vec![1].into_boxed_slice(),
-            distances: std::vec![20, 10].into_boxed_slice(),
+            processors: vec![1].into_boxed_slice(),
+            distances: vec![20, 10].into_boxed_slice(),
             memory_tier: MemoryTier::Dram,
         },
     ];
-    let topology = crate::CpuTopology {
-        epoch: crate::TopologyEpoch::INITIAL,
-        processor_to_node: crate::topology::build_processor_to_node(
-            2,
-            &[(0, NumaNodeId::new(0)), (1, NumaNodeId::new(1))],
-        ),
-        node_to_index: crate::topology::build_node_to_index(&nodes),
-        adjacent_nodes: crate::topology::build_adjacent_nodes(&nodes),
-        numa_nodes: nodes.into_boxed_slice(),
-        logical_processors: 2,
-        cache_levels: None,
-    };
+    let processor_to_node =
+        build_processor_to_node(2, &[(0, NumaNodeId::new(0)), (1, NumaNodeId::new(1))]);
+    let topology = CpuTopology::new_for_test(
+        TopologyEpoch::INITIAL,
+        nodes.into_boxed_slice(),
+        processor_to_node,
+        2,
+        None,
+    );
 
     let (val, sum) = sync_region_placement_scope(|placement| {
         // Stack-allocated cells and arrays
@@ -407,7 +401,6 @@ fn cell_and_slice_reference_types_avoid_allocations() {
 
 #[test]
 fn const_cell_and_slice_reference_types_work() {
-    use super::{ConstNumaPinnedCellRef, ConstNumaPinnedSliceRef};
     use melinoe::MelinoeCell;
 
     let (val, sum) = sync_region_placement_scope(|placement| {
@@ -448,30 +441,29 @@ fn const_cell_and_slice_reference_types_work() {
 
 /// A synthetic `CpuTopology` of `node_count` single-processor nodes with
 /// distinct ids `0..node_count`.
-fn synthetic_topology(node_count: usize) -> crate::CpuTopology {
-    let nodes: std::vec::Vec<crate::NumaNode> = (0..node_count as u32)
-        .map(|id| crate::NumaNode {
+fn synthetic_topology(node_count: usize) -> CpuTopology {
+    let nodes: Vec<NumaNode> = (0..node_count as u32)
+        .map(|id| NumaNode {
             id: NumaNodeId::new(id),
-            processors: std::vec![id].into_boxed_slice(),
-            distances: std::vec![10; node_count].into_boxed_slice(),
+            processors: vec![id].into_boxed_slice(),
+            distances: vec![10; node_count].into_boxed_slice(),
             memory_tier: MemoryTier::Dram,
         })
         .collect();
-    let mappings: std::vec::Vec<(u32, NumaNodeId)> = (0..node_count as u32)
+    let mappings: Vec<(u32, NumaNodeId)> = (0..node_count as u32)
         .map(|id| (id, NumaNodeId::new(id)))
         .collect();
-    crate::CpuTopology {
-        epoch: crate::TopologyEpoch::INITIAL,
-        processor_to_node: crate::topology::build_processor_to_node(node_count, &mappings),
-        node_to_index: crate::topology::build_node_to_index(&nodes),
-        adjacent_nodes: crate::topology::build_adjacent_nodes(&nodes),
-        numa_nodes: nodes.into_boxed_slice(),
-        logical_processors: node_count,
-        cache_levels: None,
-    }
+    let processor_to_node = build_processor_to_node(node_count, &mappings);
+    CpuTopology::new_for_test(
+        TopologyEpoch::INITIAL,
+        nodes.into_boxed_slice(),
+        processor_to_node,
+        node_count,
+        None,
+    )
 }
 
-fn node_ids_via_split(topology: &crate::CpuTopology) -> std::vec::Vec<u32> {
+fn node_ids_via_split(topology: &CpuTopology) -> Vec<u32> {
     sync_region_placement_scope(|placement| {
         placement
             .split(topology)
@@ -481,7 +473,7 @@ fn node_ids_via_split(topology: &crate::CpuTopology) -> std::vec::Vec<u32> {
     })
 }
 
-fn node_ids_via_split_with(topology: &crate::CpuTopology) -> std::vec::Vec<u32> {
+fn node_ids_via_split_with(topology: &CpuTopology) -> Vec<u32> {
     sync_region_placement_scope(|placement| {
         placement.split_with(topology, |permits| {
             permits.iter().map(|p| p.node_id().get()).collect()
