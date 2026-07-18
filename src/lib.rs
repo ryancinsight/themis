@@ -41,8 +41,11 @@ pub use topology::{
 
 // Test-only re-exports for integration tests (they are `pub` at definition
 // site but live inside a private `mod topology`, so crate-root re-export
-// is required for integration-test access).
-#[cfg(test)]
+// is required for integration-test access). Gated on `feature = "testing"`
+// (not just `cfg(test)`) because integration tests in `tests/` consume the
+// lib as a regular dependency; `cfg(test)` only activates when the lib itself
+// is the test target, not when it is depended on.
+#[cfg(any(test, feature = "testing"))]
 pub use topology::{
     build_adjacent_nodes, build_default_distance_row, build_node_to_index, build_processor_to_node,
 };
