@@ -17,6 +17,14 @@ default = ["std", "melinoe"]
 std = ["melinoe?/std"]
 # Branded placement extras
 melinoe = ["dep:melinoe"]
+# Test-only surface: activates `new_for_test` constructors and table-builder
+# re-exports so integration tests in `tests/` can construct fixed topologies.
+# `#[cfg(test)]` alone is insufficient because integration tests consume the
+# lib as a regular dependency (lib is built with `--cfg test=false`).
+# `testing` implies `std` because the table builders (`build_processor_to_node`,
+# `build_default_distance_row`) and `cache::detect_cache_levels` are
+# std-gated; no-std + testing would otherwise be an unbuildable combination.
+testing = ["std"]
 
 [dependencies]
 melinoe = { git = "https://github.com/ryancinsight/melinoe.git", version = "0.9.0", default-features = false, optional = true }
@@ -27,7 +35,7 @@ proptest = "1"
 [[test]]
 name = "branded"
 path = "tests/branded.rs"
-required-features = ["melinoe"]
+required-features = ["melinoe", "testing"]
 
 [[bench]]
 name = "topology"

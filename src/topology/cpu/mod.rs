@@ -67,7 +67,11 @@ impl CpuTopology {
     /// Construct a topology from primary fields for testing.
     ///
     /// `node_to_index` and `adjacent_nodes` are derived from `numa_nodes`.
-    #[cfg(test)]
+    ///
+    /// Gated on `feature = "testing"` (not just `cfg(test)`) because integration
+    /// tests in `tests/` consume the lib as a regular dependency; `cfg(test)` only
+    /// activates when the lib itself is the test target, not when it is depended on.
+    #[cfg(any(test, feature = "testing"))]
     #[must_use]
     pub fn new_for_test(
         epoch: TopologyEpoch,

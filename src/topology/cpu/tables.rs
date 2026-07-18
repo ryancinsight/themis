@@ -26,6 +26,9 @@ pub(in crate::topology) const fn default_distance(from_index: usize, to_index: u
     }
 }
 
+/// Builds the default distance row for `from_index`: `LOCAL_DISTANCE` to self,
+/// `REMOTE_DISTANCE` to every other node. Used when a NUMA node lacks an
+/// explicit distances vector.
 #[cfg(any(test, feature = "std"))]
 pub fn build_default_distance_row(node_count: usize, from_index: usize) -> Box<[u32]> {
     (0..node_count)
@@ -34,6 +37,12 @@ pub fn build_default_distance_row(node_count: usize, from_index: usize) -> Box<[
         .into_boxed_slice()
 }
 
+/// Builds the processor-to-NUMA-node lookup table from `mappings`.
+///
+/// Returns a `Box<[NumaNodeId]>` of length `max(logical_processors, max_processor + 1, 1)`
+/// with `NumaNodeId::INVALID` for any processor not in `mappings`. Asserts the
+/// resolved length stays within the 32768-processor hard cap to bound
+/// allocation under adversarial input.
 #[cfg(any(test, feature = "std"))]
 pub fn build_processor_to_node(
     logical_processors: usize,
@@ -57,6 +66,10 @@ pub fn build_processor_to_node(
     processor_to_node.into_boxed_slice()
 }
 
+/// Builds the NUMA-node-id to dense-index lookup (length `max_node_id + 1`,
+/// `usize::MAX` sentinel for absent IDs). Asserts the max node ID is below the
+/// 1024-node hard cap and rejects duplicate node IDs to bound allocation and
+/// preserve the index-uniqueness invariant.
 pub fn build_node_to_index(nodes: &[NumaNode]) -> Box<[usize]> {
     let max_node = nodes.iter().map(|node| node.id.index()).max().unwrap_or(0);
     assert!(
@@ -77,6 +90,10 @@ pub fn build_node_to_index(nodes: &[NumaNode]) -> Box<[usize]> {
     node_to_index.into_boxed_slice()
 }
 
+/// Builds the per-node adjacency list as a flat `Box<[NumaNodeId]>` of length
+/// `node_count * (node_count - 1)`: for each source node, the other nodes
+/// sorted by distance (closest first). Uses the explicit `distances` vector
+/// when present, falling back to `default_distance` otherwise.
 pub fn build_adjacent_nodes(nodes: &[NumaNode]) -> Box<[NumaNodeId]> {
     let node_count = nodes.len();
     if node_count <= 1 {

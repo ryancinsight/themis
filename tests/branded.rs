@@ -1,8 +1,8 @@
 //! Branded placement scope unit tests.
 
 use themis::{
-    build_adjacent_nodes, build_node_to_index, build_processor_to_node, CpuTopology, MemoryTier,
-    NumaNode, NumaNodeId, PlacementHint, TopologyEpoch,
+    build_processor_to_node, CpuTopology, MemoryTier, NumaNode, NumaNodeId, PlacementHint,
+    TopologyEpoch,
 };
 use themis::{
     sync_region_placement_scope, thread_local_placement_scope, ConstNumaPinnedCell,
