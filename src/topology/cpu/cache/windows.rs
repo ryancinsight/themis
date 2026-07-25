@@ -60,7 +60,7 @@ pub(super) fn detect() -> Option<Box<[CacheLevel]>> {
 
 fn parse_records(bytes: &[u8]) -> Option<Box<[CacheLevel]>> {
     let mut offset = 0usize;
-    let mut levels = Vec::new();
+    let mut levels = Vec::with_capacity(8);
     while offset < bytes.len() {
         let relationship = u32::from_ne_bytes(field::<4>(bytes, offset)?);
         let record_size =
@@ -109,7 +109,7 @@ fn parse_cache_record(record: &[u8]) -> Option<CacheLevel> {
     if group_end > record.len() {
         return None;
     }
-    let mut shared_processors = Vec::new();
+    let mut shared_processors = Vec::with_capacity(group_count);
     for group_index in 0..group_count {
         let group_offset = GROUP_MASK_OFFSET + group_index * GROUP_AFFINITY_BYTES;
         let mask = affinity_mask(record, group_offset)?;

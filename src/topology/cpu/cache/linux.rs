@@ -22,7 +22,7 @@ pub(super) fn detect() -> Option<Box<[CacheLevel]>> {
         .collect::<Vec<_>>();
     cpu_paths.sort_unstable_by_key(|(processor, _)| *processor);
 
-    let mut levels = Vec::new();
+    let mut levels = Vec::with_capacity(8);
     for (_, cpu_path) in cpu_paths {
         let cache_path = cpu_path.join("cache");
         let Ok(indices) = fs::read_dir(cache_path) else {

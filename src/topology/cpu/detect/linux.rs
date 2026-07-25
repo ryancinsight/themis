@@ -27,7 +27,7 @@ pub(super) fn detect() -> Option<CpuTopology> {
     }
 
     let mut numa_nodes = Vec::with_capacity(node_ids.len());
-    let mut processor_node_pairs = Vec::new();
+    let mut processor_node_pairs = Vec::with_capacity(logical_processor_count());
 
     for (from_index, node_id_raw) in node_ids.iter().enumerate() {
         let node_id = NumaNodeId::new(*node_id_raw);

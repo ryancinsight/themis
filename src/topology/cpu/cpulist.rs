@@ -9,7 +9,7 @@ use alloc::vec::Vec;
 const MAX_PROCESSOR_ID: usize = 32_768;
 
 pub(crate) fn parse_cpu_list(cpulist: &str) -> Vec<u32> {
-    let mut processors = Vec::new();
+    let mut processors = Vec::with_capacity(64);
     for part in cpulist.trim().split(',') {
         if processors.len() >= MAX_PROCESSOR_ID {
             break;
