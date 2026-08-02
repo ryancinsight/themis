@@ -4,6 +4,8 @@
 
 ### Changed
 
+- Publish under the collision-free `themis-topology` package name while
+  retaining `themis` as the Rust library crate name.
 - Resolve the optional Melinoe dependency from its default source, removing the
   revision identity that duplicated the provider graph in Atlas consumers.
 
