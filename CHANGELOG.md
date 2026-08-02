@@ -4,6 +4,8 @@
 
 ### Changed
 
+- Add a GitHub Release workflow that validates crate identity and package
+  contents before publishing through crates.io Trusted Publishing.
 - Publish under the collision-free `themis-topology` package name while
   retaining `themis` as the Rust library crate name.
 - Resolve the optional Melinoe dependency from its default source, removing the
