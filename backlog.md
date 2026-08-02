@@ -6,6 +6,9 @@ mnemosyne (allocation), moirai (scheduling), and hephaestus (devices) consume.
 
 ## Delivered
 
+- [x] [patch] Publish future releases through a pinned GitHub Actions workflow
+  using crates.io OIDC Trusted Publishing and no stored registry credential.
+
 - [x] [major] Publish the placement-law crate as `themis-topology` because the
   `themis` crates.io namespace is owned by an unrelated project. Preserve
   `themis` as the library crate name so Rust imports remain stable. Decision:
