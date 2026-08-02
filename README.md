@@ -2,6 +2,9 @@
 
 Themis provides typed placement law for Atlas runtime and memory crates.
 
+The crates.io package is named `themis-topology`; its Rust library crate
+remains `themis` so existing imports do not change.
+
 It is the shared source of truth for:
 
 - NUMA node identity

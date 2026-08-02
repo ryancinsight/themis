@@ -6,6 +6,11 @@ mnemosyne (allocation), moirai (scheduling), and hephaestus (devices) consume.
 
 ## Delivered
 
+- [x] [major] Publish the placement-law crate as `themis-topology` because the
+  `themis` crates.io namespace is owned by an unrelated project. Preserve
+  `themis` as the library crate name so Rust imports remain stable. Decision:
+  [ADR 0001](docs/adr/0001-crates-io-package-identity.md).
+
 - [x] [patch] Resolve optional Melinoe from its default source, removing the
   revision identity that duplicated the Atlas provider graph. Evidence:
   formatting, all-feature check and warning-denied Clippy, value-semantic
