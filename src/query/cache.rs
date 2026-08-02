@@ -5,7 +5,7 @@ use crate::law::NumaNodeId;
 
 #[cfg(all(feature = "std", nightly_tls_active))]
 #[thread_local]
-static CACHED_NODE: core::cell::Cell<Option<NumaNodeId>> = core::cell::Cell::new(None);
+static CACHED_NODE: core::cell::Cell<Option<NumaNodeId>> = const { core::cell::Cell::new(None) };
 
 #[cfg(all(feature = "std", not(nightly_tls_active)))]
 thread_local! {
