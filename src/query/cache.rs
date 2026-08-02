@@ -9,6 +9,10 @@ static CACHED_NODE: core::cell::Cell<Option<NumaNodeId>> = const { core::cell::C
 
 #[cfg(all(feature = "std", not(nightly_tls_active)))]
 thread_local! {
+    #[expect(
+        clippy::missing_const_for_thread_local,
+        reason = "false positive: the initializer is already a const block; the lint mis-fires beside the cfg(nightly_tls_active) twin static"
+    )]
     static CACHED_NODE: core::cell::Cell<Option<NumaNodeId>> = const { core::cell::Cell::new(None) };
 }
 
