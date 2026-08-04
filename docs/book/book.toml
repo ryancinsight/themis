@@ -1,0 +1,20 @@
+# mdBook configuration for the themis placement-law book.
+# Build:  mdbook build docs/book      Serve:  mdbook serve docs/book
+[book]
+title = "themis: Typed Placement Law for Atlas"
+authors = ["Ryan Clanton"]
+description = "NUMA, HBM, and worker locality vocabulary for the Atlas simulation stack — placement hints, memory-tier classification, and GPU occupancy modelling."
+src = "."
+language = "en"
+
+[build]
+build-dir = "../../target/book/themis"
+create-missing = false
+
+[output.html]
+no-section-label = false
+mathjax-support = true
+site-url = "/themis/"
+git-repository-url = "https://github.com/ryancinsight/themis"
+edit-url-template = "https://github.com/ryancinsight/themis/edit/main/docs/book/{path}"
+default-theme = "rust"
