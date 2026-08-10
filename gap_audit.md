@@ -32,19 +32,23 @@ green, default 21/21 green, clippy `--all-targets -D warnings` clean both modes,
 `cargo check --lib --no-default-features --features testing` clean,
 `cargo fmt --check` clean.
 
-### Pre-existing defect: branded placement panics with `melinoe` feature
+### Stale finding retired: branded placement zero-node panic (verified 2026-08-06)
 
-**Severity**: bug.
+The former panic report is no longer present in the current Themis source: the
+referenced `SafePlacement::cell_index` implementation and the old in-source
+branded test module were removed during the branded-placement rehome. The
+current production split paths are `SyncRegionPlacement::split` and
+`SyncRegionPlacement::split_with`, and they derive their permit count directly
+from `CpuTopology::numa_nodes()`.
 
-**Tests affected**: `cell_and_slice_reference_types_avoid_allocations`,
-`const_cell_and_slice_reference_types_work`.
+Verification against the current repository SSOT:
 
-**Root cause**: `SafePlacement::cell_index` at `src/branded/region/placement.rs` panics
-with `region_index 0 out of bounds for 0 region(s)` when `CpuTopology` has zero NUMA
-nodes. Triggered when `CpuTopology::new_for_test` builds a topology with processor-to-node
-entries that reference a non-existent node. This is pre-existing — the original
-`src/branded/tests.rs` has the same panic when run with `melinoe` feature enabled;
-tests were never run with `--features melinoe` (which is the default) at the crate level.
+- `cargo nextest run --features melinoe,testing --test branded --no-fail-fast`:
+  **15/15 passed**, including `cell_and_slice_reference_types_avoid_allocations`
+  and `const_cell_and_slice_reference_types_work`.
+- A source audit found no remaining `SafePlacement`, `cell_index`, or
+  `region_index 0 out of bounds` implementation/message in `src/` or `tests/`.
 
-**Fix**: Not part of the rehome. Requires fixing the `split`/`split_with` paths or the
-test topology construction in the branded module.
+No code fix or consumer-side workaround is required. Re-open only if a future
+branded-placement change reintroduces a zero-node panic or a topology split can
+produce a permit whose node ID is not present in the topology.

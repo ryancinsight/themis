@@ -43,6 +43,25 @@ leto      -> themis   cache-sized tiling hints
 No Themis API stores allocator state, scheduler state, or raw thread-local
 storage pointers.
 
+### Current locality query contract
+
+`current_numa_node()` is the fast placement path: under `std` it caches the
+calling thread's last observed NUMA node in thread-local storage and falls back
+to `NumaNodeId::ZERO` when the platform cannot report locality. It does not
+re-probe the operating system on every call. Callers that may migrate between
+NUMA nodes must call `refresh_current_numa_node()` at an explicit scheduling
+boundary; the refresh probes the platform and replaces that thread's cached
+value. `try_current_numa_node()` and `current_processor()` are uncached,
+optional probes for verification or diagnostics and preserve `None` when the
+platform does not expose the requested value. In `no_std` builds the cached
+placement query has the deterministic node-zero fallback because no OS probe is
+available.
+
+This distinction is intentional: Themis owns the locality vocabulary and query
+contract, while Moirai decides scheduling boundaries and Mnemosyne decides how
+a placement hint affects allocation. No consumer should add a second NUMA
+cache or substitute a fabricated cache/topology value.
+
 `CacheLevel` is provider-reported topology law. Linux reads cache-index records
 from sysfs and Windows reads `GetLogicalProcessorInformationEx`; unavailable or
 malformed cache data is `None`, never a synthetic capacity. Leto consumes cache

@@ -5,20 +5,19 @@
 //! into a fixed-size bucket table, and queries the [`MemoryTier`] host-
 //! allocatability contract.
 
-use themis::{
-    LocalityDomainId, MemoryTier, NumaNodeId, PlacementHint, WorkerId,
-};
+use themis::{LocalityDomainId, MemoryTier, NumaNodeId, PlacementHint, WorkerId};
 
 /// Simulate how an allocator would inspect a placement hint.
 fn describe_hint(hint: PlacementHint) -> &'static str {
     match hint {
-        PlacementHint::Current         => "allocate on the caller's current NUMA node",
-        PlacementHint::Numa(_)         => "allocate on the specified NUMA node",
-        PlacementHint::Domain(_)       => "allocate within the specified locality domain",
-        PlacementHint::Tier(tier) if tier.is_host_allocatable()
-                                       => "allocate from the specified host-allocatable tier",
-        PlacementHint::Tier(_)         => "invalid for allocation — budgeted tier only",
-        PlacementHint::Any             => "allocate anywhere",
+        PlacementHint::Current => "allocate on the caller's current NUMA node",
+        PlacementHint::Numa(_) => "allocate on the specified NUMA node",
+        PlacementHint::Domain(_) => "allocate within the specified locality domain",
+        PlacementHint::Tier(tier) if tier.is_host_allocatable() => {
+            "allocate from the specified host-allocatable tier"
+        }
+        PlacementHint::Tier(_) => "invalid for allocation — budgeted tier only",
+        PlacementHint::Any => "allocate anywhere",
     }
 }
 
@@ -29,11 +28,17 @@ fn main() {
 
     // Explicit NUMA-node preference.
     let node2 = NumaNodeId::new(2);
-    println!("NUMA({node2:?}): {}", describe_hint(PlacementHint::Numa(node2)));
+    println!(
+        "NUMA({node2:?}): {}",
+        describe_hint(PlacementHint::Numa(node2))
+    );
 
     // Locality-domain preference.
     let domain0 = LocalityDomainId::new(0);
-    println!("Domain({domain0:?}): {}", describe_hint(PlacementHint::Domain(domain0)));
+    println!(
+        "Domain({domain0:?}): {}",
+        describe_hint(PlacementHint::Domain(domain0))
+    );
 
     // Tier preference — HBM is host-allocatable.
     let hbm = PlacementHint::Tier(MemoryTier::Hbm);
@@ -47,9 +52,14 @@ fn main() {
 
     // Enumerate all host-allocatable tiers.
     let allocatable: Vec<_> = [
-        MemoryTier::Dram, MemoryTier::Hbm, MemoryTier::Gddr,
-        MemoryTier::HostPinned, MemoryTier::Device, MemoryTier::Persistent,
-        MemoryTier::Registers, MemoryTier::SharedMem,
+        MemoryTier::Dram,
+        MemoryTier::Hbm,
+        MemoryTier::Gddr,
+        MemoryTier::HostPinned,
+        MemoryTier::Device,
+        MemoryTier::Persistent,
+        MemoryTier::Registers,
+        MemoryTier::SharedMem,
     ]
     .iter()
     .copied()
