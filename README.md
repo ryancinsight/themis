@@ -24,7 +24,10 @@ scopes. `ThreadLocalPlacement` uses Melinoe's thread-confined token for
 worker-local placement state. `SyncRegionPlacement` uses Melinoe's sync-region
 token for placement snapshots that may move between execution domains. Branded
 storage remains `melinoe::MelinoeCell`; Themis does not define a second cell
-name.
+name. `NumaPinnedSlice` and `ConstNumaPinnedSlice` construct their owned cell
+storage through Melinoe's `collections::BrandedVec` handoff, preserving the
+brand on every cell while keeping NUMA node identity and placement permits
+owned by Themis.
 
 ## Boundary
 
