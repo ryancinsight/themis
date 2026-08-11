@@ -1,7 +1,10 @@
 use melinoe::sync::SyncRegionToken;
 use melinoe::{CellSliceExt, MelinoeMut, MelinoeRef};
 
-use super::cell::{ConstPinnedCell, ConstPinnedSlice, PinnedCell, PinnedSlice};
+use super::cell::{
+    ConstNumaPinnedSlice, ConstPinnedCell, ConstPinnedSlice, NumaPinnedSlice, PinnedCell,
+    PinnedSlice,
+};
 
 /// A node-specific placement capability.
 pub struct NumaNodePlacement<'brand> {
@@ -67,6 +70,31 @@ impl<'brand> NumaNodePlacement<'brand> {
             None
         }
     }
+
+    /// Mutate disjoint portions of a matching, uniquely owned pinned slice
+    /// through Melinoe's parallel partition driver.
+    ///
+    /// The mutable slice borrow establishes unique ownership; this permit adds
+    /// the dynamic NUMA-node validation before Melinoe executes the shards.
+    #[cfg(feature = "std")]
+    pub fn partition_for_each_mut_with<T, F>(
+        &mut self,
+        slice: &mut NumaPinnedSlice<'brand, T>,
+        plan: melinoe::sync::PartitionPlan,
+        f: F,
+    ) -> Option<()>
+    where
+        T: Send,
+        F: Fn(usize, &mut [T]) + Sync,
+    {
+        if self.node_id != slice.node_id() {
+            return None;
+        }
+        melinoe::sync::partition_for_each_with(slice.cells_mut(), plan, |start, mut shard| {
+            f(start, shard.as_mut_slice())
+        });
+        Some(())
+    }
 }
 
 /// A node-specific placement capability, verified at compile time.
@@ -115,5 +143,25 @@ impl<'brand, const NODE_ID: u32> ConstNumaNodePlacement<'brand, NODE_ID> {
         S: ConstPinnedSlice<'brand, NODE_ID, T> + ?Sized,
     {
         slice.cells().borrow_slice_mut(&mut self.token)
+    }
+
+    /// Mutate disjoint portions of a statically matching, uniquely owned
+    /// pinned slice through Melinoe's parallel partition driver.
+    ///
+    /// The mutable slice borrow establishes unique ownership; the const-generic
+    /// permit supplies the compile-time NUMA placement identity.
+    #[cfg(feature = "std")]
+    pub fn partition_for_each_mut_with<T, F>(
+        &mut self,
+        slice: &mut ConstNumaPinnedSlice<'brand, NODE_ID, T>,
+        plan: melinoe::sync::PartitionPlan,
+        f: F,
+    ) where
+        T: Send,
+        F: Fn(usize, &mut [T]) + Sync,
+    {
+        melinoe::sync::partition_for_each_with(slice.cells_mut(), plan, |start, mut shard| {
+            f(start, shard.as_mut_slice())
+        });
     }
 }

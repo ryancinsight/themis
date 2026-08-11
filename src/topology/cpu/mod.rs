@@ -18,6 +18,7 @@ use alloc::boxed::Box;
 #[cfg(not(feature = "std"))]
 use alloc::vec;
 
+#[cfg(feature = "std")]
 pub(crate) use cache::detect_cache_levels;
 #[cfg(all(feature = "std", target_os = "linux"))]
 pub(crate) use cpulist::parse_cpu_list;

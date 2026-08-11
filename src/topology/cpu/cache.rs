@@ -1,12 +1,7 @@
 //! CPU cache hierarchy discovery.
 
+#[cfg(feature = "std")]
 use super::CacheLevel;
-
-#[cfg(not(feature = "std"))]
-extern crate alloc;
-
-#[cfg(not(feature = "std"))]
-use alloc::boxed::Box;
 
 #[cfg(all(feature = "std", target_os = "linux"))]
 mod linux;
@@ -29,9 +24,4 @@ pub(crate) fn detect_cache_levels(_logical_processors: usize) -> Option<Box<[Cac
     {
         None
     }
-}
-
-#[cfg(not(feature = "std"))]
-pub(crate) const fn detect_cache_levels(_logical_processors: usize) -> Option<Box<[CacheLevel]>> {
-    None
 }

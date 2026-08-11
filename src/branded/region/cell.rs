@@ -7,7 +7,7 @@ use alloc::{boxed::Box, vec::Vec};
 #[cfg(feature = "std")]
 use std::{boxed::Box, vec::Vec};
 
-use melinoe::MelinoeCell;
+use melinoe::{collections::BrandedVec, MelinoeCell};
 
 use crate::NumaNodeId;
 
@@ -121,11 +121,20 @@ impl<'brand, T> NumaPinnedSlice<'brand, T> {
     /// Creates a new pinned slice from a vector of values.
     #[must_use]
     pub fn new(node_id: NumaNodeId, values: Vec<T>) -> Self {
-        let cells = values
-            .into_iter()
-            .map(MelinoeCell::new)
-            .collect::<Vec<_>>()
-            .into_boxed_slice();
+        let cells = BrandedVec::from_iter(values).into_boxed_cells();
+        Self { node_id, cells }
+    }
+
+    /// Creates a new pinned slice by generating values in index order.
+    ///
+    /// Generation is performed directly through Melinoe's branded collection
+    /// primitive; no intermediate unbranded value vector is required.
+    #[must_use]
+    pub fn from_fn<F>(node_id: NumaNodeId, len: usize, generate: F) -> Self
+    where
+        F: FnMut(usize) -> T,
+    {
+        let cells = BrandedVec::from_fn(len, generate).into_boxed_cells();
         Self { node_id, cells }
     }
 
@@ -146,6 +155,13 @@ impl<'brand, T> NumaPinnedSlice<'brand, T> {
     #[inline]
     pub fn cells(&self) -> &[MelinoeCell<'brand, T>] {
         &self.cells
+    }
+
+    /// Access the uniquely owned branded cells for Themis's placement-gated
+    /// Melinoe partition driver.
+    #[cfg(feature = "std")]
+    pub(crate) fn cells_mut(&mut self) -> &mut [MelinoeCell<'brand, T>] {
+        &mut self.cells
     }
 }
 
@@ -248,11 +264,20 @@ impl<'brand, const NODE_ID: u32, T> ConstNumaPinnedSlice<'brand, NODE_ID, T> {
     /// Creates a new pinned slice from a vector of values.
     #[must_use]
     pub fn new(values: Vec<T>) -> Self {
-        let cells = values
-            .into_iter()
-            .map(MelinoeCell::new)
-            .collect::<Vec<_>>()
-            .into_boxed_slice();
+        let cells = BrandedVec::from_iter(values).into_boxed_cells();
+        Self { cells }
+    }
+
+    /// Creates a new pinned slice by generating values in index order.
+    ///
+    /// Generation is performed directly through Melinoe's branded collection
+    /// primitive; no intermediate unbranded value vector is required.
+    #[must_use]
+    pub fn from_fn<F>(len: usize, generate: F) -> Self
+    where
+        F: FnMut(usize) -> T,
+    {
+        let cells = BrandedVec::from_fn(len, generate).into_boxed_cells();
         Self { cells }
     }
 
@@ -267,6 +292,13 @@ impl<'brand, const NODE_ID: u32, T> ConstNumaPinnedSlice<'brand, NODE_ID, T> {
     #[inline]
     pub fn cells(&self) -> &[MelinoeCell<'brand, T>] {
         &self.cells
+    }
+
+    /// Access the uniquely owned branded cells for Themis's placement-gated
+    /// Melinoe partition driver.
+    #[cfg(feature = "std")]
+    pub(crate) fn cells_mut(&mut self) -> &mut [MelinoeCell<'brand, T>] {
+        &mut self.cells
     }
 }
 

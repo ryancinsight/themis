@@ -207,6 +207,105 @@ fn sync_region_pinned_slice_allows_efficient_bulk_access() {
 }
 
 #[test]
+fn pinned_slice_constructors_retain_branded_values() {
+    let dynamic = sync_region_placement_scope(|placement| {
+        let topology = synthetic_topology(1);
+        let dynamic = NumaPinnedSlice::new(NumaNodeId::new(0), vec![1_u32, 2, 3]);
+        let mut permits = placement.split(&topology);
+        let mut permit = permits.pop().expect("synthetic topology has one node");
+        for value in permit.write_slice(&dynamic).unwrap().iter_mut() {
+            *value += 10;
+        }
+
+        permit
+            .read_slice(&dynamic)
+            .expect("matching dynamic node permit")
+            .to_vec()
+    });
+
+    let static_slice = sync_region_placement_scope(|placement| {
+        let static_slice = ConstNumaPinnedSlice::<0, u32>::new(vec![4, 5, 6]);
+        let mut permit = unsafe { placement.project_static::<0>() };
+
+        for value in permit.write_slice(&static_slice).iter_mut() {
+            *value += 20;
+        }
+        permit.read_slice(&static_slice).to_vec()
+    });
+
+    assert_eq!(dynamic, [11, 12, 13]);
+    assert_eq!(static_slice, [24, 25, 26]);
+}
+
+#[test]
+fn pinned_slice_from_fn_and_partition_paths_use_melinoe_collections() {
+    let dynamic = sync_region_placement_scope(|placement| {
+        let mut dynamic =
+            NumaPinnedSlice::from_fn(NumaNodeId::new(0), 16, |index| usize::MAX - index);
+        let topology = synthetic_topology(1);
+        let mut permits = placement.split(&topology);
+        let mut permit = permits.pop().expect("synthetic topology has one node");
+        // More requested partitions than elements exercises Melinoe's
+        // partition-count clamping without changing Themis's ownership
+        // boundary.
+        let plan = melinoe::sync::PartitionPlan::parts(64);
+        let visited = std::sync::atomic::AtomicUsize::new(0);
+
+        permit
+            .partition_for_each_mut_with(&mut dynamic, plan, |start, values| {
+                for (offset, value) in values.iter_mut().enumerate() {
+                    visited.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    *value = start + offset;
+                }
+            })
+            .expect("matching dynamic node permit");
+        assert_eq!(visited.load(std::sync::atomic::Ordering::Relaxed), 16);
+
+        let mut mismatched = NumaPinnedSlice::from_fn(NumaNodeId::new(1), 4, |index| index);
+        assert!(permit
+            .partition_for_each_mut_with(&mut mismatched, plan, |_, _| {})
+            .is_none());
+
+        let mut empty = NumaPinnedSlice::from_fn(NumaNodeId::new(0), 0, |_| 0usize);
+        let empty_invocations = std::sync::atomic::AtomicUsize::new(0);
+        assert!(permit
+            .partition_for_each_mut_with(&mut empty, plan, |_, _| {
+                empty_invocations.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            })
+            .is_some());
+        assert_eq!(
+            empty_invocations.load(std::sync::atomic::Ordering::Relaxed),
+            0
+        );
+        assert_eq!(permit.read_slice(&empty).unwrap().len(), 0);
+
+        let values = permit
+            .read_slice(&dynamic)
+            .expect("matching dynamic node permit");
+        assert_eq!(values, (0..16).collect::<Vec<_>>().as_slice());
+        values.iter().sum::<usize>()
+    });
+
+    let static_values = sync_region_placement_scope(|placement| {
+        let mut static_values = ConstNumaPinnedSlice::<0, usize>::from_fn(16, |index| index * 10);
+        let plan = melinoe::sync::PartitionPlan::parts(4);
+        let mut permit = unsafe { placement.project_static::<0>() };
+        permit.partition_for_each_mut_with(&mut static_values, plan, |start, values| {
+            for (offset, value) in values.iter_mut().enumerate() {
+                *value += start + offset;
+            }
+        });
+        permit.read_slice(&static_values).iter().sum::<usize>()
+    });
+
+    assert_eq!(dynamic, (0..16).sum::<usize>());
+    assert_eq!(
+        static_values,
+        (0..16).map(|index| index * 11).sum::<usize>()
+    );
+}
+
+#[test]
 fn const_numa_branding_provides_zero_cost_static_access() {
     let (val0, val1) = sync_region_placement_scope(|placement| {
         let cell0 = ConstNumaPinnedCell::<0, u32>::new(700);
