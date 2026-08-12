@@ -173,3 +173,16 @@ properties into themis types).
   thread-confined, sync-region, and test leaf modules. Evidence: no
   feature-gated public API removal; value-semantic branded-scope tests
   retained; verification gates recorded in the change commit.
+
+## Melinoe branded-collection adoption [minor]
+
+- [x] [minor] (0.10.1) Adopt Melinoe collections for
+  `NumaPinnedSlice`/`ConstNumaPinnedSlice` construction and `from_fn`
+  generation, and `partition_for_each_mut_with` on dynamic and const
+  placement permits — preserving Themis-owned placement identity while
+  eliminating duplicated `Vec<T>` → `Vec<MelinoeCell<T>>` construction.
+  Also lands the no-`std` `alloc` fix, removal of the dead no-`std`
+  `detect_cache_levels` fallback, `melinoe/alloc` feature wiring, README
+  boundary note, and two new branded tests. Cross-link:
+  ATLAS-THEMIS-MELINOE-ADOPTION-002 (`cad222b`); evidence: strict Clippy,
+  Nextest 21/21 default + 38/38 `testing` + 21/21 `--no-default-features`.
