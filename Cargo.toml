@@ -29,6 +29,18 @@ melinoe = ["dep:melinoe", "melinoe/alloc"]
 # std-gated; no-std + testing would otherwise be an unbuildable combination.
 testing = ["std"]
 
+# Lint floor. Levels are `warn` here and promoted to errors by CI's
+# `-D warnings`, so a local build stays navigable while the gate stays hard.
+[lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+# Themis is a library: an input-dependent `unwrap` is a panic in a consumer's
+# process. Test and bench targets carry a scoped allow.
+unwrap_used = "warn"
+# Curated pedantic exceptions. Index-suffixed names (`permit0`/`permit1`,
+# `cell0`/`cell1`) are the clearest way to write per-NUMA-node pairs, and are
+# exactly what `similar_names` objects to.
+similar_names = "allow"
+
 [dependencies]
 melinoe = { git = "https://github.com/ryancinsight/melinoe.git", version = "0.9.0", default-features = false, optional = true }
 

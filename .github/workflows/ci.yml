@@ -1,0 +1,128 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  RUST_TOOLCHAIN: 1.97.0
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+
+jobs:
+  verify:
+    # Linux and Windows compile disjoint topology backends
+    # (`src/topology/cpu/detect/{linux,windows}.rs`, `src/query/platform.rs`),
+    # so a single-OS run leaves half the crate unbuilt and unlinted.
+    name: fmt, clippy, tests, doctests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - name: Check out the revision under test
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install the pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          components: rustfmt, clippy
+
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@a6b2e2dcd845ddd7f509ce4f3ed3d922b80cc5d9 # v2.84.0
+        with:
+          tool: nextest@0.9.140
+
+      - name: cargo fmt
+        run: cargo fmt --check
+
+      - name: cargo clippy
+        run: cargo clippy --locked --all-targets --features testing -- -D warnings
+
+      # The branded surface is feature-gated; `melinoe` off must also be clean.
+      - name: cargo clippy (no default features)
+        run: cargo clippy --locked --all-targets --no-default-features -- -D warnings
+
+      - name: cargo nextest
+        run: cargo nextest run --locked --features testing
+
+      # nextest does not run doctests; the compile_fail placement proofs live
+      # there, so this step is not optional.
+      - name: cargo test --doc
+        run: cargo test --locked --doc
+
+      - name: cargo doc
+        env:
+          RUSTDOCFLAGS: -D warnings
+        run: cargo doc --locked --no-deps
+
+  doctest-error-codes:
+    name: compile_fail error codes (nightly)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - name: Check out the revision under test
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install the nightly verification toolchain
+        uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
+        with:
+          toolchain: nightly
+
+      # Stable rustdoc parses `compile_fail,E0499` but never checks the code, so
+      # a proof could silently start failing for the wrong reason. Nightly
+      # rustdoc enforces it ("Some expected error codes were not found"). This
+      # job is what makes the placement proofs in `split_static` load-bearing.
+      - name: cargo test --doc (error codes enforced)
+        run: cargo +nightly test --doc
+
+  miri:
+    name: miri (branded)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    env:
+      # `current_numa_node` reads the host through syscalls Miri isolates.
+      MIRIFLAGS: -Zmiri-disable-isolation
+      PROPTEST_CASES: "8"
+    steps:
+      - name: Check out the revision under test
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install the nightly verification toolchain
+        uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
+        with:
+          toolchain: nightly
+          components: miri
+
+      # `src/branded/` duplicates a Melinoe token per placement capability; the
+      # disjointness that keeps those duplicates sound is exactly what Stacked
+      # Borrows checks.
+      - name: cargo miri test (branded unit tests)
+        run: cargo +nightly miri test --features testing --lib branded
+
+      - name: cargo miri test (branded integration tests)
+        run: cargo +nightly miri test --features testing --test branded

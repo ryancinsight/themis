@@ -8,6 +8,14 @@ use crate::law::{MemoryTier, NumaNodeId, TopologyEpoch};
 use crate::topology::types::NumaNode;
 use std::fs;
 
+// `CpuTopology::detect` exposes `Option<CpuTopology>` publicly: it models
+// "no backend could produce a topology". Every current backend resolves to at
+// least a single-node snapshot, but diverging one backend's signature would
+// fork the seam that public contract sits on.
+#[expect(
+    clippy::unnecessary_wraps,
+    reason = "platform detect backends share the Option-returning contract of CpuTopology::detect"
+)]
 pub(super) fn detect() -> Option<CpuTopology> {
     let nodes_path = "/sys/devices/system/node/";
     let node_entries = fs::read_dir(nodes_path).ok();
@@ -41,15 +49,16 @@ pub(super) fn detect() -> Option<CpuTopology> {
         }
 
         let distance_path = format!("{nodes_path}/node{node_id_raw}/distance");
-        let distances = fs::read_to_string(distance_path)
-            .map(|value| {
+        let distances = fs::read_to_string(distance_path).map_or_else(
+            |_| build_default_distance_row(node_ids.len(), from_index).into_vec(),
+            |value| {
                 value
                     .split_whitespace()
                     .filter_map(|part| part.parse::<u32>().ok())
                     .take(1024)
                     .collect::<Vec<_>>()
-            })
-            .unwrap_or_else(|_| build_default_distance_row(node_ids.len(), from_index).into_vec());
+            },
+        );
 
         numa_nodes.push(NumaNode {
             id: node_id,

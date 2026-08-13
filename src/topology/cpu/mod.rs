@@ -42,10 +42,17 @@ pub struct CpuTopology {
 
 impl CpuTopology {
     /// Creates a single-node topology.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `logical_processors` exceeds `u32::MAX`; processor ids are
+    /// `u32` throughout this crate, so a wider count has no representation.
     #[must_use]
     pub fn single_node(logical_processors: usize) -> Self {
         let logical_processors = logical_processors.max(1);
-        let processors: Box<[u32]> = (0..logical_processors as u32).collect();
+        let processor_count = u32::try_from(logical_processors)
+            .expect("invariant: logical processor count must fit a u32 processor id");
+        let processors: Box<[u32]> = (0..processor_count).collect();
         let node_id = NumaNodeId::ZERO;
         let numa_nodes: Box<[NumaNode]> = Box::new([NumaNode {
             id: node_id,
@@ -138,17 +145,22 @@ impl CpuTopology {
     }
 
     /// Iterates over known processor-to-node mappings.
+    ///
+    /// # Panics
+    ///
+    /// The returned iterator panics if the processor table is longer than
+    /// `u32::MAX`, which construction already caps at 32768 entries.
     #[must_use = "iterators are lazy; consume the returned mapping iterator"]
     pub fn processor_node_pairs(&self) -> impl Iterator<Item = (u32, NumaNodeId)> + '_ {
         self.processor_to_node
             .iter()
             .enumerate()
-            .filter_map(|(processor, &node)| {
-                if node != NumaNodeId::INVALID {
-                    Some((processor as u32, node))
-                } else {
-                    None
-                }
+            .filter(|(_, &node)| node != NumaNodeId::INVALID)
+            .map(|(processor, &node)| {
+                // The processor table is capped at 32768 entries when built.
+                let processor = u32::try_from(processor)
+                    .expect("invariant: processor table length is capped at 32768");
+                (processor, node)
             })
     }
 
@@ -221,9 +233,7 @@ impl CpuTopology {
 fn logical_processor_count() -> usize {
     #[cfg(feature = "std")]
     {
-        std::thread::available_parallelism()
-            .map(usize::from)
-            .unwrap_or(1)
+        std::thread::available_parallelism().map_or(1, usize::from)
     }
 
     #[cfg(not(feature = "std"))]

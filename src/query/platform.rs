@@ -80,7 +80,14 @@ fn query_cpu_locality_os() -> Option<CpuLocality> {
                 number: u8,
                 reserved: u8,
             }
-            extern "system" {
+            // SAFETY: the declarations match the Win32 signatures for these
+            // entry points (`GetCurrentProcessorNumberEx`,
+            // `GetNumaProcessorNodeEx`, `processthreadsapi.h` /
+            // `systemtopologyapi.h`): out-pointer to `PROCESSOR_NUMBER`,
+            // `PROCESSOR_NUMBER` in-pointer with a `USHORT` out-pointer, `BOOL`
+            // result. `ProcessorNumber` above is `#[repr(C)]` with the same
+            // field order and widths.
+            unsafe extern "system" {
                 fn GetCurrentProcessorNumberEx(proc_number: *mut ProcessorNumber);
                 fn GetNumaProcessorNodeEx(
                     processor: *const ProcessorNumber,
@@ -95,11 +102,11 @@ fn query_cpu_locality_os() -> Option<CpuLocality> {
             GetCurrentProcessorNumberEx(&mut proc_num);
             let mut node = 0u16;
             if GetNumaProcessorNodeEx(&proc_num, &mut node) != 0 {
-                let system_processor = (proc_num.group as u32) * 64 + (proc_num.number as u32);
+                let system_processor = u32::from(proc_num.group) * 64 + u32::from(proc_num.number);
                 if system_processor < 32768 && node < 1024 {
                     Some(CpuLocality {
                         processor: system_processor,
-                        numa_node: NumaNodeId::new(node as u32),
+                        numa_node: NumaNodeId::new(u32::from(node)),
                     })
                 } else {
                     None
