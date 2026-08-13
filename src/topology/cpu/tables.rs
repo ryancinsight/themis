@@ -30,6 +30,7 @@ pub(in crate::topology) const fn default_distance(from_index: usize, to_index: u
 /// `REMOTE_DISTANCE` to every other node. Used when a NUMA node lacks an
 /// explicit distances vector.
 #[cfg(any(test, feature = "std"))]
+#[must_use]
 pub fn build_default_distance_row(node_count: usize, from_index: usize) -> Box<[u32]> {
     (0..node_count)
         .map(|to_index| default_distance(from_index, to_index))
@@ -43,7 +44,12 @@ pub fn build_default_distance_row(node_count: usize, from_index: usize) -> Box<[
 /// with `NumaNodeId::INVALID` for any processor not in `mappings`. Asserts the
 /// resolved length stays within the 32768-processor hard cap to bound
 /// allocation under adversarial input.
+///
+/// # Panics
+///
+/// Panics if the resolved table length exceeds the 32768-processor hard cap.
 #[cfg(any(test, feature = "std"))]
+#[must_use]
 pub fn build_processor_to_node(
     logical_processors: usize,
     mappings: &[(u32, NumaNodeId)],
@@ -56,8 +62,7 @@ pub fn build_processor_to_node(
     let len = logical_processors.max(max_processor + 1).max(1);
     assert!(
         len <= 32768,
-        "invariant check failed: processor count {} exceeds maximum limit of 32768",
-        len
+        "invariant check failed: processor count {len} exceeds maximum limit of 32768"
     );
     let mut processor_to_node = vec![NumaNodeId::INVALID; len];
     for (processor, node) in mappings {
@@ -70,12 +75,17 @@ pub fn build_processor_to_node(
 /// `usize::MAX` sentinel for absent IDs). Asserts the max node ID is below the
 /// 1024-node hard cap and rejects duplicate node IDs to bound allocation and
 /// preserve the index-uniqueness invariant.
+///
+/// # Panics
+///
+/// Panics if the maximum node id reaches the 1024-node hard cap, or if two
+/// nodes share an id.
+#[must_use]
 pub fn build_node_to_index(nodes: &[NumaNode]) -> Box<[usize]> {
     let max_node = nodes.iter().map(|node| node.id.index()).max().unwrap_or(0);
     assert!(
         max_node < 1024,
-        "invariant check failed: NUMA node ID {} exceeds maximum limit of 1024",
-        max_node
+        "invariant check failed: NUMA node ID {max_node} exceeds maximum limit of 1024"
     );
     let mut node_to_index = vec![usize::MAX; max_node + 1];
     for (index, node) in nodes.iter().enumerate() {
@@ -94,7 +104,10 @@ pub fn build_node_to_index(nodes: &[NumaNode]) -> Box<[usize]> {
 /// `node_count * (node_count - 1)`: for each source node, the other nodes
 /// sorted by distance (closest first). Uses the explicit `distances` vector
 /// when present, falling back to `default_distance` otherwise.
+#[must_use]
 pub fn build_adjacent_nodes(nodes: &[NumaNode]) -> Box<[NumaNodeId]> {
+    const STACK_LIMIT: usize = 128;
+
     let node_count = nodes.len();
     if node_count <= 1 {
         return Box::default();
@@ -102,7 +115,6 @@ pub fn build_adjacent_nodes(nodes: &[NumaNode]) -> Box<[NumaNodeId]> {
     let max_node_id = nodes.iter().map(|node| node.id.index()).max().unwrap_or(0);
     let stride = node_count - 1;
     let mut flat = Vec::with_capacity(node_count * stride);
-    const STACK_LIMIT: usize = 128;
     if node_count <= STACK_LIMIT {
         let mut adjacent = [(NumaNodeId::ZERO, 0u32); STACK_LIMIT];
         for (from_index, from_node) in nodes.iter().enumerate() {

@@ -29,6 +29,14 @@ storage through Melinoe's `collections::BrandedVec` handoff, preserving the
 brand on every cell while keeping NUMA node identity and placement permits
 owned by Themis.
 
+Splitting a region hands out several capabilities for one brand, so the NUMA
+node tag — not the Melinoe token — is what keeps their `&mut` views apart. A
+cell's tag therefore comes from a construction path that proves it: owning the
+cell, or an exclusive borrow through `from_unique`. There is no way to staple a
+caller-chosen tag onto a shared cell reference, and the `PinnedCell` trait
+family is `unsafe` so downstream placement types must discharge the same
+obligation. See [ADR 0002](docs/adr/0002-placement-tags-are-proof-carrying.md).
+
 ## Boundary
 
 ```text

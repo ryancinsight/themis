@@ -30,32 +30,34 @@ fn main() {
     println!("=== A100 SXM4-80GB (representative) ===");
     println!(
         "compute units       : {}",
-        a100.compute_units().map_or(0, |v| v.get())
+        a100.compute_units().map_or(0, NonZeroU32::get)
     );
     println!(
         "warp width          : {}",
-        a100.warp_width().map_or(0, |v| v.get())
+        a100.warp_width().map_or(0, NonZeroU32::get)
     );
     println!(
         "max threads/unit    : {}",
-        a100.max_threads_per_unit().map_or(0, |v| v.get())
+        a100.max_threads_per_unit().map_or(0, NonZeroU32::get)
     );
     println!(
         "registers/unit      : {}",
-        a100.registers_per_unit().map_or(0, |v| v.get())
+        a100.registers_per_unit().map_or(0, NonZeroU32::get)
     );
     println!(
         "shared mem/unit     : {} KiB",
-        a100.shared_mem_per_unit_bytes().map_or(0, |v| v.get()) / 1024
+        a100.shared_mem_per_unit_bytes()
+            .map_or(0, NonZeroUsize::get)
+            / 1024
     );
     println!(
         "L2 cache            : {} MiB",
-        a100.l2_bytes().map_or(0, |v| v.get()) / (1024 * 1024)
+        a100.l2_bytes().map_or(0, NonZeroUsize::get) / (1024 * 1024)
     );
     println!("memory tier         : {:?}", a100.memory_tier());
     println!(
         "memory              : {} GiB",
-        a100.memory_bytes().map_or(0, |v| v.get()) / (1024 * 1024 * 1024)
+        a100.memory_bytes().map_or(0, NonZeroU64::get) / (1024 * 1024 * 1024)
     );
 
     let max_warps = a100
@@ -68,15 +70,17 @@ fn main() {
         "max_resident_warps = compute_units × max_threads_per_unit / warp_width"
     );
 
-    // Register budget for a kernel using 32 registers per thread.
-    let registers_per_thread = 32u64;
-    let regs_per_unit = a100.registers_per_unit().expect("reported").get() as u64;
+    // Register budget for a kernel using 32 registers per thread. Counts stay
+    // in `u32` so the occupancy ratio converts to `f64` without precision loss.
+    let registers_per_thread = 32u32;
+    let regs_per_unit = a100.registers_per_unit().expect("reported").get();
     let warps_per_unit_reg_limited = regs_per_unit / (registers_per_thread * 32);
+    let warp_slots_per_unit = f64::from(2048u32 / 32);
     println!("\nregister-limited occupancy at {registers_per_thread} regs/thread:");
     println!("  warps/unit          : {warps_per_unit_reg_limited}");
     println!(
         "  occupancy           : {:.1} %",
-        warps_per_unit_reg_limited as f64 / (2048.0 / 32.0) * 100.0
+        f64::from(warps_per_unit_reg_limited) / warp_slots_per_unit * 100.0
     );
 
     // Shared-memory budget for 16 KiB per thread block (warp = 1 block here).

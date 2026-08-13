@@ -22,6 +22,9 @@ fn describe_hint(hint: PlacementHint) -> &'static str {
 }
 
 fn main() {
+    // Bucket table width used by the NumaBucketIndex demonstration below.
+    const BUCKETS: usize = 4;
+
     // Default hint is Current.
     assert_eq!(PlacementHint::default(), PlacementHint::Current);
     println!("default: {}", describe_hint(PlacementHint::default()));
@@ -69,7 +72,6 @@ fn main() {
     assert_eq!(allocatable.len(), 6);
 
     // NumaBucketIndex: map node IDs into a 4-bucket table (wrapping).
-    const BUCKETS: usize = 4;
     for raw in 0u32..8 {
         let node = NumaNodeId::new(raw);
         let bucket = node.bucket_index::<BUCKETS>();

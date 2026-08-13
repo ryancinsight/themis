@@ -91,7 +91,7 @@ impl<'brand> NumaNodePlacement<'brand> {
             return None;
         }
         melinoe::sync::partition_for_each_with(slice.cells_mut(), plan, |start, mut shard| {
-            f(start, shard.as_mut_slice())
+            f(start, shard.as_mut_slice());
         });
         Some(())
     }
@@ -161,7 +161,7 @@ impl<'brand, const NODE_ID: u32> ConstNumaNodePlacement<'brand, NODE_ID> {
         F: Fn(usize, &mut [T]) + Sync,
     {
         melinoe::sync::partition_for_each_with(slice.cells_mut(), plan, |start, mut shard| {
-            f(start, shard.as_mut_slice())
+            f(start, shard.as_mut_slice());
         });
     }
 }

@@ -7,6 +7,14 @@ use super::super::{
 use crate::law::{MemoryTier, NumaNodeId, TopologyEpoch};
 use crate::topology::types::NumaNode;
 
+// `CpuTopology::detect` exposes `Option<CpuTopology>` publicly: it models
+// "no backend could produce a topology". Every current backend resolves to at
+// least a single-node snapshot, but diverging one backend's signature would
+// fork the seam that public contract sits on.
+#[expect(
+    clippy::unnecessary_wraps,
+    reason = "platform detect backends share the Option-returning contract of CpuTopology::detect"
+)]
 pub(super) fn detect() -> Option<CpuTopology> {
     #[repr(C)]
     #[derive(Clone, Copy, Debug)]
@@ -16,7 +24,12 @@ pub(super) fn detect() -> Option<CpuTopology> {
         reserved: [u16; 3],
     }
 
-    extern "system" {
+    // SAFETY: the declarations match the Win32 signatures for these entry
+    // points (`GetNumaHighestNodeNumber`, `GetNumaNodeProcessorMaskEx`,
+    // `systemtopologyapi.h`): out-pointer to `ULONG`, `USHORT` node index with
+    // an out-pointer to `GROUP_AFFINITY`, `BOOL` results. `GroupAffinity`
+    // above is `#[repr(C)]` with the same field order and widths.
+    unsafe extern "system" {
         fn GetNumaHighestNodeNumber(highest_node_number: *mut u32) -> i32;
         fn GetNumaNodeProcessorMaskEx(node: u16, processor_mask: *mut GroupAffinity) -> i32;
     }
@@ -36,13 +49,18 @@ pub(super) fn detect() -> Option<CpuTopology> {
         if raw_node >= 1024 {
             continue;
         }
+        // Total given the bound above; expressed as a conversion so no `as`
+        // truncation is relied on.
+        let Ok(node_index) = u16::try_from(raw_node) else {
+            continue;
+        };
         let mut affinity = GroupAffinity {
             mask: 0,
             group: 0,
             reserved: [0; 3],
         };
         // SAFETY: The API writes one GROUP_AFFINITY structure through a valid pointer.
-        if unsafe { GetNumaNodeProcessorMaskEx(raw_node as u16, &mut affinity) } == 0
+        if unsafe { GetNumaNodeProcessorMaskEx(node_index, &mut affinity) } == 0
             || affinity.mask == 0
         {
             continue;
@@ -52,7 +70,7 @@ pub(super) fn detect() -> Option<CpuTopology> {
         let mut processors = Vec::with_capacity(mask.count_ones() as usize);
         for bit in 0..64u32 {
             if (mask & (1u64 << bit)) != 0 {
-                let system_processor = (affinity.group as u32) * 64 + bit;
+                let system_processor = u32::from(affinity.group) * 64 + bit;
                 if system_processor >= 32768 {
                     continue;
                 }

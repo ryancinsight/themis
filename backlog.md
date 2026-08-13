@@ -6,6 +6,26 @@ mnemosyne (allocation), moirai (scheduling), and hephaestus (devices) consume.
 
 ## Delivered
 
+- [x] [major] Close the placement-tag aliasing hole in `SyncRegionPlacement`.
+  `split_static` duplicated the brand's single Melinoe write token and leaned
+  on the NUMA node tag to keep the copies apart, but the tag was attached to a
+  cell by the caller, so labelling one cell twice produced two live `&mut T`
+  from safe code. Cell tags now come from ownership, an exclusive borrow
+  (`from_unique`), or inheritance (`as_pinned_ref`); the four pinned traits are
+  `unsafe` so downstream types discharge the same obligation. Decision:
+  [ADR 0002](docs/adr/0002-placement-tags-are-proof-carrying.md). Evidence:
+  reproduced pre-fix as a passing test and as a Miri Stacked Borrows error;
+  post-fix `compile_fail` doctests pinning E0599 and E0499; 45/45 nextest, 5/5
+  doctests, Miri clean over `src/branded/`, warning-denied Clippy on the
+  pedantic floor across both feature sets and both platform backends.
+
+- [x] [patch] Add verification CI (`ci.yml`): fmt, Clippy `-D warnings` on a
+  `clippy::pedantic` + `unwrap_used` floor across the default and
+  `--no-default-features` configurations, nextest, doctests, `cargo doc`, and
+  Miri over `src/branded/`. Runs on a Linux/Windows matrix because the topology
+  backends are disjoint per platform. All actions SHA-pinned; every job carries
+  `timeout-minutes` and `permissions: contents: read`.
+
 - [x] [patch] Publish future releases through a pinned GitHub Actions workflow
   using crates.io OIDC Trusted Publishing and no stored registry credential.
 
@@ -186,3 +206,18 @@ properties into themis types).
   boundary note, and two new branded tests. Cross-link:
   ATLAS-THEMIS-MELINOE-ADOPTION-002 (`cad222b`); evidence: strict Clippy,
   Nextest 21/21 default + 38/38 `testing` + 21/21 `--no-default-features`.
+
+## Residual findings (this cycle) [patch]
+
+- [ ] [patch] `compile_fail` error codes are enforced only by the nightly
+  doctest job: stable rustdoc parses `compile_fail,E0499` and never checks the
+  code (verified by feeding it a deliberately wrong code — stable passed,
+  nightly reported "Some expected error codes were not found"). If the nightly
+  job is ever dropped, the placement proofs silently degrade to "fails for some
+  reason". A `trybuild` UI test would enforce it on stable at the cost of
+  version-brittle `.stderr` fixtures.
+
+- [ ] [patch] The repository has no `.gitattributes`. Line endings currently
+  depend on each contributor's `core.autocrlf`; a `* text=auto` normalization
+  would make source blobs LF for every host. Deferred here because it
+  renormalizes every file in the tree, which does not belong in a soundness fix.

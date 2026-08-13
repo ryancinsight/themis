@@ -13,6 +13,10 @@ const MAX_GROUPS: usize = 64;
 const MAX_BUFFER_BYTES: usize = 1024 * 1024;
 const MAX_PROCESSOR_ID: usize = 32_768;
 
+// SAFETY: the declarations match the Win32 signatures for these entry points
+// (`GetLogicalProcessorInformationEx`, `winnt.h`): `u32` relationship code,
+// caller-provided output buffer, in/out length pointer, `BOOL` result. A
+// mismatched signature here would corrupt the stack at every call site.
 unsafe extern "system" {
     fn GetLogicalProcessorInformationEx(
         relationship_type: u32,

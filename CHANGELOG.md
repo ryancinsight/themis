@@ -2,8 +2,41 @@
 
 ## Unreleased
 
+### Fixed
+
+- **Soundness.** `SyncRegionPlacement::split_static` duplicated the brand's
+  single Melinoe write token and relied on the NUMA node tag to keep the copies
+  apart, but the tag was attached to a cell by the caller. Labelling one cell
+  with two node ids produced two live `&mut T` to the same location from
+  entirely safe code (confirmed under Miri as a Stacked Borrows violation). A
+  cell's tag now comes from a construction path that proves it. See
+  [ADR 0002](docs/adr/0002-placement-tags-are-proof-carrying.md).
+
+### Breaking
+
+- Removed `NumaPinnedCellRef::new`, `NumaPinnedSliceRef::new`,
+  `ConstNumaPinnedCellRef::new`, and `ConstNumaPinnedSliceRef::new`. These
+  accepted a shared cell reference plus a caller-chosen node tag, which is the
+  aliasing hole. Replace with `from_unique`, which takes `&mut` — the exclusive
+  borrow is the placement proof — or with `as_pinned_ref` on the owning pinned
+  type, which inherits the owner's tag.
+- `PinnedCell`, `ConstPinnedCell`, `PinnedSlice`, and `ConstPinnedSlice` are now
+  `unsafe` traits. They are the dispatch surface the placement `write` methods
+  use, so implementors must guarantee their cell is unreachable under any other
+  node tag. Existing implementors add `unsafe` to the `impl`.
+
 ### Changed
 
+- `SyncRegionPlacement::project_static` is no longer `unsafe`. It consumes the
+  region and returns a single capability, so it never duplicates the token and
+  imposes no obligation on the caller.
+- `split` and `split_with` assert pairwise-distinct NUMA node ids, discharging
+  locally the precondition their `unsafe` token duplication depends on.
+- Added a `ci.yml` workflow: fmt, clippy under `-D warnings` across both feature
+  configurations, nextest, doctests, `cargo doc`, a nightly doctest pass that
+  enforces `compile_fail` error codes (stable rustdoc ignores them), and Miri
+  over `src/branded/`.
+- Added a `[lints]` floor: `clippy::pedantic` plus `clippy::unwrap_used`.
 - Add a GitHub Release workflow that validates crate identity and package
   contents before publishing through crates.io Trusted Publishing.
 - Publish under the collision-free `themis-topology` package name while
