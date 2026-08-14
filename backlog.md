@@ -224,3 +224,10 @@ properties into themis types).
   contributor's `core.autocrlf`. The tracked file is present at the exact
   default head `fa8dc29`; no tree-wide renormalization was needed because the
   existing index is already normalized.
+
+## ADR governance — generated index refresh
+
+- **[patch]** Refresh `docs/adr/README.md` from the existing canonical
+  `Accepted` headers for ADR 0001–0002. No decision content or provider
+  contract changes are in scope; Atlas root `ATLAS-ADR-GOV-058` owns the
+  cross-repository burn-down.

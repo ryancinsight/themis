@@ -52,3 +52,11 @@ Verification against the current repository SSOT:
 No code fix or consumer-side workaround is required. Re-open only if a future
 branded-placement change reintroduces a zero-node panic or a topology split can
 produce a permit whose node ID is not present in the topology.
+
+### ADR governance — generated index refresh
+
+The two ADR source headers already use the canonical `Status: Accepted` token.
+The tracked `docs/adr/README.md` table was stale and now matches those headers,
+including the generator marker and canonical separator width. This is derived
+documentation only; no decision content or provider contract changed. The
+cross-repository status remains owned by Atlas `ATLAS-ADR-GOV-058`.
