@@ -29,17 +29,39 @@ melinoe = ["dep:melinoe", "melinoe/alloc"]
 # std-gated; no-std + testing would otherwise be an unbuildable combination.
 testing = ["std"]
 
-# Lint floor. Levels are `warn` here and promoted to errors by CI's
-# `-D warnings`, so a local build stays navigable while the gate stays hard.
-[lints.clippy]
-pedantic = { level = "warn", priority = -1 }
+[workspace]
+members = ["."]
+default-members = ["."]
+resolver = "2"
+
+[lints]
+workspace = true
+
+[workspace.lints.clippy]
+pedantic = { level = "deny", priority = -1 }
+
+# Pedantic floor ratchet: every class listed below already fires in this
+# workspace and is allowed at its measured baseline; every class NOT listed
+# is a hard error. Counts are `cargo clippy --all-targets` hits at the time
+# the floor was established (total / production, production excluding
+# `#[cfg(test)]` modules and test, bench and example targets). Burn a class
+# down to zero, then delete its line -- the floor tightens, never loosens.
+#
+# The ratchet is empty: the only class that fired was `similar_names`
+# (5 sites, 0 in production, all in tests/branded.rs, where index-suffixed
+# names -- `permit0`/`permit1`, `cell0`/`cell1` -- are the clearest way to
+# write per-NUMA-node pairs). It is pinned by a file-level `#![expect(...)]`
+# in that one file rather than allowed workspace-wide, so the pin self-expires
+# when the last such pair goes.
+
+# --- Restriction floor ---
 # Themis is a library: an input-dependent `unwrap` is a panic in a consumer's
-# process. Test and bench targets carry a scoped allow.
+# process. Denied outright with no ratchet -- zero production sites.
 unwrap_used = "deny"
-# Curated pedantic exceptions. Index-suffixed names (`permit0`/`permit1`,
-# `cell0`/`cell1`) are the clearest way to write per-NUMA-node pairs, and are
-# exactly what `similar_names` objects to.
-similar_names = "allow"
+# A library never writes to the process's stdio; output belongs to the caller.
+print_stdout = "deny"
+print_stderr = "deny"
+dbg_macro = "deny"
 
 [dependencies]
 melinoe = { git = "https://github.com/ryancinsight/melinoe.git", version = "0.9.0", default-features = false, optional = true }

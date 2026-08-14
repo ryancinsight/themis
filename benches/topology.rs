@@ -1,3 +1,8 @@
+#![expect(
+    clippy::print_stdout,
+    reason = "harness = false bench: stdout is how it reports timings"
+)]
+
 use std::hint::black_box;
 use std::time::Instant;
 

@@ -3,6 +3,10 @@
 //! Test code is exempt from `clippy::unwrap_used`: a panic here is the
 //! failure report, not a shipped panic path.
 #![allow(clippy::unwrap_used)]
+#![expect(
+    clippy::similar_names,
+    reason = "index-suffixed pairs (permit0/permit1, cell0/cell1) name per-NUMA-node operands"
+)]
 
 use themis::{
     build_processor_to_node, CpuTopology, MemoryTier, NumaNode, NumaNodeId, PlacementHint,

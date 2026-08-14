@@ -10,6 +10,11 @@
 //! used by moirai's launch shaper to set block dimensions at kernel dispatch
 //! time.
 
+#![expect(
+    clippy::print_stdout,
+    reason = "book example: stdout is the demonstrated output"
+)]
+
 use core::num::{NonZeroU32, NonZeroU64, NonZeroUsize};
 use themis::{GpuDeviceProperties, GpuTopology, MemoryTier};
 

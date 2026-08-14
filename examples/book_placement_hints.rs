@@ -5,6 +5,11 @@
 //! into a fixed-size bucket table, and queries the [`MemoryTier`] host-
 //! allocatability contract.
 
+#![expect(
+    clippy::print_stdout,
+    reason = "book example: stdout is the demonstrated output"
+)]
+
 use themis::{LocalityDomainId, MemoryTier, NumaNodeId, PlacementHint, WorkerId};
 
 /// Simulate how an allocator would inspect a placement hint.
