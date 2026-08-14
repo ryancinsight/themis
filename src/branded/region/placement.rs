@@ -1,10 +1,8 @@
 use melinoe::sync::SyncRegionToken;
 use melinoe::{CellSliceExt, MelinoeMut, MelinoeRef};
 
-use super::cell::{
-    ConstNumaPinnedSlice, ConstPinnedCell, ConstPinnedSlice, NumaPinnedSlice, PinnedCell,
-    PinnedSlice,
-};
+use super::cell::{ConstPinnedCell, ConstPinnedSlice, NumaPinnedSlice, PinnedCell, PinnedSlice};
+use super::static_cell::ConstNumaPinnedSlice;
 
 /// A node-specific placement capability.
 pub struct NumaNodePlacement<'brand> {

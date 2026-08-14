@@ -2,6 +2,7 @@
 
 pub mod cell;
 pub mod placement;
+pub mod static_cell;
 
 #[cfg(not(feature = "std"))]
 extern crate alloc;
@@ -430,8 +431,8 @@ impl<'brand> SyncRegionPlacement<'brand> {
     ) -> placement::ConstNumaNodePlacement<'brand, NODE_ID> {
         let this = core::mem::ManuallyDrop::new(self);
         placement::ConstNumaNodePlacement {
-            // SAFETY: `this` is a `ManuallyDrop`, so the source token is live
-            // for the read and is never dropped; the read yields the sole owner
+            // SAFETY: `this` is a `ManuallyDrop`, so the source token remains
+            // live and is never dropped; the read yields the sole owner
             // of its bits. `self` was consumed and only one capability leaves
             // this function, so the brand retains exactly one live token.
             token: unsafe { core::ptr::read(&this.token) },
