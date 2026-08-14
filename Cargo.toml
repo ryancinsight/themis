@@ -35,7 +35,7 @@ testing = ["std"]
 pedantic = { level = "warn", priority = -1 }
 # Themis is a library: an input-dependent `unwrap` is a panic in a consumer's
 # process. Test and bench targets carry a scoped allow.
-unwrap_used = "warn"
+unwrap_used = "deny"
 # Curated pedantic exceptions. Index-suffixed names (`permit0`/`permit1`,
 # `cell0`/`cell1`) are the clearest way to write per-NUMA-node pairs, and are
 # exactly what `similar_names` objects to.
