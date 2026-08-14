@@ -704,7 +704,7 @@ fn duplicate_node_ids_cannot_reach_a_capability_split() {
     });
 
     assert!(
-        matches!(built, Err(_)),
+        built.map_or(true, |_| false),
         "CpuTopology accepted a duplicate NUMA node id"
     );
 }
