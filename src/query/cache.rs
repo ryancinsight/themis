@@ -9,10 +9,9 @@ static CACHED_NODE: core::cell::Cell<Option<NumaNodeId>> = const { core::cell::C
 
 #[cfg(all(feature = "std", not(nightly_tls_active)))]
 thread_local! {
-    // `allow`, not `expect`: the lint fires on some targets and not others, so an
-    // `expect` is itself unfulfilled half the time. It is a false positive
-    // either way — the initializer below is already a `const` block.
-    #[allow(
+    // The initializer is already a `const` block; retain the explicit
+    // expectation because Clippy's target-specific diagnostic is redundant.
+    #[expect(
         clippy::missing_const_for_thread_local,
         reason = "false positive: the initializer is already a const block"
     )]
