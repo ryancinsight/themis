@@ -209,13 +209,15 @@ properties into themis types).
 
 ## Residual findings (this cycle) [patch]
 
-- [ ] [patch] `compile_fail` error codes are enforced only by the nightly
+- [x] [patch] `compile_fail` error codes were enforced only by the nightly
   doctest job: stable rustdoc parses `compile_fail,E0499` and never checks the
   code (verified by feeding it a deliberately wrong code — stable passed,
-  nightly reported "Some expected error codes were not found"). If the nightly
-  job is ever dropped, the placement proofs silently degrade to "fails for some
-  reason". A `trybuild` UI test would enforce it on stable at the cost of
-  version-brittle `.stderr` fixtures.
+  nightly reported "Some expected error codes were not found"). Stable
+  `trybuild` UI tests now pin the `E0599` shared-cell construction failure and
+  the `E0499` overlapping-borrow failure in committed `.stderr` fixtures.
+  `cargo nextest run --features "melinoe testing" --lib --test branded
+  --test compile_fail` passes 42/42; the nightly doctest remains the independent
+  exact-code check.
 
 - [ ] [patch] The repository has no `.gitattributes`. Line endings currently
   depend on each contributor's `core.autocrlf`; a `* text=auto` normalization

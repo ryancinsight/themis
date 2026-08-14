@@ -1,0 +1,23 @@
+error[E0599]: no associated function or constant named `new` found for struct `ConstNumaPinnedCellRef<'a, 'brand, NODE_ID, T>` in the current scope
+ --> tests/ui/shared_cell_tag.rs:7:50
+  |
+7 |         let r0 = ConstNumaPinnedCellRef::<0, _>::new(&cell);
+  |                                                  ^^^ associated function or constant not found in `ConstNumaPinnedCellRef<'_, '_, 0, _>`
+  |
+note: if you're trying to build a new `ConstNumaPinnedCellRef<'_, '_, 0, _>`, consider using `ConstNumaPinnedCellRef::<'a, 'brand, NODE_ID, T>::from_unique` which returns `ConstNumaPinnedCellRef<'_, '_, _, _>`
+ --> src/branded/region/static_cell.rs
+  |
+  |     pub const fn from_unique(cell: &'a mut MelinoeCell<'brand, T>) -> Self {
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error[E0599]: no associated function or constant named `new` found for struct `ConstNumaPinnedCellRef<'a, 'brand, NODE_ID, T>` in the current scope
+ --> tests/ui/shared_cell_tag.rs:8:50
+  |
+8 |         let r1 = ConstNumaPinnedCellRef::<1, _>::new(&cell);
+  |                                                  ^^^ associated function or constant not found in `ConstNumaPinnedCellRef<'_, '_, 1, _>`
+  |
+note: if you're trying to build a new `ConstNumaPinnedCellRef<'_, '_, 1, _>`, consider using `ConstNumaPinnedCellRef::<'a, 'brand, NODE_ID, T>::from_unique` which returns `ConstNumaPinnedCellRef<'_, '_, _, _>`
+ --> src/branded/region/static_cell.rs
+  |
+  |     pub const fn from_unique(cell: &'a mut MelinoeCell<'brand, T>) -> Self {
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
