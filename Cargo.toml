@@ -46,11 +46,17 @@ melinoe = { git = "https://github.com/ryancinsight/melinoe.git", version = "0.9.
 
 [dev-dependencies]
 proptest = "1"
+trybuild = "1"
 
 [[test]]
 name = "branded"
 path = "tests/branded.rs"
 required-features = ["melinoe", "testing"]
+
+[[test]]
+name = "compile_fail"
+path = "tests/compile_fail.rs"
+required-features = ["melinoe"]
 
 [[bench]]
 name = "topology"
