@@ -17,7 +17,7 @@ name = "themis"
 
 [features]
 default = ["std", "melinoe"]
-std = ["melinoe?/std"]
+std = ["melinoe", "melinoe/std"]
 # Branded placement extras
 melinoe = ["dep:melinoe", "melinoe/alloc"]
 # Test-only surface: activates `new_for_test` constructors and table-builder
