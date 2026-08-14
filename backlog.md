@@ -219,7 +219,8 @@ properties into themis types).
   --test compile_fail` passes 42/42; the nightly doctest remains the independent
   exact-code check.
 
-- [ ] [patch] The repository has no `.gitattributes`. Line endings currently
-  depend on each contributor's `core.autocrlf`; a `* text=auto` normalization
-  would make source blobs LF for every host. Deferred here because it
-  renormalizes every file in the tree, which does not belong in a soundness fix.
+- [x] [patch] The repository now carries `.gitattributes` with the canonical
+  `* text=auto` normalization, so source blobs do not depend on each
+  contributor's `core.autocrlf`. The tracked file is present at the exact
+  default head `fa8dc29`; no tree-wide renormalization was needed because the
+  existing index is already normalized.
