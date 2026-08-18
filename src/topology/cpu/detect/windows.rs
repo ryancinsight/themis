@@ -29,14 +29,16 @@ pub(super) fn detect() -> Option<CpuTopology> {
     // `systemtopologyapi.h`): out-pointer to `ULONG`, `USHORT` node index with
     // an out-pointer to `GROUP_AFFINITY`, `BOOL` results. `GroupAffinity`
     // above is `#[repr(C)]` with the same field order and widths.
-    unsafe extern "system" {
+    extern "system" {
         fn GetNumaHighestNodeNumber(highest_node_number: *mut u32) -> i32;
         fn GetNumaNodeProcessorMaskEx(node: u16, processor_mask: *mut GroupAffinity) -> i32;
     }
 
     let mut highest_node = 0u32;
     // SAFETY: The API writes one `u32` through a valid output pointer.
-    if unsafe { GetNumaHighestNodeNumber(&raw mut highest_node) } == 0 || highest_node >= 1024 {
+    if unsafe { GetNumaHighestNodeNumber(core::ptr::addr_of_mut!(highest_node)) } == 0
+        || highest_node >= 1024
+    {
         return Some(CpuTopology::single_node(logical_processor_count()));
     }
 
@@ -60,7 +62,7 @@ pub(super) fn detect() -> Option<CpuTopology> {
             reserved: [0; 3],
         };
         // SAFETY: The API writes one GROUP_AFFINITY structure through a valid pointer.
-        if unsafe { GetNumaNodeProcessorMaskEx(node_index, &raw mut affinity) } == 0
+        if unsafe { GetNumaNodeProcessorMaskEx(node_index, core::ptr::addr_of_mut!(affinity)) } == 0
             || affinity.mask == 0
         {
             continue;

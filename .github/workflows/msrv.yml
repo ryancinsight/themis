@@ -37,10 +37,10 @@ jobs:
     # Linux and Windows compile disjoint topology backends
     # (`src/topology/cpu/detect/{linux,windows}.rs`, `src/query/platform.rs`),
     # so a single-OS run leaves half the crate unbuilt. The Windows backend
-    # carries the `unsafe extern "system"` blocks (stabilized 1.82); the floor
-    # itself is set by `&mut` in `const fn` (`const_mut_refs`, stabilized 1.83)
-    # in `src/branded/region/{cell,static_cell}.rs`, which is platform-neutral.
-    name: Rust 1.83.0 check (${{ matrix.os }})
+    # The floor is set by `#[expect(lint, reason = ...)]` (stabilized in 1.81).
+    # The platform backends retain Rust 1.81-compatible extern declarations,
+    # and the branded constructors avoid `&mut` parameters in `const fn`.
+    name: Rust 1.81.0 check (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     permissions:
@@ -58,7 +58,7 @@ jobs:
       - name: Install the declared MSRV
         uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
         with:
-          toolchain: 1.83.0
+          toolchain: 1.81.0
 
       # The consumer-facing surface only. `--all-targets` cannot run at the
       # declared floor: the locked dev-dependency closure requires a newer

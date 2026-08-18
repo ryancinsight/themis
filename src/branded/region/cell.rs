@@ -178,7 +178,7 @@ impl<'a, 'brand, T> NumaPinnedCellRef<'a, 'brand, T> {
     /// ```
     #[must_use]
     #[inline]
-    pub const fn from_unique(node_id: NumaNodeId, cell: &'a mut MelinoeCell<'brand, T>) -> Self {
+    pub fn from_unique(node_id: NumaNodeId, cell: &'a mut MelinoeCell<'brand, T>) -> Self {
         Self { node_id, cell }
     }
 
@@ -313,7 +313,7 @@ impl<'a, 'brand, T> NumaPinnedSliceRef<'a, 'brand, T> {
     /// ```
     #[must_use]
     #[inline]
-    pub const fn from_unique(node_id: NumaNodeId, cells: &'a mut [MelinoeCell<'brand, T>]) -> Self {
+    pub fn from_unique(node_id: NumaNodeId, cells: &'a mut [MelinoeCell<'brand, T>]) -> Self {
         Self { node_id, cells }
     }
 

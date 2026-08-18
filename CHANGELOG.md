@@ -14,6 +14,8 @@
 
 ### Breaking
 
+- The four `from_unique` constructors are no longer `const fn`: Rust 1.81
+  rejects `&mut` parameters in `const fn`. Their runtime behavior is unchanged.
 - Removed `NumaPinnedCellRef::new`, `NumaPinnedSliceRef::new`,
   `ConstNumaPinnedCellRef::new`, and `ConstNumaPinnedSliceRef::new`. These
   accepted a shared cell reference plus a caller-chosen node tag, which is the
@@ -27,6 +29,7 @@
 
 ### Changed
 
+- Declare Rust 1.81 as the library MSRV and verify it on Linux and Windows.
 - `SyncRegionPlacement::project_static` is no longer `unsafe`. It consumes the
   region and returns a single capability, so it never duplicates the token and
   imposes no obligation on the caller.

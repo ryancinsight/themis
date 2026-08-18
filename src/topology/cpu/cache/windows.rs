@@ -17,7 +17,7 @@ const MAX_PROCESSOR_ID: usize = 32_768;
 // (`GetLogicalProcessorInformationEx`, `winnt.h`): `u32` relationship code,
 // caller-provided output buffer, in/out length pointer, `BOOL` result. A
 // mismatched signature here would corrupt the stack at every call site.
-unsafe extern "system" {
+extern "system" {
     fn GetLogicalProcessorInformationEx(
         relationship_type: u32,
         buffer: *mut c_void,
@@ -33,7 +33,7 @@ pub(super) fn detect() -> Option<Box<[CacheLevel]>> {
         GetLogicalProcessorInformationEx(
             RELATION_CACHE,
             core::ptr::null_mut(),
-            &raw mut returned_length,
+            core::ptr::addr_of_mut!(returned_length),
         )
     };
     if first_call != 0 {
@@ -51,7 +51,7 @@ pub(super) fn detect() -> Option<Box<[CacheLevel]>> {
         GetLogicalProcessorInformationEx(
             RELATION_CACHE,
             buffer.as_mut_ptr().cast(),
-            &raw mut returned_length,
+            core::ptr::addr_of_mut!(returned_length),
         )
     };
     if second_call == 0 {
