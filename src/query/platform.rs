@@ -87,7 +87,7 @@ fn query_cpu_locality_os() -> Option<CpuLocality> {
             // `PROCESSOR_NUMBER` in-pointer with a `USHORT` out-pointer, `BOOL`
             // result. `ProcessorNumber` above is `#[repr(C)]` with the same
             // field order and widths.
-            unsafe extern "system" {
+            extern "system" {
                 fn GetCurrentProcessorNumberEx(proc_number: *mut ProcessorNumber);
                 fn GetNumaProcessorNodeEx(
                     processor: *const ProcessorNumber,
@@ -99,9 +99,11 @@ fn query_cpu_locality_os() -> Option<CpuLocality> {
                 number: 0,
                 reserved: 0,
             };
-            GetCurrentProcessorNumberEx(&raw mut proc_num);
+            GetCurrentProcessorNumberEx(core::ptr::addr_of_mut!(proc_num));
             let mut node = 0u16;
-            if GetNumaProcessorNodeEx(&raw const proc_num, &raw mut node) != 0 {
+            if GetNumaProcessorNodeEx(core::ptr::addr_of!(proc_num), core::ptr::addr_of_mut!(node))
+                != 0
+            {
                 let system_processor = u32::from(proc_num.group) * 64 + u32::from(proc_num.number);
                 if system_processor < 32768 && node < 1024 {
                     Some(CpuLocality {

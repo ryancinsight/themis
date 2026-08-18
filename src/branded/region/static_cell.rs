@@ -76,7 +76,7 @@ impl<'a, 'brand, const NODE_ID: u32, T> ConstNumaPinnedCellRef<'a, 'brand, NODE_
     /// ```
     #[must_use]
     #[inline]
-    pub const fn from_unique(cell: &'a mut MelinoeCell<'brand, T>) -> Self {
+    pub fn from_unique(cell: &'a mut MelinoeCell<'brand, T>) -> Self {
         Self { cell }
     }
 }
@@ -178,7 +178,7 @@ impl<'a, 'brand, const NODE_ID: u32, T> ConstNumaPinnedSliceRef<'a, 'brand, NODE
     /// this one lives. Placing a stack array needs no allocation.
     #[must_use]
     #[inline]
-    pub const fn from_unique(cells: &'a mut [MelinoeCell<'brand, T>]) -> Self {
+    pub fn from_unique(cells: &'a mut [MelinoeCell<'brand, T>]) -> Self {
         Self { cells }
     }
 }
