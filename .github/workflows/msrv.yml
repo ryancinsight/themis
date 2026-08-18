@@ -1,0 +1,70 @@
+name: Minimum Supported Rust Version
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/msrv.yml"
+      - "Cargo.lock"
+      - "Cargo.toml"
+      - "src/**"
+      - "tests/**"
+      - "examples/**"
+      - "benches/**"
+      - "build.rs"
+      - "rust-toolchain.toml"
+  pull_request:
+    paths:
+      - ".github/workflows/msrv.yml"
+      - "Cargo.lock"
+      - "Cargo.toml"
+      - "src/**"
+      - "tests/**"
+      - "examples/**"
+      - "benches/**"
+      - "build.rs"
+      - "rust-toolchain.toml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: msrv-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    # Linux and Windows compile disjoint topology backends
+    # (`src/topology/cpu/detect/{linux,windows}.rs`, `src/query/platform.rs`),
+    # so a single-OS run leaves half the crate unbuilt. The Windows backend
+    # carries the `unsafe extern "system"` blocks (stabilized 1.82); the floor
+    # itself is set by `&mut` in `const fn` (`const_mut_refs`, stabilized 1.83)
+    # in `src/branded/region/{cell,static_cell}.rs`, which is platform-neutral.
+    name: Rust 1.83.0 check (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - name: Check out the source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install the declared MSRV
+        uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
+        with:
+          toolchain: 1.83.0
+
+      # The consumer-facing surface only. `--all-targets` cannot run at the
+      # declared floor: the locked dev-dependency closure requires a newer
+      # rustc than the library does (trybuild declares 1.88). Dev-dependencies
+      # are not part of the contract a consumer compiles against, so they do
+      # not set this crate's `rust-version`; the pinned-toolchain CI gate
+      # covers all targets.
+      - name: Check the library at the MSRV
+        run: cargo check --locked --all-features

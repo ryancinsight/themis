@@ -10,7 +10,7 @@ documentation = "https://docs.rs/themis-topology"
 description = "Typed placement law for NUMA, HBM, memory-tier, and worker locality contracts"
 keywords = ["numa", "hbm", "locality", "placement", "topology"]
 categories = ["concurrency", "memory-management", "hardware-support"]
-rust-version = "1.75.0"
+rust-version = "1.83.0"
 
 [lib]
 name = "themis"

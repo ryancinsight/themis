@@ -33,7 +33,7 @@ pub(super) fn detect() -> Option<Box<[CacheLevel]>> {
         GetLogicalProcessorInformationEx(
             RELATION_CACHE,
             core::ptr::null_mut(),
-            &mut returned_length,
+            &raw mut returned_length,
         )
     };
     if first_call != 0 {
@@ -51,7 +51,7 @@ pub(super) fn detect() -> Option<Box<[CacheLevel]>> {
         GetLogicalProcessorInformationEx(
             RELATION_CACHE,
             buffer.as_mut_ptr().cast(),
-            &mut returned_length,
+            &raw mut returned_length,
         )
     };
     if second_call == 0 {

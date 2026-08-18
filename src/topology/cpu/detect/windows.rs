@@ -36,7 +36,7 @@ pub(super) fn detect() -> Option<CpuTopology> {
 
     let mut highest_node = 0u32;
     // SAFETY: The API writes one `u32` through a valid output pointer.
-    if unsafe { GetNumaHighestNodeNumber(&mut highest_node) } == 0 || highest_node >= 1024 {
+    if unsafe { GetNumaHighestNodeNumber(&raw mut highest_node) } == 0 || highest_node >= 1024 {
         return Some(CpuTopology::single_node(logical_processor_count()));
     }
 
@@ -60,7 +60,7 @@ pub(super) fn detect() -> Option<CpuTopology> {
             reserved: [0; 3],
         };
         // SAFETY: The API writes one GROUP_AFFINITY structure through a valid pointer.
-        if unsafe { GetNumaNodeProcessorMaskEx(node_index, &mut affinity) } == 0
+        if unsafe { GetNumaNodeProcessorMaskEx(node_index, &raw mut affinity) } == 0
             || affinity.mask == 0
         {
             continue;

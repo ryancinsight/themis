@@ -99,9 +99,9 @@ fn query_cpu_locality_os() -> Option<CpuLocality> {
                 number: 0,
                 reserved: 0,
             };
-            GetCurrentProcessorNumberEx(&mut proc_num);
+            GetCurrentProcessorNumberEx(&raw mut proc_num);
             let mut node = 0u16;
-            if GetNumaProcessorNodeEx(&proc_num, &mut node) != 0 {
+            if GetNumaProcessorNodeEx(&raw const proc_num, &raw mut node) != 0 {
                 let system_processor = u32::from(proc_num.group) * 64 + u32::from(proc_num.number);
                 if system_processor < 32768 && node < 1024 {
                     Some(CpuLocality {

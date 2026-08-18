@@ -136,7 +136,7 @@ impl<'brand> SyncRegionPlacement<'brand> {
             unsafe {
                 split.push(placement::NumaNodePlacement {
                     node_id: node.id,
-                    token: core::ptr::read(&this.token),
+                    token: core::ptr::read(&raw const this.token),
                 });
             }
         }
@@ -209,7 +209,7 @@ impl<'brand> SyncRegionPlacement<'brand> {
                 unsafe {
                     buf_ptr.add(i).write(placement::NumaNodePlacement {
                         node_id: node.id,
-                        token: core::ptr::read(&this.token),
+                        token: core::ptr::read(&raw const this.token),
                     });
                 }
                 guard.initialized += 1;
@@ -235,7 +235,7 @@ impl<'brand> SyncRegionPlacement<'brand> {
                 unsafe {
                     split.push(placement::NumaNodePlacement {
                         node_id: node.id,
-                        token: core::ptr::read(&this.token),
+                        token: core::ptr::read(&raw const this.token),
                     });
                 }
             }
@@ -312,10 +312,10 @@ impl<'brand> SyncRegionPlacement<'brand> {
         unsafe {
             (
                 placement::ConstNumaNodePlacement {
-                    token: core::ptr::read(&this.token),
+                    token: core::ptr::read(&raw const this.token),
                 },
                 placement::ConstNumaNodePlacement {
-                    token: core::ptr::read(&this.token),
+                    token: core::ptr::read(&raw const this.token),
                 },
             )
         }
@@ -355,13 +355,13 @@ impl<'brand> SyncRegionPlacement<'brand> {
         unsafe {
             (
                 placement::ConstNumaNodePlacement {
-                    token: core::ptr::read(&this.token),
+                    token: core::ptr::read(&raw const this.token),
                 },
                 placement::ConstNumaNodePlacement {
-                    token: core::ptr::read(&this.token),
+                    token: core::ptr::read(&raw const this.token),
                 },
                 placement::ConstNumaNodePlacement {
-                    token: core::ptr::read(&this.token),
+                    token: core::ptr::read(&raw const this.token),
                 },
             )
         }
@@ -402,16 +402,16 @@ impl<'brand> SyncRegionPlacement<'brand> {
         unsafe {
             (
                 placement::ConstNumaNodePlacement {
-                    token: core::ptr::read(&this.token),
+                    token: core::ptr::read(&raw const this.token),
                 },
                 placement::ConstNumaNodePlacement {
-                    token: core::ptr::read(&this.token),
+                    token: core::ptr::read(&raw const this.token),
                 },
                 placement::ConstNumaNodePlacement {
-                    token: core::ptr::read(&this.token),
+                    token: core::ptr::read(&raw const this.token),
                 },
                 placement::ConstNumaNodePlacement {
-                    token: core::ptr::read(&this.token),
+                    token: core::ptr::read(&raw const this.token),
                 },
             )
         }
@@ -435,7 +435,7 @@ impl<'brand> SyncRegionPlacement<'brand> {
             // live and is never dropped; the read yields the sole owner
             // of its bits. `self` was consumed and only one capability leaves
             // this function, so the brand retains exactly one live token.
-            token: unsafe { core::ptr::read(&this.token) },
+            token: unsafe { core::ptr::read(&raw const this.token) },
         }
     }
 }
