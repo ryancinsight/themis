@@ -13,9 +13,9 @@ pub struct GpuDeviceProperties {
     pub warp_width:              Option<NonZeroU32>,
     pub max_threads_per_unit:    Option<NonZeroU32>,
     pub registers_per_unit:      Option<NonZeroU32>,
-    pub shared_mem_per_unit_bytes: Option<NonZeroU64>,
-    pub l2_bytes:                Option<NonZeroU64>,
-    pub memory_tier:             Option<MemoryTier>,
+    pub shared_mem_per_unit_bytes: Option<NonZeroUsize>,
+    pub l2_bytes:                Option<NonZeroUsize>,
+    pub memory_tier:             MemoryTier,
     pub memory_bytes:            Option<NonZeroU64>,
 }
 ```
