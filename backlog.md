@@ -6,6 +6,14 @@ mnemosyne (allocation), moirai (scheduling), and hephaestus (devices) consume.
 
 ## Delivered
 
+- [x] [patch][arch] Keep `src/branded/region/mod.rs` as a thin module manifest.
+  The `SyncRegionPlacement` implementation, NUMA-node proof helper, scope
+  constructor, and unit tests now live in `region/scope.rs`; public exports and
+  safety invariants are unchanged. ADR 0003 records the boundary. The locked
+  all-target check, warning-denied Clippy, nextest `25/25`, doctests `5/5`,
+  Rustdoc, and the Atlas conformance scan pass; the scan removes one
+  `manifest_implementation` site without increasing another class.
+
 - [x] [major] Close the placement-tag aliasing hole in `SyncRegionPlacement`.
   `split_static` duplicated the brand's single Melinoe write token and leaned
   on the NUMA node tag to keep the copies apart, but the tag was attached to a
