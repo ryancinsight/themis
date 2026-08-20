@@ -13,9 +13,9 @@ pub struct GpuDeviceProperties {
     pub warp_width:              Option<NonZeroU32>,
     pub max_threads_per_unit:    Option<NonZeroU32>,
     pub registers_per_unit:      Option<NonZeroU32>,
-    pub shared_mem_per_unit_bytes: Option<NonZeroU64>,
-    pub l2_bytes:                Option<NonZeroU64>,
-    pub memory_tier:             Option<MemoryTier>,
+    pub shared_mem_per_unit_bytes: Option<NonZeroUsize>,
+    pub l2_bytes:                Option<NonZeroUsize>,
+    pub memory_tier:             MemoryTier,
     pub memory_bytes:            Option<NonZeroU64>,
 }
 ```
@@ -57,14 +57,14 @@ The resident-warp formula is:
 
 Register-limited occupancy for a kernel using `registers_per_thread` registers:
 
-```
+```text
 kernel_budget  = registers_per_unit / (registers_per_thread * warp_width)
 resident_warps = min(kernel_budget, max_threads_per_unit / warp_width)
 ```
 
 Shared-memory-limited occupancy for a kernel using `shared_per_block` bytes:
 
-```
+```text
 blocks_per_unit = shared_mem_per_unit_bytes / shared_per_block
 ```
 
