@@ -15,7 +15,9 @@
     reason = "book example: stdout is the demonstrated output"
 )]
 
-use core::num::{NonZeroU32, NonZeroU64, NonZeroUsize};
+extern crate themis;
+
+use std::num::{NonZeroU32, NonZeroU64, NonZeroUsize};
 use themis::{GpuDeviceProperties, GpuTopology, MemoryTier};
 
 fn main() {

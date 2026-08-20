@@ -10,6 +10,8 @@
     reason = "book example: stdout is the demonstrated output"
 )]
 
+extern crate themis;
+
 use themis::{LocalityDomainId, MemoryTier, NumaNodeId, PlacementHint, WorkerId};
 
 /// Simulate how an allocator would inspect a placement hint.

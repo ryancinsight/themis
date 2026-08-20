@@ -6,7 +6,7 @@ the allocation or scheduling logic that acts on those expressions.
 
 ## Atlas layer ordering
 
-```
+```text
 eunomia  →  aequitas  →  themis
                           ↓           ↓
                        mnemosyne    moirai

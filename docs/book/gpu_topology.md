@@ -57,14 +57,14 @@ The resident-warp formula is:
 
 Register-limited occupancy for a kernel using `registers_per_thread` registers:
 
-```
+```text
 kernel_budget  = registers_per_unit / (registers_per_thread * warp_width)
 resident_warps = min(kernel_budget, max_threads_per_unit / warp_width)
 ```
 
 Shared-memory-limited occupancy for a kernel using `shared_per_block` bytes:
 
-```
+```text
 blocks_per_unit = shared_mem_per_unit_bytes / shared_per_block
 ```
 
