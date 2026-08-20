@@ -8,3 +8,4 @@
 | --- | ----- | ------ |
 | [0001](0001-crates-io-package-identity.md) | crates.io package identity | Accepted |
 | [0002](0002-placement-tags-are-proof-carrying.md) | Placement tags carry their proof | Accepted |
+| [0003](0003-region-module-boundary.md) | Keep the branded region manifest thin | Accepted |
