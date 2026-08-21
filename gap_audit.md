@@ -1,5 +1,21 @@
 # themis gap audit
 
+## Resolved in current branch
+
+### REGION-MANIFEST-001 — branded region manifest contained implementation
+
+The fetched provider default placed the complete `SyncRegionPlacement`
+implementation and tests in `src/branded/region/mod.rs`, a 481-line module
+manifest. The implementation now lives in `src/branded/region/scope.rs`, while
+the manifest declares child modules and re-exports the public scope surface.
+ADR 0003 records the decision and its rejected alternatives.
+
+Evidence: provider conformance `manifest_implementation` decreases from 2 to
+1 with all other Themis classes unchanged, nextest `25/25`, doctests `5/5`,
+locked all-target check, warning-denied Clippy, format, and Rustdoc pass.
+Re-open only if a later module move changes public paths or the conformance
+class rises.
+
 ## Deferred items
 
 ### TREE-SRP-001 Phase 2 — test rehoming to `tests/` ✅
