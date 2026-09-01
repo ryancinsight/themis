@@ -56,6 +56,14 @@ the safety net: the existing Windows NUMA backend reads a single
 differently the coverage check fails and the result is absence rather than a
 class table keyed by ids the rest of the snapshot does not use.
 
+Consumers discharge table absence once through `CpuTopology::efficiency()`.
+The resulting `CpuEfficiencyView` makes class-level queries total. On Windows,
+it can derive `ProcessorAffinityGroups` for any class. That affinity value owns
+the inverse of the flattened numbering convention, returns one native mask per
+group, retains unrepresentable processors explicitly, and selects the lowest
+group id when equally populated groups tie. Themis therefore owns topology
+numbering while allocation and thread-binding mechanisms remain downstream.
+
 ## Alternatives
 
 A `bool` performance-core flag matches what today's consumers ask for and is a
@@ -96,3 +104,7 @@ host never passes silently. The developer host's live detection returns exactly
 Format, warning-denied Clippy across both feature configurations, nextest, and
 doctests are the acceptance gates. The change is additive: no existing signature
 or behavior changes, so it is `[minor]`.
+
+Revision 2026-09-01: add the presence-proven efficiency view and group-aware
+affinity representation after three consumers independently re-derived the
+same flattened processor convention and repeated absence checks.

@@ -35,9 +35,11 @@ pub use query::{
     current_numa_node, current_processor, refresh_current_numa_node, try_current_numa_node,
 };
 pub use topology::{
-    CacheLevel, CpuTopology, EfficiencyClass, GpuDeviceProperties, GpuTopology, NumaNode,
-    TpuDeviceProperties, TpuTopology,
+    CacheLevel, CpuEfficiencyView, CpuTopology, EfficiencyClass, GpuDeviceProperties, GpuTopology,
+    NumaNode, TpuDeviceProperties, TpuTopology,
 };
+#[cfg(windows)]
+pub use topology::{ProcessorAffinityGroups, ProcessorGroupAffinity};
 
 // Test-only re-exports for integration tests (they are `pub` at definition
 // site but live inside a private `mod topology`, so crate-root re-export

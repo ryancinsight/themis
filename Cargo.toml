@@ -80,6 +80,11 @@ name = "compile_fail"
 path = "tests/compile_fail.rs"
 required-features = ["melinoe"]
 
+[[test]]
+name = "cpu_topology"
+path = "tests/topology/cpu.rs"
+required-features = ["testing"]
+
 [[bench]]
 name = "topology"
 harness = false

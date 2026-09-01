@@ -4,7 +4,27 @@ Strategic roadmap; tags `[patch]`/`[minor]`/`[major]`/`[arch]` per SemVer class.
 themis is the Atlas placement-law SSOT: typed, stateless vocabulary that
 mnemosyne (allocation), moirai (scheduling), and hephaestus (devices) consume.
 
-## THEMIS-AFFINITY-MASK-ACCESSOR-2026-09-01 [minor] — todo
+## THEMIS-AFFINITY-MASK-ACCESSOR-2026-09-01 [minor] — in progress
+
+- **Integrator / lease:** Codex `01a0253c-6013-7552-99cc-36bbbcf77f6d` on
+  `feat/group-aware-affinity-mask`; source lease discharged by provider commit
+  `fde462944ae2dd936c9c8d3344c3e2f22f07e0a3`; lease now covers this item and
+  delivery metadata; last update 2026-09-01.
+
+- **Provider candidate:** `fde462944ae2dd936c9c8d3344c3e2f22f07e0a3`
+  adds the cross-platform presence-proven efficiency view and Windows-only
+  group-mask representation. It also registers the previously dormant CPU
+  topology integration binary and moves embedded unit tests into a leaf,
+  reducing `src/topology/cpu/mod.rs` from 686 to 464 lines. Exact-diff evidence:
+  host warning-denied all-target/all-feature Clippy; 105/105 Nextest tests in
+  1.684 s; no-default check; warning-denied x86_64 Linux and AArch64 Windows
+  all-target/all-feature checks; warning-denied Rustdoc; 8/8 doctests; and
+  cargo-semver-checks 196/196 under `[minor]`. `Cargo.lock` remains byte-identical
+  to the standalone baseline. No throughput or allocation improvement is
+  claimed for this cold topology-construction API.
+- **Remaining closure:** publish and merge the provider, then migrate
+  mnemosyne and hermes so the acceptance oracle below is exercised by real
+  consumers before this item closes.
 
 - **Evidence: three independent migrations, converging on the same two gaps.**
   apollo (#236), mnemosyne (#86), and hermes (#120) each moved off hand-rolled
