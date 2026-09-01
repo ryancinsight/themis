@@ -45,6 +45,9 @@ pub(super) fn detect() -> Option<Box<[CacheLevel]>> {
             let Some(size_bytes) = read_cache_size(&index_path) else {
                 continue;
             };
+            if !holds_data(&index_path) {
+                continue;
+            }
             let Some(shared_processors) = read_shared_processors(&index_path) else {
                 continue;
             };
@@ -81,6 +84,26 @@ fn read_level(index_path: &Path) -> Option<u32> {
 
 fn read_cache_size(index_path: &Path) -> Option<usize> {
     parse_cache_size(&fs::read_to_string(index_path.join("size")).ok()?)
+}
+
+/// Whether this cache index holds data, from sysfs `type`.
+///
+/// A split-L1 core exposes its instruction and data caches as separate indices
+/// carrying the same `level`, so without this a level-keyed consumer resolves
+/// L1 to whichever index it scanned last. Mirrors the Windows provider's
+/// `PROCESSOR_CACHE_TYPE` filter; see the rationale recorded there.
+///
+/// Absent or unreadable `type` is treated as data-holding: older kernels and
+/// unusual filesystems may not expose it, and dropping every level there would
+/// be a worse failure than the ambiguity this removes.
+fn holds_data(index_path: &Path) -> bool {
+    match fs::read_to_string(index_path.join("type")) {
+        Ok(value) => {
+            let value = value.trim();
+            value.eq_ignore_ascii_case("Data") || value.eq_ignore_ascii_case("Unified")
+        }
+        Err(_) => true,
+    }
 }
 
 fn read_shared_processors(index_path: &Path) -> Option<Box<[u32]>> {
