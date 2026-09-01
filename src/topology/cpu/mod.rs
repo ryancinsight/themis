@@ -273,6 +273,49 @@ impl CpuTopology {
         self.efficiency_classes.as_deref()?.iter().max().copied()
     }
 
+    /// Returns whether `processor` sits in the most performant reported class.
+    ///
+    /// `None` is typed absence: either the platform reported no classes, or
+    /// `processor` is outside this snapshot. `Some(false)` means the platform
+    /// answered and this processor is not in the top tier.
+    ///
+    /// # Why this exists
+    ///
+    /// The natural spelling of this question compares the two accessors
+    /// directly, and that spelling silently fabricates an answer:
+    ///
+    /// ```
+    /// use themis::CpuTopology;
+    ///
+    /// // A host that reported no classes: both accessors are `None`.
+    /// let unreported = CpuTopology::single_node(8);
+    /// assert_eq!(unreported.processor_efficiency_class(0), None);
+    /// assert_eq!(unreported.highest_efficiency_class(), None);
+    ///
+    /// // `None == None`, so the comparison claims every processor is a
+    /// // performance core — including one that does not exist.
+    /// assert!(
+    ///     unreported.processor_efficiency_class(999)
+    ///         == unreported.highest_efficiency_class()
+    /// );
+    ///
+    /// // The predicate preserves the absence instead of inventing a yes.
+    /// assert_eq!(unreported.is_in_highest_class(0), None);
+    /// assert_eq!(unreported.is_in_highest_class(999), None);
+    /// ```
+    ///
+    /// On a homogeneous host every reported processor is in the highest class,
+    /// because there is only one; [`Self::efficiency_class_count`] is what
+    /// distinguishes that from a hybrid host's top tier.
+    #[must_use]
+    pub fn is_in_highest_class(&self, processor: u32) -> Option<bool> {
+        let class = self.processor_efficiency_class(processor)?;
+        // Unreachable once the line above yielded `Some`, but keeping it as `?`
+        // leaves this function without a panic path.
+        let highest = self.highest_efficiency_class()?;
+        Some(class == highest)
+    }
+
     /// Iterates the processors of one efficiency class, in ascending id order.
     ///
     /// `None` is typed absence — the platform reported no classes — and must
@@ -451,6 +494,64 @@ mod tests {
     fn homogeneous_host() -> CpuTopology {
         let classes: Box<[EfficiencyClass]> = vec![EfficiencyClass::LOWEST; 16].into();
         CpuTopology::single_node(16).with_efficiency_classes_for_test(Some(classes))
+    }
+
+    #[test]
+    fn the_naive_class_comparison_fabricates_a_performance_core() {
+        let topology = CpuTopology::single_node(8);
+
+        // The trap this predicate exists for: both sides are `None`, so `==`
+        // answers "yes" for every processor, including one outside the
+        // snapshot. Asserting the defective spelling still misbehaves keeps
+        // this test from passing vacuously if absence semantics ever change.
+        assert!(
+            topology.processor_efficiency_class(999) == topology.highest_efficiency_class(),
+            "the fabricating comparison no longer fabricates; this oracle is stale",
+        );
+
+        // The predicate disagrees with it, which is the entire point.
+        assert_eq!(topology.is_in_highest_class(0), None);
+        assert_eq!(topology.is_in_highest_class(999), None);
+    }
+
+    #[test]
+    fn the_predicate_separates_performance_from_efficiency_cores() {
+        let topology = hybrid_host();
+
+        for processor in 0..24u32 {
+            let expected = PERFORMANCE_MASK & (1u64 << processor) != 0;
+            assert_eq!(
+                topology.is_in_highest_class(processor),
+                Some(expected),
+                "processor {processor} misclassified",
+            );
+        }
+
+        // The specific inversion that motivated the capability: cpu 2 reads as
+        // a performance core to the naive comparison on an unreporting host,
+        // and is an efficiency core here.
+        assert_eq!(topology.is_in_highest_class(2), Some(false));
+        assert_eq!(topology.is_in_highest_class(1), Some(true));
+    }
+
+    #[test]
+    fn a_processor_outside_the_snapshot_is_absent_not_false() {
+        let topology = hybrid_host();
+        assert_eq!(topology.is_in_highest_class(24), None);
+        assert_eq!(topology.is_in_highest_class(u32::MAX), None);
+    }
+
+    #[test]
+    fn every_processor_of_a_homogeneous_host_is_in_its_highest_class() {
+        let topology = homogeneous_host();
+
+        for processor in 0..16u32 {
+            assert_eq!(topology.is_in_highest_class(processor), Some(true));
+        }
+
+        // Reported-and-uniform stays distinguishable from unreported.
+        assert_eq!(topology.efficiency_class_count(), Some(1));
+        assert_eq!(topology.is_in_highest_class(16), None);
     }
 
     #[test]

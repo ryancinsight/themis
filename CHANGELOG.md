@@ -20,6 +20,14 @@
 
 ### Added
 
+- **`CpuTopology::is_in_highest_class`.** Answers "is this processor in the top
+  performance tier" without the absence trap. The natural spelling,
+  `processor_efficiency_class(p) == highest_efficiency_class()`, compares two
+  `Option`s: on a host that reported no classes both are `None`, so it answers
+  `true` for every processor including out-of-range ones — fabricated platform
+  data arriving through `PartialEq`. The predicate returns `None` for both
+  absence cases instead.
+
 - **Core efficiency class.** `CpuTopology` now models the performance/efficiency
   distinction on hybrid CPUs. `EfficiencyClass` is a dense ordinal — higher is
   more performant, three-tier parts are representable — reached through
