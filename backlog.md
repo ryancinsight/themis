@@ -4,6 +4,50 @@ Strategic roadmap; tags `[patch]`/`[minor]`/`[major]`/`[arch]` per SemVer class.
 themis is the Atlas placement-law SSOT: typed, stateless vocabulary that
 mnemosyne (allocation), moirai (scheduling), and hephaestus (devices) consume.
 
+## THEMIS-AFFINITY-MASK-ACCESSOR-2026-09-01 [minor] — todo
+
+- **Evidence: three independent migrations, converging on the same two gaps.**
+  apollo (#236), mnemosyne (#86), and hermes (#120) each moved off hand-rolled
+  `GetLogicalProcessorInformationEx` walks onto themis in the same session,
+  without coordinating. Two of the three independently re-derived identical
+  knowledge that themis owns. That is a design signal, not three preferences.
+- **1. Group-aware affinity mask (the substantive one).** themis numbers
+  processors `group * 64 + bit`. Every thread-pinning consumer needs a
+  platform affinity mask, so each must fold ids into one *and* know that
+  convention to filter correctly:
+  - mnemosyne folds with `checked_shl`, relying on the overflow as the group
+    filter — a bit that will not fit a `usize` is a processor
+    `SetProcessAffinityMask` cannot name.
+  - hermes needs `SetThreadGroupAffinity`, binds the largest single-group
+    share of a node, and reports the shortfall through a new
+    `NumaBindingCoverage` because one call names one group.
+  Both encode themis's numbering convention outside themis. If that
+  convention ever changes, both break silently and neither has a test that
+  would notice. A group-aware mask accessor — mask plus the group it belongs
+  to, plus the processors that did not fit — keeps the knowledge where it is
+  owned. **Note the two consumers need different Win32 calls, so the
+  accessor must return group-partitioned data, not a single `usize`;** a
+  flat mask would serve mnemosyne and leave hermes re-deriving.
+- **2. Absence chaining (reported by all three).** `is_hybrid()` ->
+  `highest_efficiency_class()` -> `processors_in_efficiency_class()` each
+  return `Option`, but after `is_hybrid() == Some(true)` the rest cannot be
+  `None`. mnemosyne's `performance_core_mask` carries two provably-dead
+  `let-else` arms; apollo's `build()` discharges one underlying fact four
+  times. Dead error channels are not free — they invite exactly the
+  `None == None` confusion tracked in
+  [[THEMIS-ABSENCE-EQUALITY-TRAP-2026-09-01]]. A presence witness whose
+  methods are total would discharge absence once.
+  mnemosyne also notes `detect() == None` and `efficiency_class_count() ==
+  None` are distinct failures every consumer merges into one outcome anyway.
+- **Acceptance oracle:** mnemosyne's `performance_core_mask` and hermes's
+  `NumaBinding::bind` both reduce to the accessor with **no local knowledge
+  of the numbering convention**, and hermes's multi-group coverage report is
+  derived from what the accessor returns rather than recomputed. If either
+  consumer still needs the convention afterwards, the accessor is wrong
+  shape — fix it before landing, do not ship a partial.
+- **Sequencing:** after the absence-equality trap, which is a correctness fix
+  and should not wait behind ergonomics.
+
 ## THEMIS-ABSENCE-EQUALITY-TRAP-2026-09-01 [minor] — todo
 
 - **Severity: this is the failure mode the crate exists to prevent, reachable
