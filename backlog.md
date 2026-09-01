@@ -48,7 +48,18 @@ mnemosyne (allocation), moirai (scheduling), and hephaestus (devices) consume.
 - **Sequencing:** after the absence-equality trap, which is a correctness fix
   and should not wait behind ergonomics.
 
-## THEMIS-ABSENCE-EQUALITY-TRAP-2026-09-01 [minor] — todo
+## THEMIS-ABSENCE-EQUALITY-TRAP-2026-09-01 [minor] — done 2026-09-01
+
+- **Delivered** in `e12b795` (PR #37). `CpuTopology::is_in_highest_class(p) ->
+  Option<bool>` returns `None` for both absence cases — classes unreported, or
+  a processor outside the snapshot — and `Some(bool)` otherwise, with no panic
+  path. Four tests on the existing hybrid/homogeneous fixtures; the regression
+  oracle asserts the defective `==` spelling *still* fabricates before checking
+  the predicate disagrees, so it cannot pass vacuously. Green on fmt/clippy/
+  tests/doctests and MSRV 1.81 across ubuntu and windows, compile_fail codes,
+  and miri. The three ergonomics findings were split out to
+  [[THEMIS-AFFINITY-MASK-ACCESSOR-2026-09-01]] and are **not** closed by this.
+
 
 - **Severity: this is the failure mode the crate exists to prevent, reachable
   through the most natural consumer spelling.** Surfaced by the apollo
