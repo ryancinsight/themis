@@ -4,6 +4,46 @@ Strategic roadmap; tags `[patch]`/`[minor]`/`[major]`/`[arch]` per SemVer class.
 themis is the Atlas placement-law SSOT: typed, stateless vocabulary that
 mnemosyne (allocation), moirai (scheduling), and hephaestus (devices) consume.
 
+## THEMIS-ABSENCE-EQUALITY-TRAP-2026-09-01 [minor] — todo
+
+- **Severity: this is the failure mode the crate exists to prevent, reachable
+  through the most natural consumer spelling.** Surfaced by the apollo
+  migration (apollo#236), not by a themis test.
+- **The trap.** "Is processor `p` a performance core?" spells naturally as
+  `processor_efficiency_class(p) == highest_efficiency_class()`. Both sides
+  return `Option<EfficiencyClass>`. On a host that reports no efficiency
+  classes both are `None`, and `None == None` is `true` — so the predicate
+  answers **"yes, it is a performance core"** for *every* processor,
+  including an out-of-range index. Absence silently becomes a confident
+  positive. That is fabricated platform data arriving through `PartialEq`,
+  precisely what the typed-absence discipline forbids.
+- **Why this matters here specifically:** apollo's ADR 0042 was rewritten
+  once already because a benchmark conclusion depended on which efficiency
+  class a probe landed on. A predicate that reports every core as
+  performance-class on an unreporting host reintroduces that exact inversion,
+  silently, on any platform themis cannot classify.
+- **Fix:** add a total predicate that cannot express the bug —
+  `is_in_highest_class(&self, p) -> Option<bool>` — returning `None` for
+  absence or an out-of-range processor, `Some(bool)` otherwise. Test on a
+  no-class fixture that the naive `==` spelling and the predicate **disagree**
+  (that disagreement is the regression oracle), and on an out-of-range index.
+- **Consider alongside (same migration, lower severity, all from apollo#236):**
+  - **No class→label rendering.** `EfficiencyClass` exposes only `rank()`, so
+    each consumer re-derives "top/bottom/middle" and independently invents a
+    word for the single-class host (apollo chose `uniform`). A `describe_class`
+    upstream prevents the next consumer disagreeing — this is the per-repo
+    drift the migration exists to end.
+  - **Two `?` for one fact.** `highest_efficiency_class()?` then
+    `processors_in_efficiency_class(..)?` — the second absence is unreachable
+    once the first returned `Some`, yet the shipped doc example carries that
+    dead channel. A `fastest_processors()` inherent method would collapse it.
+  - **Absence re-derived at six accessors.** A presence witness
+    (`fn efficiency(&self) -> Option<EfficiencyView<'_>>` with total methods)
+    would let a consumer discharge absence once instead of per call; apollo's
+    `build()` discharges the same underlying fact four times.
+- **Sequencing:** the predicate is the correctness fix and lands alone. The
+  other three are ergonomics and should not delay it.
+
 ## THEMIS-PLACEMENT-AXES-2026-09-01 [minor] — todo
 
 - **Context:** efficiency class (PR #35) closed one asymmetry axis. Three
