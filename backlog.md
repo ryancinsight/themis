@@ -165,6 +165,32 @@ properties into themis types).
   Evidence: code-inspection allocation cleanup plus verification gates recorded
   in the change commit; no latency/allocation benchmark baseline claimed.
 
+## Core efficiency class [minor]
+
+- [x] [minor] Model the performance/efficiency (P/E) distinction in
+  `CpuTopology`. `EfficiencyClass` is a dense ordinal — higher is more
+  performant, so three-tier parts are representable — reached through
+  `efficiency_classes`, `processor_efficiency_class`, `efficiency_class_count`,
+  `is_hybrid`, `highest_efficiency_class`, and `processors_in_efficiency_class`.
+  Windows reads the `EfficiencyClass` byte of each
+  `GetLogicalProcessorInformationEx(RelationProcessorCore)` record, Linux the
+  Intel hybrid CPU-type `cpulist`s and then ARM `cpu_capacity`; every other
+  target, and any host whose data does not cover every logical processor,
+  reports typed absence. Retires the machine-specific performance-core
+  constants hand-rolled in apollo's pinned probes and mnemosyne's benchmark
+  harness, both of which mislabelled the developer host: its performance cores
+  are the non-contiguous mask `0xc03c03`, so the probes pinned to cpu 2, an
+  efficiency core. Decision:
+  [ADR 0004](docs/adr/0004-efficiency-class-is-an-ordinal.md). Evidence: pure
+  parsers over recorded platform bytes and sysfs strings, compiled in both
+  backend targets' test builds, with fixtures pinning the `0xc03c03` host end
+  to end, a homogeneous host, a three-tier host, sparse class bytes, fully and
+  partially enumerated multi-group hosts, and malformed, truncated, empty and
+  relationless buffers; live detection on the developer host returns exactly
+  `{0, 1, 10, 11, 12, 13, 22, 23}`. Gates: fmt, warning-denied Clippy across
+  `testing`/`no-default-features`/`all-features` on four targets, nextest
+  `81/81`, doctests `6/6`, Rustdoc.
+
 ## Topology type hierarchy [patch]
 
 - [x] [patch] Split topology structural types into CPU, GPU, and TPU leaf

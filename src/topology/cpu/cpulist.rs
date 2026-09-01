@@ -6,7 +6,7 @@ extern crate alloc;
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 
-const MAX_PROCESSOR_ID: usize = 32_768;
+use super::MAX_PROCESSOR_ID;
 
 pub(crate) fn parse_cpu_list(cpulist: &str) -> Vec<u32> {
     let mut processors = Vec::with_capacity(64);

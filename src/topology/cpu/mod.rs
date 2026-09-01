@@ -1,12 +1,17 @@
 //! CPU topology snapshot and accessors.
 
 mod cache;
-#[cfg(all(feature = "std", target_os = "linux"))]
+// Shared by the Linux NUMA and cache backends and by the Intel hybrid CPU-type
+// parser. The parser's fixtures also run in the Windows test build, which is
+// why `test` widens the gate there but nowhere else.
+#[cfg(all(feature = "std", any(target_os = "linux", all(test, windows))))]
 mod cpulist;
 mod detect;
+#[cfg(all(feature = "std", any(windows, target_os = "linux")))]
+mod efficiency;
 mod tables;
 
-use super::types::{CacheLevel, NumaNode};
+use super::types::{CacheLevel, EfficiencyClass, NumaNode};
 use crate::law::{MemoryTier, NumaNodeId, TopologyEpoch};
 
 #[cfg(not(feature = "std"))]
@@ -18,14 +23,26 @@ use alloc::boxed::Box;
 #[cfg(not(feature = "std"))]
 use alloc::vec;
 
-#[cfg(feature = "std")]
+// Both detection helpers exist only where a backend reads them; on a target
+// with neither they would be dead code under the lint floor.
+#[cfg(all(feature = "std", any(windows, target_os = "linux")))]
 pub(crate) use cache::detect_cache_levels;
-#[cfg(all(feature = "std", target_os = "linux"))]
+#[cfg(all(feature = "std", any(target_os = "linux", all(test, windows))))]
 pub(crate) use cpulist::parse_cpu_list;
+#[cfg(all(feature = "std", any(windows, target_os = "linux")))]
+pub(crate) use efficiency::detect_efficiency_classes;
 pub use tables::{build_adjacent_nodes, build_node_to_index};
 #[cfg(any(test, feature = "std"))]
 pub use tables::{build_default_distance_row, build_processor_to_node};
 pub use tables::{LOCAL_DISTANCE, REMOTE_DISTANCE};
+
+/// Exclusive upper bound on logical processor ids across every backend.
+///
+/// Processor ids are `u32` throughout the crate; this is the tighter bound the
+/// detection paths enforce so a malformed platform mask cannot size an
+/// allocation. Every consumer is a platform detection path.
+#[cfg(all(feature = "std", any(windows, target_os = "linux")))]
+pub(crate) const MAX_PROCESSOR_ID: usize = 32_768;
 
 /// CPU topology snapshot.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -38,6 +55,12 @@ pub struct CpuTopology {
     pub(crate) adjacent_nodes: Box<[NumaNodeId]>,
     pub(crate) logical_processors: usize,
     pub(crate) cache_levels: Option<Box<[CacheLevel]>>,
+    /// Dense efficiency rank per logical processor, indexed by processor id.
+    ///
+    /// Invariant on `Some`: the table has exactly `logical_processors` entries
+    /// and its ranks are the contiguous range `0..distinct_count`. Every
+    /// construction path either satisfies both or stores `None`.
+    pub(crate) efficiency_classes: Option<Box<[EfficiencyClass]>>,
 }
 
 impl CpuTopology {
@@ -69,6 +92,7 @@ impl CpuTopology {
             numa_nodes,
             logical_processors,
             cache_levels: None,
+            efficiency_classes: None,
         }
     }
 
@@ -98,7 +122,50 @@ impl CpuTopology {
             adjacent_nodes,
             logical_processors,
             cache_levels,
+            efficiency_classes: None,
         }
+    }
+
+    /// Attaches an efficiency-class table to a test topology.
+    ///
+    /// Additive companion to [`Self::new_for_test`], whose signature is a
+    /// published contract. Panics are the test contract here: a table that
+    /// violates the field invariant would make the accessors meaningless.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the table's length is not `logical_processors`, or if its
+    /// ranks are not the contiguous range `0..distinct_count`.
+    #[cfg(any(test, feature = "testing"))]
+    #[must_use]
+    pub fn with_efficiency_classes_for_test(
+        mut self,
+        efficiency_classes: Option<Box<[EfficiencyClass]>>,
+    ) -> Self {
+        if let Some(classes) = efficiency_classes.as_deref() {
+            assert_eq!(
+                classes.len(),
+                self.logical_processors,
+                "invariant: the class table covers every logical processor"
+            );
+            // Density without allocating, so the constructor stays available
+            // wherever `new_for_test` is, `no_std` included.
+            let mut present = [false; 256];
+            for class in classes {
+                present[usize::from(class.rank())] = true;
+            }
+            if let Some(highest) = classes.iter().max() {
+                assert!(
+                    present
+                        .iter()
+                        .take(usize::from(highest.rank()) + 1)
+                        .all(|seen| *seen),
+                    "invariant: efficiency ranks are dense"
+                );
+            }
+        }
+        self.efficiency_classes = efficiency_classes;
+        self
     }
 
     /// Returns the snapshot epoch.
@@ -133,6 +200,124 @@ impl CpuTopology {
     #[must_use]
     pub const fn logical_processors(&self) -> usize {
         self.logical_processors
+    }
+
+    /// Returns the platform-reported efficiency class of every processor,
+    /// indexed by processor id.
+    ///
+    /// # Provenance
+    ///
+    /// `None` means the platform did not report a class for every logical
+    /// processor. The single-node constructor never fabricates classes. Linux
+    /// reads the Intel hybrid CPU-type `cpulist`s and then ARM `cpu_capacity`
+    /// from sysfs; Windows reads the `EfficiencyClass` byte of each
+    /// `GetLogicalProcessorInformationEx(RelationProcessorCore)` record; every
+    /// other target reports absence. A host is never inferred to be hybrid from
+    /// core counts, processor ids, or model strings.
+    ///
+    /// Consumers that pin threads by class must preserve that absence instead
+    /// of substituting a machine-specific guess: on the host that motivated
+    /// this accessor the performance cores are the non-contiguous mask
+    /// `0xc03c03`, so "the low ids are the fast ones" selects one of the
+    /// slowest processors on the part.
+    ///
+    /// `Some` with a single distinct class is a homogeneous host, which is the
+    /// common case and is deliberately distinguishable from `None`.
+    #[must_use]
+    pub fn efficiency_classes(&self) -> Option<&[EfficiencyClass]> {
+        self.efficiency_classes.as_deref()
+    }
+
+    /// Returns the efficiency class of one processor.
+    ///
+    /// `None` when the platform reported no classes (see
+    /// [`Self::efficiency_classes`]) or when the processor is outside this
+    /// snapshot.
+    #[must_use]
+    pub fn processor_efficiency_class(&self, processor: u32) -> Option<EfficiencyClass> {
+        self.efficiency_classes
+            .as_deref()?
+            .get(usize::try_from(processor).ok()?)
+            .copied()
+    }
+
+    /// Returns how many distinct efficiency classes the platform reported.
+    ///
+    /// This is the absence oracle for the rest of the efficiency surface:
+    /// `None` is "the platform did not say", `Some(1)` is a homogeneous host,
+    /// and `Some(n)` for `n > 1` is a hybrid host with `n` tiers.
+    #[must_use]
+    pub fn efficiency_class_count(&self) -> Option<usize> {
+        // Ranks are dense by the field invariant, so the highest rank plus one
+        // is the count.
+        let highest = self.efficiency_classes.as_deref()?.iter().max()?;
+        Some(usize::from(highest.rank()) + 1)
+    }
+
+    /// Returns whether the host mixes cores of different performance classes.
+    ///
+    /// `None` is typed absence, not "no". A consumer must not read an unasked
+    /// question as a homogeneous answer.
+    #[must_use]
+    pub fn is_hybrid(&self) -> Option<bool> {
+        Some(self.efficiency_class_count()? > 1)
+    }
+
+    /// Returns the most performant class the platform reported.
+    ///
+    /// On a homogeneous host this is [`EfficiencyClass::LOWEST`], the only
+    /// class present; the count from [`Self::efficiency_class_count`] is what
+    /// distinguishes that from a hybrid host's top tier.
+    #[must_use]
+    pub fn highest_efficiency_class(&self) -> Option<EfficiencyClass> {
+        self.efficiency_classes.as_deref()?.iter().max().copied()
+    }
+
+    /// Iterates the processors of one efficiency class, in ascending id order.
+    ///
+    /// `None` is typed absence — the platform reported no classes — and must
+    /// not be read as "this host has no processors of that class". A reported
+    /// class below [`Self::efficiency_class_count`] always yields at least one
+    /// processor, because ranks are dense; a class at or above it yields none.
+    ///
+    /// Pair with [`Self::highest_efficiency_class`] to select a representative
+    /// performance processor without hardcoding an id.
+    ///
+    /// # Examples
+    ///
+    /// Selecting a processor to pin a latency-sensitive probe to, preserving
+    /// absence rather than falling back to a machine-specific constant:
+    ///
+    /// ```
+    /// use themis::CpuTopology;
+    ///
+    /// fn performance_processor(topology: &CpuTopology) -> Option<u32> {
+    ///     let fastest = topology.highest_efficiency_class()?;
+    ///     topology.processors_in_efficiency_class(fastest)?.next()
+    /// }
+    ///
+    /// // A topology that reports no classes yields no processor, rather than
+    /// // guessing one.
+    /// let unreported = CpuTopology::single_node(8);
+    /// assert_eq!(unreported.efficiency_classes(), None);
+    /// assert_eq!(unreported.is_hybrid(), None);
+    /// assert_eq!(performance_processor(&unreported), None);
+    /// ```
+    #[must_use = "iterators are lazy; consume the returned processor iterator"]
+    pub fn processors_in_efficiency_class(
+        &self,
+        class: EfficiencyClass,
+    ) -> Option<impl Iterator<Item = u32> + '_> {
+        let classes = self.efficiency_classes.as_deref()?;
+        Some(
+            classes
+                .iter()
+                .enumerate()
+                .filter(move |(_, candidate)| **candidate == class)
+                // The table is capped at `MAX_PROCESSOR_ID` entries on every
+                // construction path, so the index is always a valid `u32`.
+                .filter_map(|(processor, _)| u32::try_from(processor).ok()),
+        )
     }
 
     /// Returns the NUMA node for a processor.
@@ -239,5 +424,175 @@ fn logical_processor_count() -> usize {
     #[cfg(not(feature = "std"))]
     {
         1
+    }
+}
+
+// The efficiency surface is std-only, as is `CpuTopology::detect`; these
+// tests allocate, so they build alongside it rather than under bare
+// `cfg(test)`.
+#[cfg(all(test, feature = "std"))]
+mod tests {
+    use super::{CpuTopology, EfficiencyClass};
+
+    /// The performance-core mask of the developer host whose mislabelling
+    /// motivated this capability: `{0, 1, 10, 11, 12, 13, 22, 23}` out of 24
+    /// logical processors. Deliberately not a contiguous low range.
+    const PERFORMANCE_MASK: u64 = 0xc0_3c03;
+
+    fn hybrid_host() -> CpuTopology {
+        let classes: Box<[EfficiencyClass]> = (0..24u32)
+            .map(|processor| {
+                EfficiencyClass::new(u8::from(PERFORMANCE_MASK & (1u64 << processor) != 0))
+            })
+            .collect();
+        CpuTopology::single_node(24).with_efficiency_classes_for_test(Some(classes))
+    }
+
+    fn homogeneous_host() -> CpuTopology {
+        let classes: Box<[EfficiencyClass]> = vec![EfficiencyClass::LOWEST; 16].into();
+        CpuTopology::single_node(16).with_efficiency_classes_for_test(Some(classes))
+    }
+
+    #[test]
+    fn a_performance_processor_is_never_the_hardcoded_low_id() {
+        let topology = hybrid_host();
+        let fastest = topology
+            .highest_efficiency_class()
+            .expect("the hybrid fixture reports classes");
+        let performance: Vec<u32> = topology
+            .processors_in_efficiency_class(fastest)
+            .expect("the hybrid fixture reports classes")
+            .collect();
+
+        assert_eq!(performance, vec![0, 1, 10, 11, 12, 13, 22, 23]);
+        assert!(
+            !performance.contains(&2),
+            "cpu 2 is an efficiency core on this host; the retired hand-rolled \
+             constant pinned probes to it"
+        );
+        assert!(
+            topology
+                .processor_efficiency_class(2)
+                .expect("the hybrid fixture reports classes")
+                < fastest
+        );
+    }
+
+    #[test]
+    fn a_hybrid_host_reports_its_tier_count() {
+        let topology = hybrid_host();
+        assert_eq!(topology.efficiency_class_count(), Some(2));
+        assert_eq!(topology.is_hybrid(), Some(true));
+        assert_eq!(
+            topology.highest_efficiency_class(),
+            Some(EfficiencyClass::new(1))
+        );
+    }
+
+    #[test]
+    fn a_homogeneous_host_is_one_class_and_not_absence() {
+        let topology = homogeneous_host();
+        assert_eq!(topology.efficiency_class_count(), Some(1));
+        assert_eq!(topology.is_hybrid(), Some(false));
+        assert_eq!(
+            topology.highest_efficiency_class(),
+            Some(EfficiencyClass::LOWEST)
+        );
+        assert_eq!(
+            topology
+                .processors_in_efficiency_class(EfficiencyClass::LOWEST)
+                .expect("the homogeneous fixture reports classes")
+                .count(),
+            16
+        );
+        assert_eq!(topology.efficiency_classes().map(<[_]>::len), Some(16));
+    }
+
+    #[test]
+    fn an_unreported_host_is_absent_everywhere_not_homogeneous() {
+        let topology = CpuTopology::single_node(8);
+        assert_eq!(topology.efficiency_classes(), None);
+        assert_eq!(topology.efficiency_class_count(), None);
+        assert_eq!(topology.is_hybrid(), None);
+        assert_eq!(topology.highest_efficiency_class(), None);
+        assert_eq!(topology.processor_efficiency_class(0), None);
+        assert!(topology
+            .processors_in_efficiency_class(EfficiencyClass::LOWEST)
+            .is_none());
+    }
+
+    #[test]
+    fn a_class_outside_the_reported_range_selects_no_processor() {
+        let topology = hybrid_host();
+        assert_eq!(
+            topology
+                .processors_in_efficiency_class(EfficiencyClass::new(9))
+                .expect("the hybrid fixture reports classes")
+                .count(),
+            0
+        );
+    }
+
+    #[test]
+    fn processors_outside_the_snapshot_have_no_class() {
+        let topology = hybrid_host();
+        assert_eq!(topology.processor_efficiency_class(24), None);
+        assert_eq!(topology.processor_efficiency_class(u32::MAX), None);
+    }
+
+    /// Host-dependent smoke test over whatever this machine reports. It skips
+    /// with a printed reason rather than passing silently, so a homogeneous or
+    /// unreporting host never masquerades as coverage of the parsers.
+    #[test]
+    #[expect(
+        clippy::print_stdout,
+        reason = "a skipped host-dependent test must say why it skipped"
+    )]
+    fn detected_efficiency_classes_satisfy_their_invariants() {
+        let topology = CpuTopology::detect().expect("detection returns at least a fallback");
+        let Some(classes) = topology.efficiency_classes() else {
+            println!(
+                "SKIP detected_efficiency_classes_satisfy_their_invariants: this host \
+                 reports no efficiency classes for all {} logical processors; the \
+                 parsers are covered by the recorded fixtures instead",
+                topology.logical_processors()
+            );
+            return;
+        };
+
+        assert_eq!(classes.len(), topology.logical_processors());
+
+        let mut distinct: Vec<u8> = classes.iter().copied().map(EfficiencyClass::rank).collect();
+        distinct.sort_unstable();
+        distinct.dedup();
+        let dense: Vec<u8> = (0..u8::try_from(distinct.len()).unwrap_or(u8::MAX)).collect();
+        assert_eq!(distinct, dense, "ranks must be dense");
+        assert_eq!(topology.efficiency_class_count(), Some(distinct.len()));
+        assert_eq!(topology.is_hybrid(), Some(distinct.len() > 1));
+
+        let fastest = topology
+            .highest_efficiency_class()
+            .expect("a reported table has a highest class");
+        let performance: Vec<u32> = topology
+            .processors_in_efficiency_class(fastest)
+            .expect("a reported table yields an iterator")
+            .collect();
+        assert!(
+            !performance.is_empty(),
+            "dense ranks guarantee the highest class is populated"
+        );
+        for processor in &performance {
+            assert_eq!(
+                topology.processor_efficiency_class(*processor),
+                Some(fastest)
+            );
+        }
+        println!(
+            "host reports {} efficiency class(es) over {} processors; class {} holds {:?}",
+            distinct.len(),
+            topology.logical_processors(),
+            fastest.rank(),
+            performance
+        );
     }
 }
