@@ -4,6 +4,41 @@ Strategic roadmap; tags `[patch]`/`[minor]`/`[major]`/`[arch]` per SemVer class.
 themis is the Atlas placement-law SSOT: typed, stateless vocabulary that
 mnemosyne (allocation), moirai (scheduling), and hephaestus (devices) consume.
 
+## THEMIS-PLACEMENT-AXES-2026-09-01 [minor] — todo
+
+- **Context:** efficiency class (PR #35) closed one asymmetry axis. Three
+  others exist in hardware, are not modelled, and are the same shape — an
+  axis the OS reports that consumers must otherwise hardcode or guess. Filed
+  together because they share one question: "are these two processors
+  interchangeable for placement?"
+- **1. SMT siblings (verified absent).** Nothing groups logical processors by
+  physical core. Two SMT siblings are not interchangeable with two distinct
+  cores: a compute-bound worker pool that treats them as equal oversubscribes
+  by 2x, and a measurement instrument pinning to a sibling of a busy core
+  measures contention. Windows reports this in the same
+  `RelationProcessorCore` records the efficiency backend already walks (the
+  `GROUP_AFFINITY` mask has multiple bits set for an SMT core); Linux exposes
+  `cpuN/topology/thread_siblings_list`. This is the cheapest of the three and
+  the most likely to be silently wrong today.
+- **2. Favoured cores within a class.** Intel Turbo Boost Max 3.0 and AMD
+  preferred cores bin one or two cores faster than their same-class peers.
+  A "give me a performance processor" answer that ignores this is right about
+  the class and wrong about the best member.
+- **3. Last-level-cache domains.** AMD CCX/CCD and Intel sub-NUMA clustering
+  create latency asymmetry WITHOUT class or NUMA-node asymmetry, so neither
+  `efficiency_class` nor `numa_nodes` separates them. Cross-domain thread
+  placement costs real bandwidth for shared-state work.
+- **Non-goals:** GPU/NPU device placement — different abstraction, owned by
+  hephaestus's `ComputeDevice` seam, not a CPU topology query.
+- **Discipline (binding):** every axis follows `cache_levels()`/efficiency
+  class — typed absence when the platform does not report it, no inference
+  from core counts or model strings, homogeneous as a first-class reported
+  result, parsers tested against recorded fixtures rather than this host.
+- **Sequencing:** do not build all three speculatively. Each lands when a
+  consumer needs it; SMT has the clearest present consumer (the pinned
+  measurement instruments in apollo and mnemosyne, which currently cannot
+  tell a sibling from a core).
+
 ## Delivered
 
 - [x] [patch][arch] Keep `src/branded/region/mod.rs` as a thin module manifest.
