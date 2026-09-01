@@ -4,7 +4,11 @@ Strategic roadmap; tags `[patch]`/`[minor]`/`[major]`/`[arch]` per SemVer class.
 themis is the Atlas placement-law SSOT: typed, stateless vocabulary that
 mnemosyne (allocation), moirai (scheduling), and hephaestus (devices) consume.
 
-## THEMIS-AFFINITY-MASK-ACCESSOR-2026-09-01 [minor] — todo
+## THEMIS-AFFINITY-MASK-ACCESSOR-2026-09-01 [minor] — in progress
+
+- **Integrator / lease:** Codex `01a0253c-6013-7552-99cc-36bbbcf77f6d` on
+  `feat/group-aware-affinity-mask`; lease: `src/topology/cpu`, public exports,
+  topology tests/docs, CHANGELOG, and this item; last update 2026-09-01.
 
 - **Evidence: three independent migrations, converging on the same two gaps.**
   apollo (#236), mnemosyne (#86), and hermes (#120) each moved off hand-rolled
