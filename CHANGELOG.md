@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+### Fixed
+
+- **Cache levels exclude instruction and trace caches.** Both providers read a
+  cache's type and report only data-holding caches (Windows
+  `PROCESSOR_CACHE_TYPE` Unified/Data; Linux sysfs `type` Data/Unified). A
+  split-L1 core exposes its instruction and data caches with the *same*
+  `CacheLevel::level`, and the type was the only field distinguishing them, so a
+  consumer reducing levels by `level` silently resolved L1 to whichever entry it
+  scanned last. On a hybrid Arrow Lake host this reported 48 KiB (P-core L1d),
+  32 KiB (E-core L1d) and 64 KiB (L1i) all as level 1, and a downstream
+  consumer's published L1 figure — meant for data blocking — resolved to the
+  64 KiB instruction cache. Detection on that host now returns 37 levels instead
+  of 61, with no instruction cache among them. Linux treats absent or unreadable
+  `type` as data-holding, so a kernel that does not expose it keeps every level
+  rather than losing all of them.
+
 ### Added
 
 - **Core efficiency class.** `CpuTopology` now models the performance/efficiency
