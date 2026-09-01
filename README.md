@@ -13,6 +13,7 @@ It is the shared source of truth for:
 - memory tiers, including HBM
 - placement hints
 - topology snapshots
+- reported CPU efficiency classes and group-aware affinity masks
 - current CPU/NUMA node queries
 
 It does not own allocation, scheduling, queues, worker loops, or thread-local
@@ -78,6 +79,12 @@ from sysfs and Windows reads `GetLogicalProcessorInformationEx`; unavailable or
 malformed cache data is `None`, never a synthetic capacity. Leto consumes cache
 sizes as tiling hints, and Moirai consumes shared-processor rows as
 chunk-locality hints. Consumers must preserve typed cache absence.
+
+`CpuTopology::efficiency()` similarly discharges efficiency-class absence once
+and returns total class-level queries. On Windows, `ProcessorAffinityGroups`
+owns Themis's flattened processor numbering and partitions processor sets into
+sorted native group masks without dropping unrepresentable ids. Allocation and
+thread binding remain consumer responsibilities.
 
 ## Benchmarks
 

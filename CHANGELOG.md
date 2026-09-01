@@ -20,6 +20,18 @@
 
 ### Added
 
+- **Group-aware Windows processor affinity masks.** `ProcessorAffinityGroups` reduces
+  flattened logical processor ids to sorted `(group, native mask)` partitions,
+  retains processors that cannot fit the target representation, and selects a
+  deterministic largest group for one-group Windows APIs. Consumers no longer
+  need to repeat Themis's `group * 64 + bit` convention or silently drop a
+  checked-shift failure.
+
+- **Presence-proven efficiency queries.** `CpuTopology::efficiency` returns a
+  borrowed `CpuEfficiencyView` whose class count, hybrid status, highest class,
+  processors, and affinity groups are total after platform absence is
+  discharged once. Existing optional accessors delegate to the same view.
+
 - **`CpuTopology::is_in_highest_class`.** Answers "is this processor in the top
   performance tier" without the absence trap. The natural spelling,
   `processor_efficiency_class(p) == highest_efficiency_class()`, compares two

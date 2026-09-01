@@ -5,7 +5,9 @@ mod gpu;
 mod tpu;
 mod types;
 
-pub use cpu::CpuTopology;
+pub use cpu::{CpuEfficiencyView, CpuTopology};
+#[cfg(windows)]
+pub use cpu::{ProcessorAffinityGroups, ProcessorGroupAffinity};
 pub use gpu::GpuTopology;
 pub use tpu::TpuTopology;
 pub use types::{CacheLevel, EfficiencyClass, GpuDeviceProperties, NumaNode, TpuDeviceProperties};

@@ -1,9 +1,9 @@
 # 5. CPU Topology
 
 `CpuTopology` is a snapshot of the host's NUMA layout, processor assignments,
-inter-node distances, and detected cache hierarchy.  It is obtained once (or
-re-detected after a [`TopologyEpoch`](topology_epoch.md) change) and then
-shared read-only.
+inter-node distances, detected cache hierarchy, and reported processor
+efficiency classes. It is obtained once (or re-detected after a
+[`TopologyEpoch`](topology_epoch.md) change) and then shared read-only.
 
 ## Key types
 
@@ -20,8 +20,10 @@ pub struct NumaNode {
 
 `processors` is the list of logical processor numbers that belong to this node.
 `distances` is the NUMA distance vector for this node relative to all other
-nodes in the topology — the same values exposed by the OS (Linux
-`/sys/devices/system/node/nodeN/distance`, Windows `GetNumaNodeProcessorMask`).
+nodes in the topology. Linux reads
+`/sys/devices/system/node/nodeN/distance`; Windows has no equivalent distance
+source in the current backend and uses Themis's documented local/remote
+fallback.
 `memory_tier` classifies the memory attached to this node: `Dram` for ordinary
 DDR DIMMs, `Hbm` for HBM-attached nodes, `Persistent` for NVDIMM nodes, etc.
 
@@ -59,6 +61,23 @@ Windows).  The method returns a snapshot that is valid until the next
 `numa_node_for_processor(p)` is an O(1) lookup using an internally maintained
 processor-to-node table.  It returns `None` only if `p` is greater than the
 highest processor number present in the snapshot.
+
+## Efficiency and native affinity
+
+`CpuTopology::efficiency()` returns `None` when the platform did not report a
+complete efficiency-class table. A returned `CpuEfficiencyView` proves that
+presence once: class count, hybrid status, highest class, and class iteration
+are then total. Only lookup by a caller-supplied processor id remains optional,
+because that id can lie outside the snapshot.
+
+Windows logical processor ids use Themis's flattened `group * 64 + bit`
+numbering. On Windows, `ProcessorAffinityGroups::from_processors` owns the
+inverse mapping to sorted native `(group, mask)` partitions. It deduplicates
+repeated ids and retains ids that cannot fit the target's native mask in
+`unassigned_processors()`. Consumers selecting one group can use
+`largest_group()`; ties choose the lower group id deterministically. Consumers
+capable of group-aware binding must use every returned partition rather than
+silently collapsing them to one flat mask.
 
 ## Distance matrix
 
