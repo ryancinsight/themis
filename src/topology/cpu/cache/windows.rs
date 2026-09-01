@@ -1,5 +1,6 @@
 //! Windows logical-processor cache discovery.
 
+use crate::topology::cpu::MAX_PROCESSOR_ID;
 use crate::topology::types::CacheLevel;
 use core::mem::size_of;
 use std::ffi::c_void;
@@ -11,7 +12,6 @@ const GROUP_AFFINITY_BYTES: usize = 16;
 const GROUP_MASK_OFFSET: usize = RECORD_HEADER_BYTES + CACHE_PREFIX_BYTES;
 const MAX_GROUPS: usize = 64;
 const MAX_BUFFER_BYTES: usize = 1024 * 1024;
-const MAX_PROCESSOR_ID: usize = 32_768;
 
 // SAFETY: the declarations match the Win32 signatures for these entry points
 // (`GetLogicalProcessorInformationEx`, `winnt.h`): `u32` relationship code,

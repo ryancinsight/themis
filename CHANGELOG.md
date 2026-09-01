@@ -2,6 +2,25 @@
 
 ## Unreleased
 
+### Added
+
+- **Core efficiency class.** `CpuTopology` now models the performance/efficiency
+  distinction on hybrid CPUs. `EfficiencyClass` is a dense ordinal — higher is
+  more performant, three-tier parts are representable — reached through
+  `efficiency_classes`, `processor_efficiency_class`, `efficiency_class_count`,
+  `is_hybrid`, `highest_efficiency_class`, and
+  `processors_in_efficiency_class`. Windows reads the `EfficiencyClass` byte of
+  each `GetLogicalProcessorInformationEx(RelationProcessorCore)` record; Linux
+  reads the Intel hybrid CPU-type `cpulist`s and then ARM `cpu_capacity`; every
+  other target reports absence, as does any host whose data does not cover every
+  logical processor. A host is never inferred to be hybrid from core counts,
+  processor ids, or model strings. `efficiency_class_count` is the absence
+  oracle: `None` is "not reported", `Some(1)` is a homogeneous host. This
+  retires the machine-specific performance-core constants hand-rolled in apollo's
+  pinned probes and mnemosyne's benchmark harness, both of which mislabelled the
+  developer host. See
+  [ADR 0004](docs/adr/0004-efficiency-class-is-an-ordinal.md).
+
 ### Fixed
 
 - **Soundness.** `SyncRegionPlacement::split_static` duplicated the brand's
