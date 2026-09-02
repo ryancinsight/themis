@@ -1,6 +1,7 @@
 //! CPU efficiency-class value and detection tests.
 
-use super::{CpuTopology, EfficiencyClass};
+use super::super::types::EfficiencyClass;
+use super::CpuTopology;
 
 /// The performance-core mask of the developer host whose mislabelling
 /// motivated this capability: `{0, 1, 10, 11, 12, 13, 22, 23}` out of 24
