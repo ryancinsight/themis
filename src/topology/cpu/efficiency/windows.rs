@@ -27,6 +27,14 @@ extern "system" {
 }
 
 pub(super) fn detect(logical_processors: usize) -> Option<Box<[EfficiencyClass]>> {
+    classes_from_processor_records(&core_records()?, logical_processors)
+}
+
+/// The raw `RelationProcessorCore` buffer, read once per caller.
+///
+/// Shared with the SMT axis, which walks the same records for their group
+/// masks rather than their class byte.
+pub(in crate::topology::cpu) fn core_records() -> Option<Vec<u8>> {
     // `super::records` walks the 64-bit `KAFFINITY` layout, where a
     // `GROUP_AFFINITY` is 16 bytes. A 32-bit Windows build packs it into 8 and
     // would be misread field for field, so report absence instead.
@@ -66,6 +74,6 @@ pub(super) fn detect(logical_processors: usize) -> Option<Box<[EfficiencyClass]>
         return None;
     }
     let used = usize::try_from(returned_length).ok()?;
-    let bytes = buffer.get(..used.min(buffer.len()))?;
-    classes_from_processor_records(bytes, logical_processors)
+    buffer.truncate(used.min(buffer.len()));
+    Some(buffer)
 }

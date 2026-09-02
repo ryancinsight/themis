@@ -10,3 +10,4 @@
 | [0002](0002-placement-tags-are-proof-carrying.md) | Placement tags carry their proof | Accepted |
 | [0003](0003-region-module-boundary.md) | Keep the branded region manifest thin | Accepted |
 | [0004](0004-efficiency-class-is-an-ordinal.md) | Efficiency class is a dense ordinal, and absence is typed | Accepted |
+| [0005](0005-smt-siblings-are-a-reported-partition.md) | SMT siblings are a reported partition, and absence is typed | Accepted |

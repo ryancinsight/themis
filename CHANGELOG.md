@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+### Added
+
+- **SMT siblings.** `CpuTopology::smt()` returns a presence-proven
+  `CpuSmtView` over a per-processor `CoreId` table: which processors share a
+  physical core, whether two are siblings, and one processor per core for
+  pinned instruments and compute-bound pools. Windows reads it from the same
+  `RelationProcessorCore` records the efficiency class already walks; Linux
+  from `cpuN/topology/thread_siblings_list`. A host without SMT is a present
+  table with one processor per core; a platform that reports nothing usable,
+  or a table that does not cover every processor, is `None` (ADR 0005).
+
 ### Fixed
 
 - **Cache levels exclude instruction and trace caches.** Both providers read a
