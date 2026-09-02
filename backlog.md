@@ -119,8 +119,15 @@ mnemosyne (allocation), moirai (scheduling), and hephaestus (devices) consume.
 - **Sequencing:** the predicate is the correctness fix and lands alone. The
   other three are ergonomics and should not delay it.
 
-## THEMIS-PLACEMENT-AXES-2026-09-01 [minor] — todo
+## THEMIS-PLACEMENT-AXES-2026-09-01 [minor] — in progress (axis 1, SMT siblings)
 
+- **Integrator / lease (2026-09-01):** Claude session d49f3b0a on
+  `feat/themis-smt-siblings`, axis 1 only per the sequencing rule. Lease:
+  `src/topology/cpu/{smt.rs,smt_view.rs,mod.rs,types.rs}`,
+  `src/topology/cpu/efficiency/{records.rs,windows.rs}` (the
+  `RelationProcessorCore` walk grows a core ordinal; the buffer producer is
+  shared), `tests/topology/cpu.rs`, `docs/adr/0005-*`, CHANGELOG, this entry.
+  Axes 2 and 3 stay todo.
 - **Context:** efficiency class (PR #35) closed one asymmetry axis. Three
   others exist in hardware, are not modelled, and are the same shape — an
   axis the OS reports that consumers must otherwise hardcode or guess. Filed
