@@ -82,7 +82,7 @@ required-features = ["melinoe"]
 
 [[test]]
 name = "cpu_topology"
-path = "tests/topology/cpu.rs"
+path = "tests/topology/cpu/main.rs"
 required-features = ["testing"]
 
 [[bench]]

@@ -1,7 +1,7 @@
 //! CPU cache hierarchy discovery.
 
 #[cfg(all(feature = "std", any(windows, target_os = "linux")))]
-use super::CacheLevel;
+use super::super::types::CacheLevel;
 
 #[cfg(all(feature = "std", target_os = "linux"))]
 mod linux;

@@ -1,6 +1,6 @@
 //! Dense CPU topology lookup-table builders.
 
-use super::NumaNode;
+use super::super::types::NumaNode;
 use crate::law::NumaNodeId;
 
 #[cfg(not(feature = "std"))]
