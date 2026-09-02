@@ -57,6 +57,35 @@ impl EfficiencyClass {
     }
 }
 
+/// Identity of a physical core within one [`CpuTopology`] snapshot.
+///
+/// Logical processors that are SMT siblings share one `CoreId`. Ids are dense:
+/// a topology with `n` physical cores uses exactly `0..n`, assigned in
+/// ascending order of each core's lowest logical processor, so they are
+/// comparable only within one snapshot and never a hardware core number.
+///
+/// Two processors with different ids are interchangeable for placement in the
+/// sense this axis models: they do not share an execution core. Two with the
+/// same id do, and a worker pool that treats them as two cores oversubscribes.
+///
+/// [`CpuTopology`]: crate::CpuTopology
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct CoreId(u32);
+
+impl CoreId {
+    /// Constructs a core id from its dense index.
+    #[must_use]
+    pub const fn new(index: u32) -> Self {
+        Self(index)
+    }
+
+    /// Returns the dense index.
+    #[must_use]
+    pub const fn get(self) -> u32 {
+        self.0
+    }
+}
+
 /// Cache hierarchy level.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CacheLevel {

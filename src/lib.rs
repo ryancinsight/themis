@@ -35,8 +35,8 @@ pub use query::{
     current_numa_node, current_processor, refresh_current_numa_node, try_current_numa_node,
 };
 pub use topology::{
-    CacheLevel, CpuEfficiencyView, CpuTopology, EfficiencyClass, GpuDeviceProperties, GpuTopology,
-    NumaNode, TpuDeviceProperties, TpuTopology,
+    CacheLevel, CoreId, CpuEfficiencyView, CpuSmtView, CpuTopology, EfficiencyClass,
+    GpuDeviceProperties, GpuTopology, NumaNode, TpuDeviceProperties, TpuTopology,
 };
 #[cfg(windows)]
 pub use topology::{ProcessorAffinityGroups, ProcessorGroupAffinity};

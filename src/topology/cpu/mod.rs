@@ -12,9 +12,12 @@ mod detect;
 #[cfg(all(feature = "std", any(windows, target_os = "linux")))]
 mod efficiency;
 mod efficiency_view;
+#[cfg(all(feature = "std", any(windows, target_os = "linux")))]
+mod smt;
+mod smt_view;
 mod tables;
 
-use super::types::{CacheLevel, EfficiencyClass, NumaNode};
+use super::types::{CacheLevel, CoreId, EfficiencyClass, NumaNode};
 use crate::law::{MemoryTier, NumaNodeId, TopologyEpoch};
 
 #[cfg(not(feature = "std"))]
@@ -37,6 +40,9 @@ pub(crate) use cpulist::parse_cpu_list;
 #[cfg(all(feature = "std", any(windows, target_os = "linux")))]
 pub(crate) use efficiency::detect_efficiency_classes;
 pub use efficiency_view::CpuEfficiencyView;
+#[cfg(all(feature = "std", any(windows, target_os = "linux")))]
+pub(crate) use smt::detect_core_ids;
+pub use smt_view::CpuSmtView;
 pub use tables::{build_adjacent_nodes, build_node_to_index};
 #[cfg(any(test, feature = "std"))]
 pub use tables::{build_default_distance_row, build_processor_to_node};
@@ -67,6 +73,13 @@ pub struct CpuTopology {
     /// and its ranks are the contiguous range `0..distinct_count`. Every
     /// construction path either satisfies both or stores `None`.
     pub(crate) efficiency_classes: Option<Box<[EfficiencyClass]>>,
+    /// Physical core per logical processor, indexed by processor id.
+    ///
+    /// Invariant on `Some`: the table has exactly `logical_processors` entries
+    /// and its ids are the contiguous range `0..core_count`, assigned by
+    /// ascending lowest processor. Every construction path either satisfies
+    /// both or stores `None`.
+    pub(crate) core_ids: Option<Box<[CoreId]>>,
 }
 
 impl CpuTopology {
@@ -99,6 +112,7 @@ impl CpuTopology {
             logical_processors,
             cache_levels: None,
             efficiency_classes: None,
+            core_ids: None,
         }
     }
 
@@ -129,6 +143,7 @@ impl CpuTopology {
             logical_processors,
             cache_levels,
             efficiency_classes: None,
+            core_ids: None,
         }
     }
 
@@ -171,6 +186,40 @@ impl CpuTopology {
             }
         }
         self.efficiency_classes = efficiency_classes;
+        self
+    }
+
+    /// Attaches a core table to a test topology.
+    ///
+    /// Additive companion to [`Self::new_for_test`]. Panics are the test
+    /// contract here: a table that violates the field invariant would make the
+    /// SMT view meaningless.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the table length is not `logical_processors`, or if its ids
+    /// are not assigned densely by first appearance.
+    #[cfg(any(test, feature = "testing"))]
+    #[must_use]
+    pub fn with_core_ids_for_test(mut self, core_ids: Option<Box<[CoreId]>>) -> Self {
+        if let Some(cores) = core_ids.as_deref() {
+            assert_eq!(
+                cores.len(),
+                self.logical_processors,
+                "invariant: the core table covers every logical processor"
+            );
+            let mut next = 0u32;
+            for core in cores {
+                assert!(
+                    core.get() <= next,
+                    "invariant: core ids are dense and assigned by first appearance"
+                );
+                if core.get() == next {
+                    next += 1;
+                }
+            }
+        }
+        self.core_ids = core_ids;
         self
     }
 
@@ -232,6 +281,16 @@ impl CpuTopology {
     #[must_use]
     pub fn efficiency_classes(&self) -> Option<&[EfficiencyClass]> {
         self.efficiency_classes.as_deref()
+    }
+
+    /// Returns the reported physical core of every logical processor, indexed
+    /// by processor id, or `None` when the platform reported nothing usable.
+    ///
+    /// Prefer [`Self::smt`], which discharges presence once and answers the
+    /// sibling questions directly.
+    #[must_use]
+    pub fn core_ids(&self) -> Option<&[CoreId]> {
+        self.core_ids.as_deref()
     }
 
     /// Returns the efficiency class of one processor.

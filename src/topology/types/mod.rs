@@ -4,6 +4,6 @@ mod cpu;
 mod gpu;
 mod tpu;
 
-pub use cpu::{CacheLevel, EfficiencyClass, NumaNode};
+pub use cpu::{CacheLevel, CoreId, EfficiencyClass, NumaNode};
 pub use gpu::GpuDeviceProperties;
 pub use tpu::TpuDeviceProperties;

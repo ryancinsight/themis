@@ -2,7 +2,8 @@
 
 use super::super::{
     build_adjacent_nodes, build_default_distance_row, build_node_to_index, build_processor_to_node,
-    detect_cache_levels, detect_efficiency_classes, logical_processor_count, CpuTopology,
+    detect_cache_levels, detect_core_ids, detect_efficiency_classes, logical_processor_count,
+    CpuTopology,
 };
 use crate::law::{MemoryTier, NumaNodeId, TopologyEpoch};
 use crate::topology::types::NumaNode;
@@ -105,5 +106,6 @@ pub(super) fn detect() -> Option<CpuTopology> {
         logical_processors: logical_processors.max(1),
         cache_levels: detect_cache_levels(logical_processors.max(1)),
         efficiency_classes: detect_efficiency_classes(logical_processors.max(1)),
+        core_ids: detect_core_ids(logical_processors.max(1)),
     })
 }

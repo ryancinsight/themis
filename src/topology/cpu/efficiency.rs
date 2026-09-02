@@ -14,14 +14,14 @@
 // floor.
 mod rank;
 #[cfg(any(test, windows))]
-mod records;
+pub(in crate::topology::cpu) mod records;
 #[cfg(any(test, target_os = "linux"))]
 mod sysfs;
 
 #[cfg(target_os = "linux")]
 mod linux;
 #[cfg(windows)]
-mod windows;
+pub(in crate::topology::cpu) mod windows;
 
 use super::MAX_PROCESSOR_ID;
 use crate::topology::types::EfficiencyClass;

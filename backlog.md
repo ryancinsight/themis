@@ -119,8 +119,26 @@ mnemosyne (allocation), moirai (scheduling), and hephaestus (devices) consume.
 - **Sequencing:** the predicate is the correctness fix and lands alone. The
   other three are ergonomics and should not delay it.
 
-## THEMIS-PLACEMENT-AXES-2026-09-01 [minor] — todo
+## THEMIS-PLACEMENT-AXES-2026-09-01 [minor] — axis 1 (SMT siblings) delivered; axes 2 and 3 todo
 
+- **Integrator / lease (2026-09-01):** Claude session d49f3b0a on
+  `feat/themis-smt-siblings`, axis 1 only per the sequencing rule. Lease:
+  `src/topology/cpu/{smt.rs,smt_view.rs,mod.rs,types.rs}`,
+  `src/topology/cpu/efficiency/{records.rs,windows.rs}` (the
+  `RelationProcessorCore` walk grows a core ordinal; the buffer producer is
+  shared), `tests/topology/cpu.rs`, `docs/adr/0005-*`, CHANGELOG, this entry.
+  Axes 2 and 3 stay todo.
+- **Axis 1 delivered (2026-09-01, Claude):** `CpuTopology::smt()` /
+  `CpuSmtView` over a per-processor `CoreId` table (ADR 0005). Windows reads
+  it from the `RelationProcessorCore` walk the efficiency class already does
+  (the walker now carries a core ordinal; one walk, two axes); Linux from
+  `thread_siblings_list` with symmetry and coverage checks. A host without SMT
+  is a present one-per-core table; absence is typed. Fixtures: the recorded
+  24-processor hybrid host and the 8x2 homogeneous host, out-of-order records,
+  double-claimed processors, gapped coverage, asymmetric lists. Gate: fmt,
+  Clippy `-D warnings` with `testing` and with `--no-default-features`,
+  nextest 118/118, 8/8 doctests, Rustdoc `-D warnings`. Consumer adoption in
+  the apollo and mnemosyne pinned instruments is their items; lease released.
 - **Context:** efficiency class (PR #35) closed one asymmetry axis. Three
   others exist in hardware, are not modelled, and are the same shape — an
   axis the OS reports that consumers must otherwise hardcode or guess. Filed

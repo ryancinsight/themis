@@ -48,13 +48,18 @@ const PROCESSORS_PER_GROUP: usize = 64;
 const MAX_GROUPS_PER_CORE: usize = 64;
 const MAX_BUFFER_BYTES: usize = 1024 * 1024;
 
-/// One logical processor and the raw `EfficiencyClass` byte of its core.
+/// One logical processor, the raw `EfficiencyClass` byte of its core, and
+/// which core record it came from.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) struct ProcessorClass {
+pub(in crate::topology::cpu) struct ProcessorClass {
     /// Processor id in this crate's numbering: `group * 64 + bit`.
-    pub(super) processor: u32,
+    pub(in crate::topology::cpu) processor: u32,
     /// The platform's raw class byte, higher meaning more performant.
-    pub(super) raw_class: u8,
+    pub(in crate::topology::cpu) raw_class: u8,
+    /// Ordinal of the `RelationProcessorCore` record in walk order. Every
+    /// processor in one record is an SMT sibling of the others; the SMT axis
+    /// reads this, the efficiency axis ignores it.
+    pub(in crate::topology::cpu) core: u32,
 }
 
 /// Walks a `RelationProcessorCore` buffer into per-processor class bytes.
@@ -63,9 +68,10 @@ pub(super) struct ProcessorClass {
 /// record running past the buffer, a zero or oversized `GroupCount`, or a
 /// truncated affinity array. A malformed record is not skipped past: a partial
 /// class table would be a fabricated split over the processors it did cover.
-pub(super) fn parse_processor_cores(bytes: &[u8]) -> Option<Vec<ProcessorClass>> {
+pub(in crate::topology::cpu) fn parse_processor_cores(bytes: &[u8]) -> Option<Vec<ProcessorClass>> {
     let mut offset = 0usize;
     let mut entries = Vec::with_capacity(bytes.len() / 64);
+    let mut core = 0u32;
 
     while offset < bytes.len() {
         let relationship = u32::from_ne_bytes(field::<4>(bytes, offset)?);
@@ -78,7 +84,8 @@ pub(super) fn parse_processor_cores(bytes: &[u8]) -> Option<Vec<ProcessorClass>>
         }
         if relationship == RELATION_PROCESSOR_CORE {
             let record = bytes.get(offset..offset.checked_add(record_size)?)?;
-            parse_core_record(record, &mut entries)?;
+            parse_core_record(record, core, &mut entries)?;
+            core = core.checked_add(1)?;
         }
         offset = offset.checked_add(record_size)?;
     }
@@ -86,7 +93,7 @@ pub(super) fn parse_processor_cores(bytes: &[u8]) -> Option<Vec<ProcessorClass>>
     (!entries.is_empty()).then_some(entries)
 }
 
-fn parse_core_record(record: &[u8], entries: &mut Vec<ProcessorClass>) -> Option<()> {
+fn parse_core_record(record: &[u8], core: u32, entries: &mut Vec<ProcessorClass>) -> Option<()> {
     let raw_class = *record.get(EFFICIENCY_CLASS_OFFSET)?;
     let group_count = usize::from(u16::from_ne_bytes(field::<2>(record, GROUP_COUNT_OFFSET)?));
     if !(1..=MAX_GROUPS_PER_CORE).contains(&group_count) {
@@ -113,6 +120,7 @@ fn parse_core_record(record: &[u8], entries: &mut Vec<ProcessorClass>) -> Option
             entries.push(ProcessorClass {
                 processor: u32::try_from(processor).ok()?,
                 raw_class,
+                core,
             });
         }
     }
@@ -128,7 +136,7 @@ fn field<const N: usize>(bytes: &[u8], offset: usize) -> Option<[u8; N]> {
 /// topology tests. Kept out of the test module itself so sibling modules can
 /// drive the whole path from platform bytes to public accessor.
 #[cfg(test)]
-pub(super) mod fixtures {
+pub(in crate::topology::cpu) mod fixtures {
     use super::{GROUP_AFFINITY_BYTES, RELATION_PROCESSOR_CORE};
 
     /// `LOGICAL_PROCESSOR_RELATIONSHIP::RelationCache`, an unrelated record the
@@ -142,13 +150,10 @@ pub(super) mod fixtures {
     /// range. A consumer that assumed "the low ids are the performance cores"
     /// pinned to cpu 2, which is in fact one of the slowest processors on the
     /// part.
-    pub(in crate::topology::cpu::efficiency) const PERFORMANCE_MASK: u64 = 0xc0_3c03;
+    pub(in crate::topology::cpu) const PERFORMANCE_MASK: u64 = 0xc0_3c03;
 
     /// Builds one `SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX` core record.
-    pub(in crate::topology::cpu::efficiency) fn core_record(
-        raw_class: u8,
-        groups: &[(u16, u64)],
-    ) -> Vec<u8> {
+    pub(in crate::topology::cpu) fn core_record(raw_class: u8, groups: &[(u16, u64)]) -> Vec<u8> {
         let size = 32 + groups.len() * GROUP_AFFINITY_BYTES;
         let mut record = vec![0u8; size];
         record[0..4].copy_from_slice(&RELATION_PROCESSOR_CORE.to_ne_bytes());
@@ -173,7 +178,7 @@ pub(super) mod fixtures {
     }
 
     /// A foreign record the walker must step over without interpreting.
-    pub(in crate::topology::cpu::efficiency) fn cache_record() -> Vec<u8> {
+    pub(in crate::topology::cpu) fn cache_record() -> Vec<u8> {
         let mut record = vec![0u8; 48];
         record[0..4].copy_from_slice(&RELATION_CACHE.to_ne_bytes());
         record[4..8].copy_from_slice(&48u32.to_ne_bytes());
@@ -182,7 +187,7 @@ pub(super) mod fixtures {
     }
 
     /// The 24-processor hybrid host, one single-threaded core per processor.
-    pub(in crate::topology::cpu::efficiency) fn hybrid_host_buffer() -> Vec<u8> {
+    pub(in crate::topology::cpu) fn hybrid_host_buffer() -> Vec<u8> {
         (0..24u32)
             .map(|processor| {
                 let is_performance = PERFORMANCE_MASK & (1u64 << processor) != 0;
@@ -193,7 +198,7 @@ pub(super) mod fixtures {
     }
 
     /// Eight SMT cores of one class: 16 processors, no hybrid split.
-    pub(in crate::topology::cpu::efficiency) fn homogeneous_host_buffer() -> Vec<u8> {
+    pub(in crate::topology::cpu) fn homogeneous_host_buffer() -> Vec<u8> {
         (0..8u32)
             .map(|core| core_record(0, &[(0, 0b11 << (core * 2))]))
             .collect::<Vec<_>>()
@@ -273,6 +278,25 @@ mod tests {
         assert_eq!(
             entries.iter().map(|e| e.processor).collect::<Vec<u32>>(),
             vec![63, 64, 66, 135]
+        );
+    }
+
+    #[test]
+    fn processors_of_one_record_share_a_core_ordinal_in_walk_order() {
+        let records = [
+            core_record(0, &[(0, 0b0011)]), // core 0: processors 0, 1
+            cache_record(),                 // not a core, does not consume an ordinal
+            core_record(0, &[(0, 0b1100)]), // core 1: processors 2, 3
+            core_record(1, &[(1, 0b0001)]), // core 2: processor 64
+        ]
+        .concat();
+        let entries = parsed(&records);
+        assert_eq!(
+            entries
+                .iter()
+                .map(|e| (e.processor, e.core))
+                .collect::<Vec<(u32, u32)>>(),
+            vec![(0, 0), (1, 0), (2, 1), (3, 1), (64, 2)]
         );
     }
 
