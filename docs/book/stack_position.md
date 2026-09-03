@@ -70,6 +70,6 @@ backend, not by themis itself.
   how to obtain it (system calls, pool allocation, fallback chains).
 - **Scheduling** — themis defines worker and domain identity; moirai decides
   when a task runs and on which worker.
-- **Branded capability evidence** — melinoe (and its `halo` sub-crate) owns
+- **Branded capability evidence** — melinoe owns
   the type-level proof tokens that certify a thread holds a particular
   capability.  Themis identity types are plain IDs, not capability tokens.
