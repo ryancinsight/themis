@@ -2,11 +2,6 @@
 //!
 //! Test code is exempt from `clippy::unwrap_used`: a panic here is the
 //! failure report, not a shipped panic path.
-#![allow(clippy::unwrap_used)]
-#![expect(
-    clippy::similar_names,
-    reason = "index-suffixed pairs (permit0/permit1, cell0/cell1) name per-NUMA-node operands"
-)]
 
 use themis::{
     build_processor_to_node, CpuTopology, MemoryTier, NumaNode, NumaNodeId, PlacementHint,
@@ -16,9 +11,6 @@ use themis::{
     sync_region_placement_scope, thread_local_placement_scope, ConstNumaPinnedCell,
     ConstNumaPinnedSlice, NumaPinnedCell, NumaPinnedSlice,
 };
-
-#[path = "branded_support.rs"]
-mod support;
 
 #[test]
 fn thread_local_scope_controls_placement_state() {
@@ -219,7 +211,7 @@ fn sync_region_pinned_slice_allows_efficient_bulk_access() {
 #[test]
 fn pinned_slice_constructors_retain_branded_values() {
     let dynamic = sync_region_placement_scope(|placement| {
-        let topology = support::synthetic_topology(1);
+        let topology = crate::support::synthetic_topology(1);
         let dynamic = NumaPinnedSlice::new(NumaNodeId::new(0), vec![1_u32, 2, 3]);
         let mut permits = placement.split(&topology);
         let mut permit = permits.pop().expect("synthetic topology has one node");
@@ -252,7 +244,7 @@ fn pinned_slice_from_fn_and_partition_paths_use_melinoe_collections() {
     let dynamic = sync_region_placement_scope(|placement| {
         let mut dynamic =
             NumaPinnedSlice::from_fn(NumaNodeId::new(0), 16, |index| usize::MAX - index);
-        let topology = support::synthetic_topology(1);
+        let topology = crate::support::synthetic_topology(1);
         let mut permits = placement.split(&topology);
         let mut permit = permits.pop().expect("synthetic topology has one node");
         // More requested partitions than elements exercises Melinoe's

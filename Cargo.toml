@@ -48,7 +48,7 @@ pedantic = { level = "deny", priority = -1 }
 # down to zero, then delete its line -- the floor tightens, never loosens.
 #
 # The ratchet is empty: the only class that fired was `similar_names`
-# (5 sites, 0 in production, all in tests/branded.rs, where index-suffixed
+# (5 sites, 0 in production, all under tests/branded/, where index-suffixed
 # names -- `permit0`/`permit1`, `cell0`/`cell1` -- are the clearest way to
 # write per-NUMA-node pairs). It is pinned by a file-level `#![expect(...)]`
 # in that one file rather than allowed workspace-wide, so the pin self-expires
@@ -72,7 +72,7 @@ trybuild = "1"
 
 [[test]]
 name = "branded"
-path = "tests/branded.rs"
+path = "tests/branded/main.rs"
 required-features = ["melinoe", "testing"]
 
 [[test]]

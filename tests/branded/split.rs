@@ -2,14 +2,6 @@
 //!
 //! Test code is exempt from `clippy::unwrap_used`: a panic here is the
 //! failure report, not a shipped panic path.
-#![allow(clippy::unwrap_used)]
-#![expect(
-    clippy::similar_names,
-    reason = "index-suffixed pairs (permit0/permit1, cell0/cell1) name per-NUMA-node operands"
-)]
-
-#[path = "branded_support.rs"]
-mod support;
 
 use themis::{
     build_processor_to_node, CpuTopology, MemoryTier, NumaNode, NumaNodeId, TopologyEpoch,
@@ -131,9 +123,9 @@ fn split_with_matches_split_across_the_stack_heap_boundary() {
     // 1 (degenerate), well within the stack path, exactly at the boundary
     // (127/128), and just past it (129/140) into the heap fallback.
     for node_count in [1usize, 2, 64, 127, 128, 129, 140] {
-        let topology = support::synthetic_topology(node_count);
-        let via_split = support::node_ids_via_split(&topology);
-        let via_split_with = support::node_ids_via_split_with(&topology);
+        let topology = crate::support::synthetic_topology(node_count);
+        let via_split = crate::support::node_ids_via_split(&topology);
+        let via_split_with = crate::support::node_ids_via_split_with(&topology);
         assert_eq!(
             via_split.len(),
             node_count,
@@ -149,9 +141,9 @@ fn split_with_matches_split_across_the_stack_heap_boundary() {
 proptest::proptest! {
     #[test]
     fn split_with_matches_split_proptest(node_count in 1usize..=200) {
-        let topology = support::synthetic_topology(node_count);
-        let via_split = support::node_ids_via_split(&topology);
-        let via_split_with = support::node_ids_via_split_with(&topology);
+        let topology = crate::support::synthetic_topology(node_count);
+        let via_split = crate::support::node_ids_via_split(&topology);
+        let via_split_with = crate::support::node_ids_via_split_with(&topology);
         proptest::prop_assert_eq!(via_split, via_split_with);
     }
 }
