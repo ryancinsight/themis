@@ -29,7 +29,7 @@ pub(in crate::topology) const fn default_distance(from_index: usize, to_index: u
 /// Builds the default distance row for `from_index`: `LOCAL_DISTANCE` to self,
 /// `REMOTE_DISTANCE` to every other node. Used when a NUMA node lacks an
 /// explicit distances vector.
-#[cfg(any(test, feature = "std"))]
+#[cfg(any(test, all(feature = "std", any(windows, target_os = "linux"))))]
 #[must_use]
 pub fn build_default_distance_row(node_count: usize, from_index: usize) -> Box<[u32]> {
     (0..node_count)
@@ -48,7 +48,7 @@ pub fn build_default_distance_row(node_count: usize, from_index: usize) -> Box<[
 /// # Panics
 ///
 /// Panics if the resolved table length exceeds the 32768-processor hard cap.
-#[cfg(any(test, feature = "std"))]
+#[cfg(any(test, all(feature = "std", any(windows, target_os = "linux"))))]
 #[must_use]
 pub fn build_processor_to_node(
     logical_processors: usize,
