@@ -33,7 +33,7 @@ pub use efficiency_view::CpuEfficiencyView;
 pub(crate) use smt::detect_core_ids;
 pub use smt_view::CpuSmtView;
 pub use tables::{build_adjacent_nodes, build_node_to_index};
-#[cfg(any(test, feature = "std"))]
+#[cfg(any(test, all(feature = "std", any(windows, target_os = "linux"))))]
 pub use tables::{build_default_distance_row, build_processor_to_node};
 pub use tables::{LOCAL_DISTANCE, REMOTE_DISTANCE};
 pub(crate) use topology::logical_processor_count;

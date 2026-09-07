@@ -4,6 +4,23 @@ Strategic roadmap; tags `[patch]`/`[minor]`/`[major]`/`[arch]` per SemVer class.
 themis is the Atlas placement-law SSOT: typed, stateless vocabulary that
 mnemosyne (allocation), moirai (scheduling), and hephaestus (devices) consume.
 
+<a id="THE-WASM-2026-09-06"></a>
+## THE-WASM-2026-09-06 [patch] — gate host-only topology helpers
+
+- **Outcome:** the CPU topology table helpers are available only on the host
+  targets that implement the topology source, so a `wasm32-unknown-unknown`
+  build does not expose dead host-only code or emit unused-item diagnostics.
+- **Scope:** `src/topology/cpu/{mod.rs,tables.rs}` configuration gates; no
+  changes to the topology data model or native detection paths.
+- **Acceptance:** native behavior remains unchanged; WASM check and warning-
+  denied Clippy pass; peer topology work in the remaining dirty files stays
+  intact. **Status:** review; **integrator:** atlas-session; **branch:** `fix/themis-wasm-topology`;
+  **lease:** discharged; **last-update:** 2026-09-06.
+- **Evidence:** `cargo clippy --target wasm32-unknown-unknown --lib --offline
+  -- -D warnings`, native warning-denied Clippy, and `cargo nextest run
+  --offline` (77/77) passed; the WASM check is covered by the same target
+  compilation.
+
 ## THEMIS-AFFINITY-MASK-ACCESSOR-2026-09-01 [minor] — in progress
 
 - **Integrator / lease:** Codex `01a0253c-6013-7552-99cc-36bbbcf77f6d` on
