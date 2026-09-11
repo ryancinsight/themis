@@ -439,3 +439,66 @@ fn const_thread_local_numa_placement_controls_static_access() {
     assert_eq!(val0, 150);
     assert_eq!(sum1_actual, 36);
 }
+
+/// Themis delegates execution rather than owning it, so its placement
+/// partition API must reach whatever executor is registered process-wide.
+///
+/// This pins that seam. A counting executor is registered, the placement API
+/// is driven, and the test asserts the executor was actually entered with the
+/// expected shard count. Without this, a regression that bypassed the
+/// registered executor (and silently reverted to per-call OS-thread creation)
+/// would be invisible: results would still be correct, only far slower.
+#[test]
+fn placement_partition_routes_through_the_registered_executor() {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    static CALLS: AtomicUsize = AtomicUsize::new(0);
+    static LAST_TASKS: AtomicUsize = AtomicUsize::new(0);
+
+    unsafe fn counting_executor(num_tasks: usize, task: unsafe fn(usize, *mut ()), data: *mut ()) {
+        CALLS.fetch_add(1, Ordering::SeqCst);
+        LAST_TASKS.store(num_tasks, Ordering::SeqCst);
+        for index in 0..num_tasks {
+            // SAFETY: this stand-in drives every index in `0..num_tasks`
+            // exactly once and does not return until the last has finished,
+            // which is the `ParallelExecutor` contract.
+            unsafe { task(index, data) };
+        }
+    }
+
+    // SAFETY: `counting_executor` upholds the contract documented on
+    // `ParallelExecutor::new`: it invokes every index exactly once and retains
+    // no access to `data` after returning.
+    melinoe::sync::register_parallel_executor(unsafe {
+        melinoe::sync::ParallelExecutor::new(counting_executor)
+    });
+
+    sync_region_placement_scope(|placement| {
+        let mut values = NumaPinnedSlice::from_fn(NumaNodeId::new(0), 12, |index| index);
+        let topology = crate::support::synthetic_topology(1);
+        let mut permits = placement.split(&topology);
+        let mut permit = permits.pop().expect("synthetic topology has one node");
+
+        // 12 elements in chunks of 3 -> exactly 4 shards.
+        let plan = melinoe::sync::PartitionPlan::chunk_size(3);
+        permit
+            .partition_for_each_mut_with(&mut values, plan, |start, shard| {
+                for (offset, value) in shard.iter_mut().enumerate() {
+                    *value = start + offset;
+                }
+            })
+            .expect("matching dynamic node permit");
+    });
+
+    let calls = CALLS.load(Ordering::SeqCst);
+    let tasks = LAST_TASKS.load(Ordering::SeqCst);
+    // Clean up before asserting so a failure cannot leak the executor into
+    // other tests in this binary.
+    melinoe::sync::clear_parallel_executor();
+
+    assert_eq!(
+        calls, 1,
+        "the registered executor must be entered exactly once"
+    );
+    assert_eq!(tasks, 4, "12 elements at chunk size 3 is four shards");
+}
