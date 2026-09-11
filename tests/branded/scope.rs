@@ -455,23 +455,27 @@ fn placement_partition_routes_through_the_registered_executor() {
     static CALLS: AtomicUsize = AtomicUsize::new(0);
     static LAST_TASKS: AtomicUsize = AtomicUsize::new(0);
 
-    unsafe fn counting_executor(num_tasks: usize, task: unsafe fn(usize, *mut ()), data: *mut ()) {
-        CALLS.fetch_add(1, Ordering::SeqCst);
-        LAST_TASKS.store(num_tasks, Ordering::SeqCst);
-        for index in 0..num_tasks {
-            // SAFETY: this stand-in drives every index in `0..num_tasks`
-            // exactly once and does not return until the last has finished,
-            // which is the `ParallelExecutor` contract.
-            unsafe { task(index, data) };
+    /// A stand-in scheduler that runs tasks in ascending index order on the
+    /// calling thread, counting how many calls it received.
+    struct Counting;
+
+    // SAFETY: `run_indexed` drives every index in `0..num_tasks` exactly once
+    // and does not return until the last has finished, which is the
+    // `ParallelExecutor` contract. Running on the calling thread adds no
+    // concurrency, so the context pointer is never observed elsewhere.
+    unsafe impl melinoe::sync::ParallelExecutor for Counting {
+        unsafe fn run_indexed(num_tasks: usize, task: unsafe fn(usize, *mut ()), context: *mut ()) {
+            CALLS.fetch_add(1, Ordering::SeqCst);
+            LAST_TASKS.store(num_tasks, Ordering::SeqCst);
+            for index in 0..num_tasks {
+                // SAFETY: forwarded from the caller; this implementation invokes
+                // each index exactly once with the caller's context.
+                unsafe { task(index, context) };
+            }
         }
     }
 
-    // SAFETY: `counting_executor` upholds the contract documented on
-    // `ParallelExecutor::new`: it invokes every index exactly once and retains
-    // no access to `data` after returning.
-    melinoe::sync::register_parallel_executor(unsafe {
-        melinoe::sync::ParallelExecutor::new(counting_executor)
-    });
+    melinoe::sync::register_parallel_executor::<Counting>();
 
     sync_region_placement_scope(|placement| {
         let mut values = NumaPinnedSlice::from_fn(NumaNodeId::new(0), 12, |index| index);
