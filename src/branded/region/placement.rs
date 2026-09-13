@@ -74,6 +74,29 @@ impl<'brand> NumaNodePlacement<'brand> {
     ///
     /// The mutable slice borrow establishes unique ownership; this permit adds
     /// the dynamic NUMA-node validation before Melinoe executes the shards.
+    ///
+    /// # Execution is delegated, and the driver is chosen process-wide
+    ///
+    /// Themis owns the locality law and explicitly does not own scheduling, so
+    /// the work is handed to Melinoe's partition driver and *where it runs* is
+    /// decided by whichever executor is registered process-wide at call time.
+    /// Two cases:
+    ///
+    /// - **An executor is registered** (for example because the scheduling
+    ///   layer has been initialized): the shards run on that pool and no OS
+    ///   threads are created per call. This is the intended path for
+    ///   NUMA-placement workloads, which are fine-grained enough that
+    ///   per-call thread creation dominates.
+    /// - **No executor is registered**: Melinoe falls back to spawning and
+    ///   joining `min(parts, len) − 1` OS threads, at roughly 30 µs per shard,
+    ///   with no affinity applied. The parallel call is then usually slower
+    ///   than the serial equivalent for small regions, and binding decisions
+    ///   are not honoured, so this path is not a substitute for the pool.
+    ///
+    /// Registration is process-global and read per call, and scheduling layers
+    /// typically register lazily on first access — so initialize the scheduler
+    /// before partitioning rather than relying on it being primed by luck.
+    /// See `melinoe::sync::register_parallel_executor`.
     #[cfg(feature = "std")]
     pub fn partition_for_each_mut_with<T, F>(
         &mut self,
@@ -148,6 +171,13 @@ impl<'brand, const NODE_ID: u32> ConstNumaNodePlacement<'brand, NODE_ID> {
     ///
     /// The mutable slice borrow establishes unique ownership; the const-generic
     /// permit supplies the compile-time NUMA placement identity.
+    ///
+    /// As with [`NumaNodePlacement::partition_for_each_mut_with`], execution is
+    /// delegated: with a process-wide executor registered the shards run on
+    /// that pool, and without one Melinoe falls back to per-call OS-thread
+    /// creation (~30 µs per shard, no affinity), which is usually slower than
+    /// serial work for small regions. Initialize the scheduler before
+    /// partitioning rather than relying on registration having happened.
     #[cfg(feature = "std")]
     pub fn partition_for_each_mut_with<T, F>(
         &mut self,

@@ -413,6 +413,20 @@ properties into themis types).
   feature-gated public API removal; value-semantic branded-scope tests
   retained; verification gates recorded in the change commit.
 
+<a id="THEMIS-MELINOE-STATIC-EXECUTOR-2026-09-13"></a>
+## THEMIS-MELINOE-STATIC-EXECUTOR-2026-09-13 [patch] — track Melinoe's static executor seam
+
+- **Outcome:** the placement routing regression installs a concrete
+  `ParallelExecutor` implementation through Melinoe's associated static entry
+  point, so it exercises the current consumer contract without a fabricated
+  receiver.
+- **Acceptance:** the branded integration suite and warning-denied Clippy pass;
+  no test code calls the removed instance receiver. **Status:** done;
+  **integrator:** atlas-session; **last-update:** 2026-09-13.
+- **Evidence:** `cargo fmt --all -- --check`, warning-denied all-target/all-
+  feature Clippy, and `cargo nextest run --all-features` (119/119) pass at the
+  delivery revision.
+
 ## Melinoe branded-collection adoption [minor]
 
 - [x] [minor] (0.10.1) Adopt Melinoe collections for
