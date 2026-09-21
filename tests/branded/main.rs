@@ -14,6 +14,7 @@
     reason = "index-suffixed pairs (permit0/permit1, cell0/cell1) name per-NUMA-node operands"
 )]
 
+mod numa_placement;
 mod scope;
 mod split;
 mod support;
