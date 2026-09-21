@@ -1,5 +1,28 @@
 # themis gap audit
 
+## Open risks
+
+### GATE-FEATURE-GATED-HARNESS-2026-09-21 — a default-feature gate skips two harnesses
+
+`branded` carries `required-features = ["melinoe", "testing"]` and
+`cpu_topology` carries `testing`, so a local `cargo nextest run` without
+them reports a clean 77/77 while CI, which passes `--features testing`,
+runs 119 and was red for three days on a compile error in `branded`
+([#54](https://github.com/ryancinsight/themis/pull/54)). The board's own
+evidence line for THEMIS-AFFINITY-MASK-ACCESSOR records `77/77` for the
+same reason, so the gap has been mistaken for a pass more than once.
+
+The stack's `[patch]` overlay compounds it: under the atlas umbrella
+melinoe resolves to the local tree, so even a feature-complete run there
+cannot see a stale pin. Only a standalone resolution reproduces CI.
+
+**Re-open trigger:** any local gate claim for this member that does not
+name `--features testing` and does not run outside the overlay.
+
+**Mechanization:** the member needs a committed gate script that both the
+pre-push hook and CI invoke, so the feature set cannot diverge between
+them (`engineering_gates`: one gate definition).
+
 ## Resolved in current branch
 
 ### REGION-MANIFEST-001 — branded region manifest contained implementation
