@@ -1,6 +1,7 @@
 //! Thread-portable branded placement capability implementation.
 
 use super::placement;
+use crate::topology::MAX_NUMA_NODE_IDS;
 
 #[cfg(not(feature = "std"))]
 extern crate alloc;
@@ -40,9 +41,6 @@ use melinoe::sync::{sync_region_scope, SyncRegionToken};
 pub struct SyncRegionPlacement<'brand> {
     token: SyncRegionToken<'brand>,
 }
-
-/// Hard cap on NUMA node ids, mirroring `topology::cpu::tables`.
-const MAX_NUMA_NODE_IDS: usize = 1024;
 
 /// Verifies that a topology's NUMA node ids are pairwise distinct.
 ///
