@@ -1,23 +1,33 @@
-error[E0599]: no associated function or constant named `new` found for struct `ConstNumaPinnedCellRef<'a, 'brand, NODE_ID, T>` in the current scope
+error[E0599]: no associated function or constant named `new` found for struct `themis::branded::region::storage::PinnedStorage<themis::branded::region::storage::ConstNodeTag<0>, &melinoe::cell::melinoe_cell::MelinoeCell<'_, _>>` in the current scope
  --> tests/ui/shared_cell_tag.rs:7:50
   |
 7 |         let r0 = ConstNumaPinnedCellRef::<0, _>::new(&cell);
-  |                                                  ^^^ associated function or constant not found in `ConstNumaPinnedCellRef<'_, '_, 0, _>`
+  |                                                  ^^^ associated function or constant not found in `themis::branded::region::storage::PinnedStorage<themis::branded::region::storage::ConstNodeTag<0>, &melinoe::cell::melinoe_cell::MelinoeCell<'_, _>>`
   |
-note: if you're trying to build a new `ConstNumaPinnedCellRef<'_, '_, 0, _>`, consider using `ConstNumaPinnedCellRef::<'a, 'brand, NODE_ID, T>::from_unique` which returns `ConstNumaPinnedCellRef<'_, '_, _, _>`
- --> src/branded/region/static_cell.rs
+note: if you're trying to build a new `themis::branded::region::storage::PinnedStorage<themis::branded::region::storage::ConstNodeTag<0>, &melinoe::cell::melinoe_cell::MelinoeCell<'_, _>>`, consider using `themis::branded::region::storage::PinnedStorage::<themis::branded::region::storage::ConstNodeTag<NODE_ID>, &'a melinoe::cell::melinoe_cell::MelinoeCell<'brand, T>>::from_unique` which returns `themis::branded::region::storage::PinnedStorage<themis::branded::region::storage::ConstNodeTag<_>, &melinoe::cell::melinoe_cell::MelinoeCell<'_, _>>`
+ --> src/branded/region/storage.rs
   |
   |     pub fn from_unique(cell: &'a mut MelinoeCell<'brand, T>) -> Self {
   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  = note: the associated function or constant was found for
+          - `themis::branded::region::storage::PinnedStorage<NumaNodeId, Box<[melinoe::cell::melinoe_cell::MelinoeCell<'brand, T>]>>`
+          - `themis::branded::region::storage::PinnedStorage<NumaNodeId, melinoe::cell::melinoe_cell::MelinoeCell<'_, T>>`
+          - `themis::branded::region::storage::PinnedStorage<themis::branded::region::storage::ConstNodeTag<NODE_ID>, Box<[melinoe::cell::melinoe_cell::MelinoeCell<'brand, T>]>>`
+          - `themis::branded::region::storage::PinnedStorage<themis::branded::region::storage::ConstNodeTag<NODE_ID>, melinoe::cell::melinoe_cell::MelinoeCell<'_, T>>`
 
-error[E0599]: no associated function or constant named `new` found for struct `ConstNumaPinnedCellRef<'a, 'brand, NODE_ID, T>` in the current scope
+error[E0599]: no associated function or constant named `new` found for struct `themis::branded::region::storage::PinnedStorage<themis::branded::region::storage::ConstNodeTag<1>, &melinoe::cell::melinoe_cell::MelinoeCell<'_, _>>` in the current scope
  --> tests/ui/shared_cell_tag.rs:8:50
   |
 8 |         let r1 = ConstNumaPinnedCellRef::<1, _>::new(&cell);
-  |                                                  ^^^ associated function or constant not found in `ConstNumaPinnedCellRef<'_, '_, 1, _>`
+  |                                                  ^^^ associated function or constant not found in `themis::branded::region::storage::PinnedStorage<themis::branded::region::storage::ConstNodeTag<1>, &melinoe::cell::melinoe_cell::MelinoeCell<'_, _>>`
   |
-note: if you're trying to build a new `ConstNumaPinnedCellRef<'_, '_, 1, _>`, consider using `ConstNumaPinnedCellRef::<'a, 'brand, NODE_ID, T>::from_unique` which returns `ConstNumaPinnedCellRef<'_, '_, _, _>`
- --> src/branded/region/static_cell.rs
+note: if you're trying to build a new `themis::branded::region::storage::PinnedStorage<themis::branded::region::storage::ConstNodeTag<1>, &melinoe::cell::melinoe_cell::MelinoeCell<'_, _>>`, consider using `themis::branded::region::storage::PinnedStorage::<themis::branded::region::storage::ConstNodeTag<NODE_ID>, &'a melinoe::cell::melinoe_cell::MelinoeCell<'brand, T>>::from_unique` which returns `themis::branded::region::storage::PinnedStorage<themis::branded::region::storage::ConstNodeTag<_>, &melinoe::cell::melinoe_cell::MelinoeCell<'_, _>>`
+ --> src/branded/region/storage.rs
   |
   |     pub fn from_unique(cell: &'a mut MelinoeCell<'brand, T>) -> Self {
   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  = note: the associated function or constant was found for
+          - `themis::branded::region::storage::PinnedStorage<NumaNodeId, Box<[melinoe::cell::melinoe_cell::MelinoeCell<'brand, T>]>>`
+          - `themis::branded::region::storage::PinnedStorage<NumaNodeId, melinoe::cell::melinoe_cell::MelinoeCell<'_, T>>`
+          - `themis::branded::region::storage::PinnedStorage<themis::branded::region::storage::ConstNodeTag<NODE_ID>, Box<[melinoe::cell::melinoe_cell::MelinoeCell<'brand, T>]>>`
+          - `themis::branded::region::storage::PinnedStorage<themis::branded::region::storage::ConstNodeTag<NODE_ID>, melinoe::cell::melinoe_cell::MelinoeCell<'_, T>>`

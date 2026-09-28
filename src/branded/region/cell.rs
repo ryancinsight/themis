@@ -1,14 +1,22 @@
+//! Dynamically tagged branded placement cells.
+//!
+//! The concrete wrapper names are aliases over [`PinnedStorage`] with a runtime
+//! [`NumaNodeId`] tag. The statically tagged family, whose tag is a zero-sized
+//! const-generic type, lives in the sibling [`static_cell`](super::static_cell)
+//! module; both share one storage type and one set of implementations.
+
 #[cfg(not(feature = "std"))]
 extern crate alloc;
 
 #[cfg(not(feature = "std"))]
-use alloc::{boxed::Box, vec::Vec};
+use alloc::boxed::Box;
 
 #[cfg(feature = "std")]
-use std::{boxed::Box, vec::Vec};
+use std::boxed::Box;
 
-use melinoe::{collections::BrandedVec, MelinoeCell};
+use melinoe::MelinoeCell;
 
+use super::storage::PinnedStorage;
 use crate::NumaNodeId;
 
 // ---------------------------------------------------------------------------
@@ -99,245 +107,20 @@ pub unsafe trait ConstPinnedSlice<'brand, const NODE_ID: u32, T> {
 // ---------------------------------------------------------------------------
 // Dynamic pinned types
 // ---------------------------------------------------------------------------
+//
+// These are aliases over `PinnedStorage` tagged with a runtime `NumaNodeId`;
+// `PinnedStorage` is where every constructor, accessor, and unsafe-impl body
+// lives.
 
 /// A placement cell pinned to a specific NUMA node.
-pub struct NumaPinnedCell<'brand, T> {
-    node_id: NumaNodeId,
-    cell: MelinoeCell<'brand, T>,
-}
-
-impl<'brand, T> NumaPinnedCell<'brand, T> {
-    /// Creates a new cell pinned to the specified NUMA node.
-    #[must_use]
-    pub const fn new(node_id: NumaNodeId, value: T) -> Self {
-        Self {
-            node_id,
-            cell: MelinoeCell::new(value),
-        }
-    }
-
-    /// Returns the pinned NUMA node ID.
-    #[must_use]
-    pub const fn node_id(&self) -> NumaNodeId {
-        self.node_id
-    }
-
-    /// Borrows this cell as a reference carrying the same pin.
-    ///
-    /// The tag is inherited from the owner rather than supplied by the caller,
-    /// so the reference cannot relabel the cell onto another NUMA node.
-    #[must_use]
-    #[inline]
-    pub const fn as_pinned_ref(&self) -> NumaPinnedCellRef<'_, 'brand, T> {
-        NumaPinnedCellRef {
-            node_id: self.node_id,
-            cell: &self.cell,
-        }
-    }
-}
-
-// SAFETY: the cell is owned by this struct and created by its constructor, so
-// no other pinned wrapper can name it; `node_id` returns a `Copy` field that is
-// fixed at construction.
-unsafe impl<'brand, T> PinnedCell<'brand, T> for NumaPinnedCell<'brand, T> {
-    #[inline]
-    fn node_id(&self) -> NumaNodeId {
-        self.node_id
-    }
-
-    #[inline]
-    fn cell(&self) -> &MelinoeCell<'brand, T> {
-        &self.cell
-    }
-}
+pub type NumaPinnedCell<'brand, T> = PinnedStorage<NumaNodeId, MelinoeCell<'brand, T>>;
 
 /// A borrowed reference to a cell pinned to a specific NUMA node.
-pub struct NumaPinnedCellRef<'a, 'brand, T> {
-    node_id: NumaNodeId,
-    cell: &'a MelinoeCell<'brand, T>,
-}
-
-impl<'a, 'brand, T> NumaPinnedCellRef<'a, 'brand, T> {
-    /// Pins an exclusively borrowed cell to `node_id`.
-    ///
-    /// The `&mut` borrow is the placement proof and the reason this is safe:
-    /// it is consumed for `'a`, so the compiler rejects any second reference to
-    /// `cell` — and therefore any second node tag — while this one lives.
-    ///
-    /// Use this to place cells that live on the stack or inside a caller-owned
-    /// buffer; [`NumaPinnedCell`] covers the owned case.
-    ///
-    /// ```
-    /// use themis::{NumaNodeId, NumaPinnedCellRef, sync_region_placement_scope};
-    ///
-    /// sync_region_placement_scope(|placement| {
-    ///     let mut cell = placement.cell(7u32);
-    ///     let pinned = NumaPinnedCellRef::from_unique(NumaNodeId::new(0), &mut cell);
-    ///     assert_eq!(pinned.node_id(), NumaNodeId::new(0));
-    /// });
-    /// ```
-    #[must_use]
-    #[inline]
-    pub fn from_unique(node_id: NumaNodeId, cell: &'a mut MelinoeCell<'brand, T>) -> Self {
-        Self { node_id, cell }
-    }
-
-    /// Returns the pinned NUMA node ID.
-    #[must_use]
-    #[inline]
-    pub const fn node_id(&self) -> NumaNodeId {
-        self.node_id
-    }
-}
-
-// SAFETY: the borrowed cell reached this wrapper either through
-// `from_unique`, which consumes an exclusive borrow for `'a` and so precludes a
-// second wrapper over the same cell, or through
-// `NumaPinnedCell::as_pinned_ref`, which copies the owner's tag rather than
-// accepting one. Either way the cell answers to exactly this `node_id`.
-unsafe impl<'brand, T> PinnedCell<'brand, T> for NumaPinnedCellRef<'_, 'brand, T> {
-    #[inline]
-    fn node_id(&self) -> NumaNodeId {
-        self.node_id
-    }
-
-    #[inline]
-    fn cell(&self) -> &MelinoeCell<'brand, T> {
-        self.cell
-    }
-}
+pub type NumaPinnedCellRef<'a, 'brand, T> = PinnedStorage<NumaNodeId, &'a MelinoeCell<'brand, T>>;
 
 /// A contiguous slice of cells pinned to a specific NUMA node.
-pub struct NumaPinnedSlice<'brand, T> {
-    node_id: NumaNodeId,
-    cells: Box<[MelinoeCell<'brand, T>]>,
-}
-
-impl<'brand, T> NumaPinnedSlice<'brand, T> {
-    /// Creates a new pinned slice from a vector of values.
-    #[must_use]
-    pub fn new(node_id: NumaNodeId, values: Vec<T>) -> Self {
-        let cells = BrandedVec::from_iter(values).into_boxed_cells();
-        Self { node_id, cells }
-    }
-
-    /// Creates a new pinned slice by generating values in index order.
-    ///
-    /// Generation is performed directly through Melinoe's branded collection
-    /// primitive; no intermediate unbranded value vector is required.
-    #[must_use]
-    pub fn from_fn<F>(node_id: NumaNodeId, len: usize, generate: F) -> Self
-    where
-        F: FnMut(usize) -> T,
-    {
-        let cells = BrandedVec::from_fn(len, generate).into_boxed_cells();
-        Self { node_id, cells }
-    }
-
-    /// Creates a new pinned slice directly from a boxed slice of cells.
-    #[must_use]
-    pub const fn from_cells(node_id: NumaNodeId, cells: Box<[MelinoeCell<'brand, T>]>) -> Self {
-        Self { node_id, cells }
-    }
-
-    /// Returns the pinned NUMA node ID.
-    #[must_use]
-    pub const fn node_id(&self) -> NumaNodeId {
-        self.node_id
-    }
-
-    /// Borrow the underlying cells immutably.
-    #[must_use]
-    #[inline]
-    pub fn cells(&self) -> &[MelinoeCell<'brand, T>] {
-        &self.cells
-    }
-
-    /// Access the uniquely owned branded cells for Themis's placement-gated
-    /// Melinoe partition driver.
-    #[cfg(feature = "std")]
-    pub(crate) fn cells_mut(&mut self) -> &mut [MelinoeCell<'brand, T>] {
-        &mut self.cells
-    }
-
-    /// Borrows these cells as a slice reference carrying the same pin.
-    ///
-    /// The tag is inherited from the owner rather than supplied by the caller.
-    #[must_use]
-    #[inline]
-    pub const fn as_pinned_ref(&self) -> NumaPinnedSliceRef<'_, 'brand, T> {
-        NumaPinnedSliceRef {
-            node_id: self.node_id,
-            cells: &self.cells,
-        }
-    }
-}
-
-// SAFETY: the cells are owned by this struct and produced by its constructors,
-// so no other pinned wrapper can name them; `node_id` returns a `Copy` field
-// fixed at construction.
-unsafe impl<'brand, T> PinnedSlice<'brand, T> for NumaPinnedSlice<'brand, T> {
-    #[inline]
-    fn node_id(&self) -> NumaNodeId {
-        self.node_id
-    }
-
-    #[inline]
-    fn cells(&self) -> &[MelinoeCell<'brand, T>] {
-        &self.cells
-    }
-}
+pub type NumaPinnedSlice<'brand, T> = PinnedStorage<NumaNodeId, Box<[MelinoeCell<'brand, T>]>>;
 
 /// A borrowed reference to a contiguous slice of cells pinned to a specific NUMA node.
-pub struct NumaPinnedSliceRef<'a, 'brand, T> {
-    node_id: NumaNodeId,
-    cells: &'a [MelinoeCell<'brand, T>],
-}
-
-impl<'a, 'brand, T> NumaPinnedSliceRef<'a, 'brand, T> {
-    /// Pins an exclusively borrowed cell slice to `node_id`.
-    ///
-    /// The `&mut` borrow is the placement proof: it is consumed for `'a`, so no
-    /// second wrapper — and no second node tag — can cover these cells while
-    /// this one lives. Placing a stack array needs no allocation:
-    ///
-    /// ```
-    /// use melinoe::MelinoeCell;
-    /// use themis::{NumaNodeId, NumaPinnedSliceRef, sync_region_placement_scope};
-    ///
-    /// sync_region_placement_scope(|placement| {
-    ///     let mut cells = [placement.cell(1u32), placement.cell(2u32)];
-    ///     let pinned = NumaPinnedSliceRef::from_unique(NumaNodeId::new(0), &mut cells);
-    ///     assert_eq!(pinned.node_id(), NumaNodeId::new(0));
-    /// });
-    /// ```
-    #[must_use]
-    #[inline]
-    pub fn from_unique(node_id: NumaNodeId, cells: &'a mut [MelinoeCell<'brand, T>]) -> Self {
-        Self { node_id, cells }
-    }
-
-    /// Returns the pinned NUMA node ID.
-    #[must_use]
-    #[inline]
-    pub const fn node_id(&self) -> NumaNodeId {
-        self.node_id
-    }
-}
-
-// SAFETY: the borrowed cells reached this wrapper either through
-// `from_unique`, which consumes an exclusive borrow for `'a` and so precludes a
-// second wrapper over the same cells, or through
-// `NumaPinnedSlice::as_pinned_ref`, which copies the owner's tag rather than
-// accepting one. Either way every cell answers to exactly this `node_id`.
-unsafe impl<'brand, T> PinnedSlice<'brand, T> for NumaPinnedSliceRef<'_, 'brand, T> {
-    #[inline]
-    fn node_id(&self) -> NumaNodeId {
-        self.node_id
-    }
-
-    #[inline]
-    fn cells(&self) -> &[MelinoeCell<'brand, T>] {
-        self.cells
-    }
-}
+pub type NumaPinnedSliceRef<'a, 'brand, T> =
+    PinnedStorage<NumaNodeId, &'a [MelinoeCell<'brand, T>]>;
