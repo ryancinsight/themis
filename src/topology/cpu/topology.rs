@@ -412,19 +412,19 @@ impl CpuTopology {
     #[must_use]
     pub fn distance(&self, from: NumaNodeId, to: NumaNodeId) -> u32 {
         match (self.node_index(from), self.node_index(to)) {
-            (Some(from_index), Some(to_index)) => self
-                .numa_nodes
-                .get(from_index)
-                .and_then(|node| {
+            (Some(from_index), Some(to_index)) => self.numa_nodes.get(from_index).map_or_else(
+                || tables::default_distance(from_index, to_index),
+                |node| {
                     let max_node_id = self.node_to_index.len().saturating_sub(1);
-                    let idx = if node.distances.len() > max_node_id {
-                        to.index()
-                    } else {
-                        to_index
-                    };
-                    node.distances.get(idx).copied()
-                })
-                .unwrap_or_else(|| tables::default_distance(from_index, to_index)),
+                    tables::distance_from_row(
+                        &node.distances,
+                        max_node_id,
+                        to,
+                        to_index,
+                        from_index,
+                    )
+                },
+            ),
             _ => {
                 if from == to {
                     LOCAL_DISTANCE

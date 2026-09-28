@@ -2,6 +2,7 @@
 
 use super::super::types::NumaNode;
 use crate::law::NumaNodeId;
+use crate::topology::MAX_NUMA_NODE_IDS;
 
 #[cfg(not(feature = "std"))]
 extern crate alloc;
@@ -84,8 +85,8 @@ pub fn build_processor_to_node(
 pub fn build_node_to_index(nodes: &[NumaNode]) -> Box<[usize]> {
     let max_node = nodes.iter().map(|node| node.id.index()).max().unwrap_or(0);
     assert!(
-        max_node < 1024,
-        "invariant check failed: NUMA node ID {max_node} exceeds maximum limit of 1024"
+        max_node < MAX_NUMA_NODE_IDS,
+        "invariant check failed: NUMA node ID {max_node} exceeds maximum limit of {MAX_NUMA_NODE_IDS}"
     );
     let mut node_to_index = vec![usize::MAX; max_node + 1];
     for (index, node) in nodes.iter().enumerate() {
@@ -98,6 +99,66 @@ pub fn build_node_to_index(nodes: &[NumaNode]) -> Box<[usize]> {
         node_to_index[node_idx] = index;
     }
     node_to_index.into_boxed_slice()
+}
+
+/// Resolves the distance from `from_index` to `to` under the shared NUMA
+/// distance-row lookup rule.
+///
+/// A distance row is indexed **dense-by-node-id** when it is long enough to
+/// cover the largest node id in the topology, and **compact-by-position**
+/// otherwise; a missing entry falls back to [`default_distance`]. This is the
+/// single rule used by [`build_adjacent_nodes`] and by
+/// [`CpuTopology::distance`](crate::CpuTopology::distance).
+#[inline]
+pub(crate) fn distance_from_row(
+    distances: &[u32],
+    max_node_id: usize,
+    to: NumaNodeId,
+    to_index: usize,
+    from_index: usize,
+) -> u32 {
+    let idx = if distances.len() > max_node_id {
+        to.index()
+    } else {
+        to_index
+    };
+    distances
+        .get(idx)
+        .copied()
+        .unwrap_or(default_distance(from_index, to_index))
+}
+
+/// Fills one source node's adjacency row into `out`, nearest first, returning
+/// how many entries were written.
+///
+/// `out` must have room for every node other than `from_index` — that is, at
+/// least `nodes.len() - 1` entries. The caller picks the scratch storage (a
+/// fixed stack array for small topologies, one reused heap `Vec` otherwise), so
+/// both arms of [`build_adjacent_nodes`] share this single implementation of
+/// the row semantics.
+fn fill_adjacency_row(
+    from_index: usize,
+    from_node: &NumaNode,
+    nodes: &[NumaNode],
+    max_node_id: usize,
+    out: &mut [(NumaNodeId, u32)],
+) -> usize {
+    let mut count = 0;
+    for (to_index, to_node) in nodes.iter().enumerate() {
+        if to_index != from_index {
+            let distance = distance_from_row(
+                &from_node.distances,
+                max_node_id,
+                to_node.id,
+                to_index,
+                from_index,
+            );
+            out[count] = (to_node.id, distance);
+            count += 1;
+        }
+    }
+    out[..count].sort_by_key(|(_, distance)| *distance);
+    count
 }
 
 /// Builds the per-node adjacency list as a flat `Box<[NumaNodeId]>` of length
@@ -118,50 +179,18 @@ pub fn build_adjacent_nodes(nodes: &[NumaNode]) -> Box<[NumaNodeId]> {
     if node_count <= STACK_LIMIT {
         let mut adjacent = [(NumaNodeId::ZERO, 0u32); STACK_LIMIT];
         for (from_index, from_node) in nodes.iter().enumerate() {
-            let mut count = 0;
-            for (to_index, to_node) in nodes.iter().enumerate() {
-                if to_index != from_index {
-                    let idx = if from_node.distances.len() > max_node_id {
-                        to_node.id.index()
-                    } else {
-                        to_index
-                    };
-                    let distance = from_node
-                        .distances
-                        .get(idx)
-                        .copied()
-                        .unwrap_or(default_distance(from_index, to_index));
-                    adjacent[count] = (to_node.id, distance);
-                    count += 1;
-                }
-            }
-            adjacent[..count].sort_by_key(|(_, distance)| *distance);
+            let count =
+                fill_adjacency_row(from_index, from_node, nodes, max_node_id, &mut adjacent);
             for &(node_id, _) in adjacent.iter().take(count) {
                 flat.push(node_id);
             }
         }
     } else {
+        let mut adjacent = vec![(NumaNodeId::ZERO, 0u32); stride];
         for (from_index, from_node) in nodes.iter().enumerate() {
-            let mut adjacent: Vec<(NumaNodeId, u32)> = nodes
-                .iter()
-                .enumerate()
-                .filter(|(to_index, _)| *to_index != from_index)
-                .map(|(to_index, to_node)| {
-                    let idx = if from_node.distances.len() > max_node_id {
-                        to_node.id.index()
-                    } else {
-                        to_index
-                    };
-                    let distance = from_node
-                        .distances
-                        .get(idx)
-                        .copied()
-                        .unwrap_or(default_distance(from_index, to_index));
-                    (to_node.id, distance)
-                })
-                .collect();
-            adjacent.sort_by_key(|(_, distance)| *distance);
-            for (node_id, _) in adjacent {
+            let count =
+                fill_adjacency_row(from_index, from_node, nodes, max_node_id, &mut adjacent);
+            for &(node_id, _) in adjacent.iter().take(count) {
                 flat.push(node_id);
             }
         }

@@ -5,6 +5,16 @@ mod gpu;
 mod tpu;
 mod types;
 
+/// Exclusive upper bound on NUMA node ids across every backend.
+///
+/// Processor ids are `u32`, and a NUMA node id is bounded far below that: the
+/// dense index tables, the adjacency tables, and the placement-region tag
+/// bitmap all size themselves from this cap, so a malformed platform report can
+/// never drive an allocation past it. Every consumer of the number — the table
+/// builders, all three detection backends, and the locality probes — shares
+/// this one value.
+pub(crate) const MAX_NUMA_NODE_IDS: usize = 1024;
+
 pub use cpu::{CpuEfficiencyView, CpuSmtView, CpuTopology};
 #[cfg(windows)]
 pub use cpu::{ProcessorAffinityGroups, ProcessorGroupAffinity};
