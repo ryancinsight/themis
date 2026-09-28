@@ -7,6 +7,7 @@ use super::super::{
 };
 use crate::law::{MemoryTier, NumaNodeId, TopologyEpoch};
 use crate::topology::types::NumaNode;
+use crate::topology::MAX_NUMA_NODE_IDS;
 
 // `CpuTopology::detect` exposes `Option<CpuTopology>` publicly: it models
 // "no backend could produce a topology". Every current backend resolves to at
@@ -38,7 +39,7 @@ pub(super) fn detect() -> Option<CpuTopology> {
     let mut highest_node = 0u32;
     // SAFETY: The API writes one `u32` through a valid output pointer.
     if unsafe { GetNumaHighestNodeNumber(core::ptr::addr_of_mut!(highest_node)) } == 0
-        || highest_node >= 1024
+        || (highest_node as usize) >= MAX_NUMA_NODE_IDS
     {
         return Some(CpuTopology::single_node(logical_processor_count()));
     }
@@ -49,7 +50,7 @@ pub(super) fn detect() -> Option<CpuTopology> {
     let mut logical_processors = 0usize;
 
     for raw_node in 0..=highest_node {
-        if raw_node >= 1024 {
+        if (raw_node as usize) >= MAX_NUMA_NODE_IDS {
             continue;
         }
         // Total given the bound above; expressed as a conversion so no `as`

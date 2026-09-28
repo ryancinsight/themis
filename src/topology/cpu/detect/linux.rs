@@ -7,6 +7,7 @@ use super::super::{
 };
 use crate::law::{MemoryTier, NumaNodeId, TopologyEpoch};
 use crate::topology::types::NumaNode;
+use crate::topology::MAX_NUMA_NODE_IDS;
 use std::fs;
 
 // `CpuTopology::detect` exposes `Option<CpuTopology>` publicly: it models
@@ -26,8 +27,8 @@ pub(super) fn detect() -> Option<CpuTopology> {
         .filter_map(Result::ok)
         .filter_map(|entry| entry.file_name().into_string().ok())
         .filter_map(|name| name.strip_prefix("node")?.parse::<u32>().ok())
-        .filter(|&id| id < 1024)
-        .take(1024)
+        .filter(|&id| (id as usize) < MAX_NUMA_NODE_IDS)
+        .take(MAX_NUMA_NODE_IDS)
         .collect();
     node_ids.sort_unstable();
 
@@ -56,7 +57,7 @@ pub(super) fn detect() -> Option<CpuTopology> {
                 value
                     .split_whitespace()
                     .filter_map(|part| part.parse::<u32>().ok())
-                    .take(1024)
+                    .take(MAX_NUMA_NODE_IDS)
                     .collect::<Vec<_>>()
             },
         );

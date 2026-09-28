@@ -1,6 +1,10 @@
 //! Platform CPU-locality probes.
 
 use crate::law::NumaNodeId;
+// Only the two OS-specific arms below consume this, and both are compiled out
+// under Miri and on targets with neither backend.
+#[cfg(all(feature = "std", any(target_os = "linux", windows), not(miri)))]
+use crate::topology::MAX_NUMA_NODE_IDS;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct CpuLocality {
@@ -53,7 +57,7 @@ fn query_cpu_locality_os() -> Option<CpuLocality> {
                 fn getcpu(cpu: *mut u32, node: *mut u32, tcache: *mut core::ffi::c_void) -> i32;
             }
             if getcpu(&mut cpu, &mut node, core::ptr::null_mut()) == 0 {
-                if cpu < 32768 && node < 1024 {
+                if cpu < 32768 && (node as usize) < MAX_NUMA_NODE_IDS {
                     Some(CpuLocality {
                         processor: cpu,
                         numa_node: NumaNodeId::new(node),
@@ -105,7 +109,7 @@ fn query_cpu_locality_os() -> Option<CpuLocality> {
                 != 0
             {
                 let system_processor = u32::from(proc_num.group) * 64 + u32::from(proc_num.number);
-                if system_processor < 32768 && node < 1024 {
+                if system_processor < 32768 && (node as usize) < MAX_NUMA_NODE_IDS {
                     Some(CpuLocality {
                         processor: system_processor,
                         numa_node: NumaNodeId::new(u32::from(node)),
