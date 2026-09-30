@@ -14,6 +14,7 @@ It is the shared source of truth for:
 - placement hints
 - topology snapshots
 - reported CPU efficiency classes and group-aware affinity masks
+- confining the calling thread to one logical processor, with a typed failure
 - current CPU/NUMA node queries
 
 It does not own allocation, scheduling, queues, worker loops, or thread-local
@@ -83,8 +84,12 @@ chunk-locality hints. Consumers must preserve typed cache absence.
 `CpuTopology::efficiency()` similarly discharges efficiency-class absence once
 and returns total class-level queries. On Windows, `ProcessorAffinityGroups`
 owns Themis's flattened processor numbering and partitions processor sets into
-sorted native group masks without dropping unrepresentable ids. Allocation and
-thread binding remain consumer responsibilities.
+sorted native group masks without dropping unrepresentable ids.
+`bind_current_thread(processor)` confines the calling thread to one logical
+processor on Windows and Linux and reports a refusal as a typed `BindError`
+(`Unsupported`, `OutOfRange`, or `Os { code }`), so a scheduler can refuse to
+start a worker whose binding failed. Allocation and worker loops remain
+consumer responsibilities.
 
 ## Benchmarks
 

@@ -15,6 +15,8 @@ mod types;
 /// this one value.
 pub(crate) const MAX_NUMA_NODE_IDS: usize = 1024;
 
+#[cfg(feature = "std")]
+pub use cpu::{bind_current_thread, BindError};
 pub use cpu::{CpuEfficiencyView, CpuSmtView, CpuTopology};
 #[cfg(windows)]
 pub use cpu::{ProcessorAffinityGroups, ProcessorGroupAffinity};

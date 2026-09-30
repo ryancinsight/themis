@@ -2,6 +2,8 @@
 
 #[cfg(windows)]
 mod affinity;
+#[cfg(feature = "std")]
+mod binding;
 mod cache;
 // Shared by the Linux NUMA and cache backends and by the Intel hybrid CPU-type
 // parser. The parser's fixtures also run in the Windows test build, which is
@@ -22,6 +24,8 @@ mod topology;
 // with neither they would be dead code under the lint floor.
 #[cfg(windows)]
 pub use affinity::{ProcessorAffinityGroups, ProcessorGroupAffinity};
+#[cfg(feature = "std")]
+pub use binding::{bind_current_thread, BindError};
 #[cfg(all(feature = "std", any(windows, target_os = "linux")))]
 pub(crate) use cache::detect_cache_levels;
 #[cfg(all(feature = "std", any(target_os = "linux", all(test, windows))))]

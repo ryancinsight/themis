@@ -4,6 +4,26 @@ Strategic roadmap; tags `[patch]`/`[minor]`/`[major]`/`[arch]` per SemVer class.
 themis is the Atlas placement-law SSOT: typed, stateless vocabulary that
 mnemosyne (allocation), moirai (scheduling), and hephaestus (devices) consume.
 
+<a id="HERMES-NUMA-BINDING-ON-THEMIS-2026-09-29"></a>
+## HERMES-NUMA-BINDING-ON-THEMIS-2026-09-29 — hermes NumaBinding reuses the Themis binding primitive [minor]
+
+- **Outcome:** hermes's best-effort `NumaBinding`
+  (`crates/hermes-simd-core/src/numa/processor/{linux,windows}.rs`) keeps its
+  policy (bind to a node's processors, report coverage) but drops its own
+  `SetThreadGroupAffinity` / `sched_setaffinity` declarations and uses the
+  Themis primitive for the mechanism ([ADR 0006](docs/adr/0006-thread-binding-fails-closed.md)).
+- **Acceptance oracle:** hermes carries no direct affinity FFI declaration; its
+  NumaBinding tests pass unchanged; a Themis `Err` still degrades to a reported
+  coverage shortfall, never a panic.
+- **Gap to close first:** `bind_current_thread` binds one processor, while
+  `NumaBinding` binds a node's processor set. Extend the primitive to a
+  processor set with the same typed failure before hermes migrates.
+- status: todo
+- priority: tightening
+- needs: THEMIS-THREAD-BINDING-2026-09-29 merged.
+- scope: hermes `numa/processor/`, themis `src/topology/cpu/binding/`.
+- **Next step:** read hermes `numa/processor/*.rs` and decide the set-binding shape.
+
 <a id="THE-WASM-2026-09-06"></a>
 ## THEMIS-STRUCTURE-SCOPE-SPLIT-2026-09-21 — the branded scope tests crossed the structural target [patch] <a id="themis-structure-scope-split-2026-09-21"></a>
 

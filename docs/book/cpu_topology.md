@@ -79,6 +79,20 @@ repeated ids and retains ids that cannot fit the target's native mask in
 capable of group-aware binding must use every returned partition rather than
 silently collapsing them to one flat mask.
 
+## Binding the calling thread
+
+`bind_current_thread(processor)` confines the calling thread to exactly one
+logical processor for the rest of the thread's life, using the same flattened
+numbering. Windows calls `SetThreadGroupAffinity`; Linux calls
+`sched_setaffinity` with a mask sized to the processor. It returns `Ok(())`
+only when the operating system accepted the request, so a scheduler publishes
+a worker-to-processor assignment after `Ok` and refuses to start the worker on
+`Err`. `BindError::Unsupported` reports a target with no backend,
+`BindError::OutOfRange { processor }` an id the target cannot name, and
+`BindError::Os { code }` a kernel refusal (for example `EINVAL` for a processor
+outside the process's cpuset). A failed call leaves the thread's affinity
+unchanged. Rationale: ADR 0006.
+
 ## Distance matrix
 
 `NumaNode::distances` encodes the inter-node access latency in the same
