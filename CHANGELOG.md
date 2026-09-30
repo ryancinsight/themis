@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.11.0 - 2026-09-30
 
 ### Added
 
@@ -101,6 +101,10 @@
   aliasing hole. Replace with `from_unique`, which takes `&mut` — the exclusive
   borrow is the placement proof — or with `as_pinned_ref` on the owning pinned
   type, which inherits the owner's tag.
+- `NumaPinnedCell`, `NumaPinnedCellRef`, `NumaPinnedSlice`, `NumaPinnedSliceRef`,
+  and their `Const` counterparts are type aliases of one generic pinned storage
+  rather than distinct structs, so the paths keep resolving but the items are no
+  longer structs.
 - `PinnedCell`, `ConstPinnedCell`, `PinnedSlice`, and `ConstPinnedSlice` are now
   `unsafe` traits. They are the dispatch surface the placement `write` methods
   use, so implementors must guarantee their cell is unreachable under any other
@@ -108,6 +112,8 @@
 
 ### Changed
 
+- Require Melinoe 0.10.0. The pinned-storage construction this release uses
+  (`BrandedVec::from_fn`, `into_boxed_cells`) is absent from Melinoe 0.9.0.
 - Declare Rust 1.81 as the library MSRV and verify it on Linux and Windows.
 - `SyncRegionPlacement::project_static` is no longer `unsafe`. It consumes the
   region and returns a single capability, so it never duplicates the token and
@@ -121,6 +127,11 @@
 - Added a `[lints]` floor: `clippy::pedantic` plus `clippy::unwrap_used`.
 - Add a GitHub Release workflow that validates crate identity and package
   contents before publishing through crates.io Trusted Publishing.
+
+## 0.10.1 - 2026-08-02
+
+### Changed
+
 - Publish under the collision-free `themis-topology` package name while
   retaining `themis` as the Rust library crate name.
 - Resolve the optional Melinoe dependency from its default source, removing the

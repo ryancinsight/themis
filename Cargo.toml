@@ -1,6 +1,6 @@
 [package]
 name = "themis-topology"
-version = "0.10.1"
+version = "0.11.0"
 edition = "2021"
 authors = ["Ryan Clanton <ryanclanton@outlook.com>"]
 license = "MIT OR Apache-2.0"
@@ -64,7 +64,7 @@ print_stderr = "deny"
 dbg_macro = "deny"
 
 [dependencies]
-melinoe = { git = "https://github.com/ryancinsight/melinoe.git", version = "0.9.0", default-features = false, optional = true }
+melinoe = { git = "https://github.com/ryancinsight/melinoe.git", version = "0.10.0", default-features = false, optional = true }
 
 # The Linux locality probe issues the `getcpu` syscall through the libc crate,
 # which carries the per-architecture syscall number; the libc wrapper is absent
