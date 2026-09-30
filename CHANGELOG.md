@@ -21,6 +21,13 @@
 
 ### Fixed
 
+- **Linux locality probe no longer links the libc `getcpu` wrapper.**
+  `current_processor` and `try_current_numa_node` issue the `SYS_getcpu` syscall
+  through the `libc` crate. musl exports the wrapper only from 1.2.5, so a
+  shared object linking it failed to load on musllinux_1_2 with `getcpu: symbol
+  not found`; the syscall exists on every Linux kernel since 2.6.19 and under
+  every libc. The return contract is unchanged.
+
 - **Cache levels exclude instruction and trace caches.** Both providers read a
   cache's type and report only data-holding caches (Windows
   `PROCESSOR_CACHE_TYPE` Unified/Data; Linux sysfs `type` Data/Unified). A
