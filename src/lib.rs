@@ -34,6 +34,8 @@ pub use law::{
 pub use query::{
     current_numa_node, current_processor, refresh_current_numa_node, try_current_numa_node,
 };
+#[cfg(feature = "std")]
+pub use topology::{bind_current_thread, BindError};
 pub use topology::{
     CacheLevel, CoreId, CpuEfficiencyView, CpuSmtView, CpuTopology, EfficiencyClass,
     GpuDeviceProperties, GpuTopology, NumaNode, TpuDeviceProperties, TpuTopology,

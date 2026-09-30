@@ -4,6 +4,12 @@
 
 ### Added
 
+- **Thread binding.** `bind_current_thread(processor)` confines the calling
+  thread to one logical processor (Windows `SetThreadGroupAffinity`, Linux
+  `sched_setaffinity`) for the thread's life, and `BindError` (`Unsupported`,
+  `OutOfRange`, `Os { code }`) reports every refusal, so a scheduler can fail
+  closed instead of publishing an unenforced assignment. `std` feature only
+  (ADR 0006).
 - **SMT siblings.** `CpuTopology::smt()` returns a presence-proven
   `CpuSmtView` over a per-processor `CoreId` table: which processors share a
   physical core, whether two are siblings, and one processor per core for
