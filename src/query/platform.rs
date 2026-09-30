@@ -39,35 +39,42 @@ pub(super) fn query_numa_node_or_default() -> NumaNodeId {
 
 #[inline(never)]
 fn query_cpu_locality_os() -> Option<CpuLocality> {
-    // Miri does not emulate raw `getcpu`/`GetCurrentProcessorNumberEx`
-    // syscalls ("unsupported operation"); under Miri neither OS-specific
-    // arm below compiles, falling through to the existing "unsupported
-    // platform" `None` arm — consistent with this function's own contract
-    // (unreported locality is `None`, never fabricated), and Miri is not a
-    // real platform to report locality for.
+    // Miri does not emulate the raw `getcpu` syscall or
+    // `GetCurrentProcessorNumberEx` ("unsupported operation"); under Miri
+    // neither OS-specific arm below compiles, falling through to the existing
+    // "unsupported platform" `None` arm -- consistent with this function's own
+    // contract (unreported locality is `None`, never fabricated), and Miri is
+    // not a real platform to report locality for.
     #[cfg(all(feature = "std", target_os = "linux", not(miri)))]
     {
         let mut cpu = 0u32;
         let mut node = 0u32;
-        // SAFETY: `getcpu` is a standard glibc/musl library function.
-        // It writes two `u32` outputs through valid pointers and does not
-        // retain them after the call.
-        unsafe {
-            extern "C" {
-                fn getcpu(cpu: *mut u32, node: *mut u32, tcache: *mut core::ffi::c_void) -> i32;
-            }
-            if getcpu(&mut cpu, &mut node, core::ptr::null_mut()) == 0 {
-                if cpu < 32768 && (node as usize) < MAX_NUMA_NODE_IDS {
-                    Some(CpuLocality {
-                        processor: cpu,
-                        numa_node: NumaNodeId::new(node),
-                    })
-                } else {
-                    None
-                }
-            } else {
-                None
-            }
+        // The kernel entry point, not the libc `getcpu` wrapper: musl exports
+        // the wrapper only from 1.2.5, so a library linking it fails to load
+        // on musllinux_1_2 images with a musl older than 1.2.5 ("symbol not
+        // found" at import). The syscall exists on every Linux kernel since
+        // 2.6.19 and under every libc.
+        //
+        // SAFETY: `SYS_getcpu` takes `(unsigned *cpu, unsigned *node,
+        // struct getcpu_cache *unused)`. The two out-pointers are valid,
+        // writable, aligned `u32` locals, the kernel writes one `u32` through
+        // each and retains neither, and the third argument has been ignored
+        // by the kernel since 2.6.24 and is null.
+        let status = unsafe {
+            libc::syscall(
+                libc::SYS_getcpu,
+                core::ptr::addr_of_mut!(cpu),
+                core::ptr::addr_of_mut!(node),
+                core::ptr::null_mut::<core::ffi::c_void>(),
+            )
+        };
+        if status == 0 && cpu < 32768 && (node as usize) < MAX_NUMA_NODE_IDS {
+            Some(CpuLocality {
+                processor: cpu,
+                numa_node: NumaNodeId::new(node),
+            })
+        } else {
+            None
         }
     }
 

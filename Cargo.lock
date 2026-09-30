@@ -390,6 +390,7 @@ dependencies = [
 name = "themis-topology"
 version = "0.10.1"
 dependencies = [
+ "libc",
  "melinoe",
  "proptest",
  "trybuild",
