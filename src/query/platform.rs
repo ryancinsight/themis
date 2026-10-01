@@ -49,11 +49,12 @@ fn query_cpu_locality_os() -> Option<CpuLocality> {
     {
         let mut cpu = 0u32;
         let mut node = 0u32;
-        // The kernel entry point, not the libc `getcpu` wrapper: musl exports
-        // the wrapper only from 1.2.5, so a library linking it fails to load
-        // on musllinux_1_2 images with a musl older than 1.2.5 ("symbol not
-        // found" at import). The syscall exists on every Linux kernel since
-        // 2.6.19 and under every libc.
+        // The kernel entry point, not a libc `getcpu` wrapper: musl exports
+        // none (its `sched_getcpu` reads the vDSO or issues this syscall
+        // internally and reports no node), so a library declaring `getcpu`
+        // fails to load on every musllinux image ("symbol not found" at
+        // import). The syscall exists on every Linux kernel since 2.6.19 and
+        // under every libc.
         //
         // SAFETY: `SYS_getcpu` takes `(unsigned *cpu, unsigned *node,
         // struct getcpu_cache *unused)`. The two out-pointers are valid,
