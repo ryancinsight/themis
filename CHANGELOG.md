@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.11.1 - 2026-10-02
+
+### Changed
+
+- Correct the `getcpu` comments: musl exports no `getcpu` wrapper in any
+  release, so the Linux locality probe issues the syscall directly. No behavior
+  change.
+
 ## 0.11.0 - 2026-09-30
 
 ### Added
