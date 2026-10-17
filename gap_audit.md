@@ -12,7 +12,9 @@ with testing/cfg(test) off, the production predicate is unchanged.
 The unmodified public topology harness is red before repair and 17/17 after.
 Mac joins the existing full-feature CI matrix. Source and locked API checks,
 all 78 Mac tests, no-default controls and supported-target cross-checks pass.
-All tests, provider identities and external lock records are retained.
+All tests and external package versions are retained. Melinoe stays at 0.10.0;
+its Git pin advances to current default after a source comparison proves that
+only provider hooks and its own lockfile changed. No library source changed.
 Independent review and lifecycle acceptance remain open. Existing source leases
 and historical items below are preserved; this does not close their work.
 
