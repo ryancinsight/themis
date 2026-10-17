@@ -44,9 +44,9 @@ jobs:
       contents: read
 
   verify:
-    # Linux and Windows compile disjoint topology backends
-    # (`src/topology/cpu/detect/{linux,windows}.rs`, `src/query/platform.rs`),
-    # so a single-OS run leaves half the crate unbuilt and unlinted.
+    # Linux and Windows compile disjoint topology backends. macOS exercises
+    # the portable testing helpers in ordinary dependency builds, where
+    # cfg(test) is false; platform-only guards must not hide those helpers.
     name: fmt, clippy, tests, doctests (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
@@ -55,7 +55,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
       - name: Check out the revision under test
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

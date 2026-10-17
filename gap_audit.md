@@ -1,5 +1,29 @@
 # themis gap audit
 
+## Testing-helper visibility repair (0.11.2) [patch]
+
+Current default's Mac testing feature enables outer exports while helper
+symbols remain Linux/Windows-or-unit-test gated. The normal dependency build
+therefore fails E0432; default and unit-only greens do not discharge it.
+The repair adds the already-declared testing condition to both definitions and
+their inner export. Its availability implication now holds on every target;
+with testing/cfg(test) off, the production predicate is unchanged.
+
+The unmodified public topology harness is red before repair and 17/17 after.
+Mac joins the existing full-feature CI matrix. Source and locked API checks,
+all 78 Mac tests, no-default controls and supported-target cross-checks pass.
+All tests, provider identities and external lock records are retained.
+Independent review and lifecycle acceptance remain open. Existing source leases
+and historical items below are preserved; this does not close their work.
+
+A separate preexisting developer-toolchain limit is recorded in
+[THEMIS-MSRV-CARGO-DEV-GRAPH](backlog/themis-msrv-cargo-dev-graph.md): Cargo 1.81
+cannot fetch/build tests for the locked developer graph because of an edition 2024
+dev manifest. The candidate library passes the actual Rust/Cargo 1.81
+all-features check; the baseline fails E0432 there. Additional Rust 1.81
+compiler-only library checks with current Cargo pass. A complete Cargo 1.81
+developer test-gate pass is not claimed.
+
 ## Open risks
 
 ### GATE-FEATURE-GATED-HARNESS-2026-09-21 — a default-feature gate skips two harnesses
