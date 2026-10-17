@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.11.2 — Unreleased
+
+### Fixed
+
+- Restore the already-declared testing helpers on macOS and other targets:
+  their definitions and inner export now honor the testing feature. The
+  platform-only default production guards and helper behavior are unchanged.
+
+### Changed
+
+- Refresh the Melinoe 0.10.0 Git pin to current default; the provider diff only
+  changes its hooks and lockfile. All external package versions stay unchanged.
+
+### Verification
+
+- Add macOS to the existing complete CI matrix. Preserve the pre-fix E0432
+  reproduction, unchanged integration/property/compile-fail tests and API
+  controls; retain the separate Cargo 1.81 dev-manifest limitation without
+  changing the compiler floor or downgrading dependencies.
+
 ## 0.11.1 - 2026-10-02
 
 ### Changed
