@@ -12,6 +12,9 @@ absence, parser compatibility and dense core assignment remain unchanged.
 Regression and relation-oracle validation, independent review and delivery
 gates are tracked in [the repair checklist](backlog/themis-smt-reported-partition.md).
 Native Linux execution is not claimed by Mac or cross-compilation results.
+All local candidate checks pass; delivery remains blocked by the intact
+pre-push hook because its trusted credential scanner is unreachable from this
+standalone clone. No network push or PR creation is attempted.
 
 ## Testing-helper visibility repair (0.11.2) [patch]
 

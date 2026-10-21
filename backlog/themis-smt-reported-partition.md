@@ -1,6 +1,6 @@
 # THEMIS-SMT-REPORTED-PARTITION [patch]
 
-Target version: 0.11.3. Status: validation.
+Target version: 0.11.3. Status: delivery blocked.
 Owner: Codex task `01a15ee8-abb2-7558-91f5-d293b9d6a007`.
 Branch: `fix/smt-reported-partition`.
 Baseline: `5595fc0a5fdae7d9c017a26023f8960b8f8511fb` (connector and fresh clone).
@@ -25,7 +25,7 @@ proves reflexivity, symmetry and transitivity. Preserve existing bounds,
   a nonuniform range/reorder/duplicate fixture, and an independent relation-law
   oracle checking that equal core ids mean exactly reported membership.
 - [x] [patch] Complete supported-target checks and independent working-diff review;
-  final commit attestation follows the delivery gate.
+  exact final commit attestation is retained in the task handoff.
 - [ ] [patch] Pass intact delivery hooks before preparing a draft PR.
 
 ## Execution evidence and remaining gates
@@ -55,3 +55,20 @@ Independent complementary testing executes exact extracted production bodies:
 six, mixed/range/duplicate fixtures and the maximum singleton snapshot all pass.
 These checks supplement the repository tests and retain the execution
 distinctions above. Independent static review reports no findings.
+
+## Delivery blocker
+
+The intact `.githooks/pre-push` refuses the proposed new
+`refs/heads/fix/smt-reported-partition` on `ryancinsight/themis` at
+`31d778894c4e5e8ca61f44f0c47ab5bcc9b9a44e` (exit 1):
+"the trusted credential scanner is not reachable from this clone; the pushed
+range was not scanned." Its lockfile/artifact checks also report unavailable
+stack tools. The manual hook receives Git's exact ref-update input; no network
+push is attempted. Delivery stops at this refusal; no alternative route, hook
+registration change or bypass is used. The pre-commit hook passes with its
+explicit standalone lockfile-check warning.
+
+The following evidence-only commit records this blocker without changing
+validated production or tests. Draft PR, native Linux/Windows CI, lockfile
+integrity CI, nightly error-code/Miri jobs, and lifecycle acceptance remain
+open. The existing old-Cargo developer-graph backlog remains separate.

@@ -7,6 +7,7 @@ Target version: 0.11.3 [patch]
 - [x] [patch] Validate normalized sibling sets as a reported partition and
   preserve textual-order/duplicate compatibility and typed absence.
 - [x] [patch] Complete supported-target checks and independent working-diff review.
-- [ ] [patch] Satisfy intact delivery hooks before a draft PR.
+- [ ] [patch] Satisfy intact delivery hooks before a draft PR: blocked because
+  the trusted credential scanner is unreachable from this standalone clone.
 
 Evidence and remaining gates: [SMT repair](backlog/themis-smt-reported-partition.md).
