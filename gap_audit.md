@@ -1,5 +1,20 @@
 # themis gap audit
 
+## SMT reported partition (0.11.3) [patch]
+
+The [unchanged baseline](https://github.com/ryancinsight/themis/commit/5595fc0a5fdae7d9c017a26023f8960b8f8511fb) accepts reciprocal but non-transitive
+reports `["0,1", "0,1,2", "1,2"]` as `[0,0,1]`, contradicting ADR 0005.
+Linux-target Miri reproduces this. Normalized sets now must equal every
+referenced sibling set; together with self-membership this proves symmetry
+and transitivity. Bounds, typed absence, parser behavior and dense ids remain.
+
+The [repair item](backlog/themis-smt-reported-partition.md) tracks regression,
+relation-oracle, independent-review and compatibility evidence. Mac-native runs
+exclude the platform-gated SMT module; cross-target checks only compile it.
+Linux-target Miri executes the fixtures under an interpreter, not a Linux kernel.
+Task receipts preserve the original standalone scanner refusal. The registered
+lane's trusted scanner passes; final delivery and CI gates remain required.
+
 ## Testing-helper visibility repair (0.11.2) [patch]
 
 Current default's Mac testing feature enables outer exports while helper

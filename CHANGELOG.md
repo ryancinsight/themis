@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.11.3 — Unreleased
+
+### Fixed
+
+- Reject symmetric but non-transitive Linux SMT sibling reports as typed
+  absence. Siblings must report equal sets; reordered entries, duplicates,
+  valid core ordinals and public APIs retain their existing behavior.
+
+### Verification
+
+- Add overlapping-set regressions, a nonuniform partition with reordered and
+  duplicate entries, and an exhaustive relation-law oracle that checks accepted
+  core-table membership against the reported partition.
+
 ## 0.11.2 — Unreleased
 
 ### Fixed

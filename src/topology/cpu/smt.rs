@@ -7,9 +7,9 @@
 //!
 //! Both reduce to one core ordinal per processor, then to dense [`CoreId`]s
 //! assigned in ascending order of each core's lowest processor. The assembly
-//! is pure and compiled on every target so its fixtures run in every CI leg;
-//! only the reads that produce the platform data are gated. A host that reports
-//! nothing usable is `None`, never a guessed "one thread per core".
+//! is pure; its Linux and Windows fixtures exercise it without reading host
+//! topology. A host that reports nothing usable is `None`, never a guessed
+//! "one thread per core".
 
 use super::MAX_PROCESSOR_ID;
 use crate::topology::types::CoreId;
@@ -62,8 +62,9 @@ fn cores_from_processor_records(bytes: &[u8], logical_processors: usize) -> Opti
 /// Assembles per-processor `thread_siblings_list` contents into a core table.
 ///
 /// `lists[n]` is the contents for processor `n`, or `None` when the file is
-/// absent. Each list must be symmetric (if `m` is in the list of `n` then `n`
-/// is in the list of `m`) and name only processors below `logical_processors`;
+/// absent. Each list must contain its own processor, name only processors below
+/// `logical_processors`, and equal every sibling's set. Equality along each
+/// membership makes the relation symmetric and transitive, hence a partition;
 /// anything else is absence rather than a partially believed partition.
 #[cfg(all(feature = "std", any(target_os = "linux", all(test, windows))))]
 fn cores_from_sibling_lists(
@@ -78,7 +79,14 @@ fn cores_from_sibling_lists(
     }
     let parsed: Vec<Vec<u32>> = lists
         .iter()
-        .map(|list| list.map(super::parse_cpu_list))
+        .map(|list| {
+            list.map(|list| {
+                let mut siblings = super::parse_cpu_list(list);
+                siblings.sort_unstable();
+                siblings.dedup();
+                siblings
+            })
+        })
         .collect::<Option<Vec<_>>>()?;
     let mut raw = Vec::with_capacity(logical_processors);
     for (processor, siblings) in parsed.iter().enumerate() {
@@ -89,7 +97,7 @@ fn cores_from_sibling_lists(
         let mut lowest = processor;
         for &sibling in siblings {
             let sibling_list = parsed.get(usize::try_from(sibling).ok()?)?;
-            if !sibling_list.contains(&processor) {
+            if sibling_list != siblings {
                 return None;
             }
             lowest = lowest.min(sibling);
@@ -230,6 +238,108 @@ mod tests {
             let lists = [Some("0-1"), Some("0,1"), Some("2-3"), Some("2-3")];
             let table = cores_from_sibling_lists(&lists, 4).expect("two cores");
             assert_eq!(ids(&table), vec![0, 0, 1, 1]);
+        }
+
+        #[test]
+        fn symmetric_overlapping_sibling_sets_are_absent() {
+            for lists in [
+                vec![Some("0,1"), Some("0,1,2"), Some("1,2")],
+                // The rows have the same minimum but disagree on membership.
+                vec![Some("0,1,2"), Some("0,1"), Some("0,2")],
+                // Equal row sizes do not establish transitivity either.
+                vec![Some("0,1,3"), Some("0,1,2"), Some("1,2,3"), Some("0,2,3")],
+            ] {
+                assert_eq!(cores_from_sibling_lists(&lists, lists.len()), None);
+            }
+        }
+
+        #[test]
+        fn reordered_and_duplicate_entries_preserve_nonuniform_partitions() {
+            let lists = [
+                Some("3,0,3"),
+                Some("4,2,1,4,2"),
+                Some("1,2,4"),
+                Some("0-0,3"),
+                Some("4,1-2,1"),
+                Some("5,5"),
+            ];
+            let table = cores_from_sibling_lists(&lists, lists.len()).expect("three cores");
+            assert_eq!(ids(&table), vec![0, 1, 1, 0, 1, 2]);
+        }
+
+        #[test]
+        fn reflexive_relations_are_accepted_exactly_when_they_are_partitions() {
+            // Exhaust all directed off-diagonal memberships on up to three
+            // processors. The oracle checks relation laws, independently of
+            // the implementation's normalized-row comparison and minima.
+            for count in 1..=3 {
+                for mask in 0..(1usize << (count * (count - 1))) {
+                    let mut edge = 0;
+                    let relation: Vec<Vec<bool>> = (0..count)
+                        .map(|processor| {
+                            (0..count)
+                                .map(|other| {
+                                    if processor == other {
+                                        true
+                                    } else {
+                                        let member = mask & (1 << edge) != 0;
+                                        edge += 1;
+                                        member
+                                    }
+                                })
+                                .collect()
+                        })
+                        .collect();
+                    let is_partition = (0..count).all(|a| {
+                        (0..count).all(|b| {
+                            relation[a][b] == relation[b][a]
+                                && (0..count)
+                                    .all(|c| !relation[a][b] || !relation[b][c] || relation[a][c])
+                        })
+                    });
+                    for duplicate in [false, true] {
+                        let contents: Vec<String> = relation
+                            .iter()
+                            .map(|row| {
+                                let mut members: Vec<String> = row
+                                    .iter()
+                                    .enumerate()
+                                    .filter(|(_, member)| **member)
+                                    .map(|(processor, _)| processor.to_string())
+                                    .collect();
+                                if duplicate {
+                                    members.reverse();
+                                    members.extend(members.clone());
+                                }
+                                members.join(",")
+                            })
+                            .collect();
+                        let lists: Vec<Option<&str>> =
+                            contents.iter().map(|row| Some(row.as_str())).collect();
+                        let result = cores_from_sibling_lists(&lists, count);
+                        if !is_partition {
+                            assert_eq!(result, None, "{contents:?}");
+                            continue;
+                        }
+                        let table = result.expect("an equivalence relation is a partition");
+                        assert_eq!(table.len(), count);
+                        let mut seen = Vec::new();
+                        for (processor, core) in table.iter().enumerate() {
+                            if !seen.contains(core) {
+                                assert_eq!(core.get(), u32::try_from(seen.len()).expect("small"));
+                                seen.push(*core);
+                            }
+                            for other in 0..count {
+                                assert_eq!(
+                                    *core == table[other],
+                                    relation[processor][other],
+                                    "{contents:?}"
+                                );
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         #[test]
