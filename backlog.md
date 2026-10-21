@@ -1,5 +1,7 @@
 # Backlog — themis
 
+- [THEMIS-SMT-REPORTED-PARTITION](backlog/themis-smt-reported-partition.md) — Reject overlapping sibling sets [patch] — validation
+
 <a id="themis-testing-darwin-visibility"></a>- [THEMIS-TESTING-DARWIN-VISIBILITY](backlog/themis-testing-darwin-visibility.md) — Restore portable testing helpers [patch] — blocked
 <a id="themis-msrv-cargo-dev-graph"></a>- [THEMIS-MSRV-CARGO-DEV-GRAPH](backlog/themis-msrv-cargo-dev-graph.md) — Assess the old Cargo developer graph [patch] — blocked
 

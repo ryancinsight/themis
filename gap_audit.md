@@ -1,5 +1,18 @@
 # themis gap audit
 
+## SMT reported partition (0.11.3) [patch]
+
+The unchanged 5595fc0 baseline accepts the reciprocal but non-transitive
+reports `["0,1", "0,1,2", "1,2"]` as core ids `[0,0,1]`, contradicting
+ADR 0005. A regression reproduces this under Linux-target Miri on the Mac.
+Normalized sibling sets now must equal every referenced sibling set; together
+with self-membership this proves symmetry and transitivity. Bounds, typed
+absence, parser compatibility and dense core assignment remain unchanged.
+
+Regression and relation-oracle validation, independent review and delivery
+gates are tracked in [the repair checklist](backlog/themis-smt-reported-partition.md).
+Native Linux execution is not claimed by Mac or cross-compilation results.
+
 ## Testing-helper visibility repair (0.11.2) [patch]
 
 Current default's Mac testing feature enables outer exports while helper
