@@ -512,6 +512,516 @@ if [ -z "$python_bin" ]; then
   done
 fi
 
+cargo_layout() {
+"$python_bin" - "$@" <<'PY'
+"""Mirror Cargo configuration outside the development overlay.
+
+This is the canonical runtime embedded in the member hook. Paths, includes,
+credential aliases and profiles retain the frozen hook semantics.
+"""
+
+import hashlib
+import json
+import os
+import pathlib
+import sys
+import tomllib
+
+
+def child_value(environment, name):
+    if os.name != 'nt':
+        return environment.get(name)
+    values = [v for k, v in environment.items() if k.upper() == name]
+    if len(set(values)) > 1:
+        raise ValueError(f'conflicting case-insensitive environment entries: {name}')
+    return values[0] if values else None
+
+
+def user_home(environment):
+    """Cargo/rustup's child-environment home, with the native account fallback."""
+    selected = child_value(environment, 'USERPROFILE' if os.name == 'nt' else 'HOME')
+    if selected:
+        return pathlib.Path(selected)
+    if os.name != 'nt':
+        import pwd
+        return pathlib.Path(pwd.getpwuid(os.getuid()).pw_dir)
+    import ctypes
+    import uuid
+    from ctypes import wintypes
+    folder = (ctypes.c_ubyte * 16).from_buffer_copy(
+        uuid.UUID('5e6c858f-0e22-4760-9afe-ea3317b67173').bytes_le)
+    result = ctypes.c_void_p()
+    locate = ctypes.WinDLL('shell32').SHGetKnownFolderPath
+    locate.argtypes = (ctypes.c_void_p, wintypes.DWORD, wintypes.HANDLE,
+                       ctypes.POINTER(ctypes.c_void_p))
+    locate.restype = ctypes.c_long
+    status = locate(ctypes.byref(folder), 0, None, ctypes.byref(result))
+    if status != 0 or not result.value:
+        raise OSError(f'cannot determine the current account profile: {status}')
+    try:
+        return pathlib.Path(ctypes.wstring_at(result))
+    finally:
+        release = ctypes.WinDLL('ole32').CoTaskMemFree
+        release.argtypes = (ctypes.c_void_p,)
+        release.restype = None
+        release(result)
+
+
+def tool_home(environment, cwd, variable, suffix):
+    selected = child_value(environment, variable)
+    path = pathlib.Path(selected) if selected else user_home(environment) / suffix
+    return (pathlib.Path(cwd) / path).resolve()
+
+
+def execution_environment(environment, cwd):
+    """Keep child config/cache and executable-path identities when cwd moves."""
+    result = dict(environment)
+    if os.name == 'nt':
+        for name in ('CARGO_HOME', 'RUSTUP_HOME', 'CARGO_TARGET_DIR',
+                     'CARGO_BUILD_TARGET_DIR', 'CARGO_BUILD_BUILD_DIR', 'PATH'):
+            selected = child_value(environment, name)
+            result = {k: v for k, v in result.items() if k.upper() != name}
+            if selected is not None:
+                result[name] = selected
+    for variable, suffix in (('CARGO_HOME', '.cargo'), ('RUSTUP_HOME', '.rustup')):
+        result[variable] = str(tool_home(environment, cwd, variable, suffix))
+    for variable in ('CARGO_TARGET_DIR', 'CARGO_BUILD_TARGET_DIR', 'CARGO_BUILD_BUILD_DIR'):
+        selected = result.get(variable)
+        if selected:
+            result[variable] = str((pathlib.Path(cwd) / selected).resolve())
+    if 'PATH' in result:
+        result['PATH'] = os.pathsep.join(
+            str((pathlib.Path(cwd) / entry).resolve())
+            for entry in result['PATH'].split(os.pathsep))
+    return result
+
+
+
+def key(name):
+    return json.dumps(name, ensure_ascii=False)
+
+
+def value(item):
+    if isinstance(item, bool):
+        return 'true' if item else 'false'
+    if isinstance(item, (int, float)):
+        return repr(item)
+    if isinstance(item, str):
+        return json.dumps(item, ensure_ascii=False)
+    if isinstance(item, list):
+        return '[' + ', '.join(value(entry) for entry in item) + ']'
+    if isinstance(item, dict):
+        return '{' + ', '.join(f'{key(k)} = {value(v)}' for k, v in item.items()) + '}'
+    return json.dumps(item.isoformat())
+
+
+def table(path, body, lines):
+    scalars = {k: v for k, v in body.items() if not isinstance(v, dict)}
+    if path and (scalars or not body):
+        lines.append('[' + '.'.join(key(part) for part in path) + ']')
+    lines.extend(f'{key(k)} = {value(v)}' for k, v in scalars.items())
+    for name, child in body.items():
+        if isinstance(child, dict):
+            table([*path, name], child, lines)
+
+
+def is_absolute(path):
+    return (
+        pathlib.Path(path).is_absolute()
+        or pathlib.PurePosixPath(path).is_absolute()
+        or pathlib.PureWindowsPath(path).is_absolute()
+    )
+
+
+def rebase_path(item, root):
+    if not isinstance(item, str) or not item or is_absolute(item):
+        return item
+    return os.path.abspath(root / item)
+
+
+def rebase_executable(item, root):
+    if not isinstance(item, str) or ('/' not in item and '\\' not in item):
+        return item
+    return rebase_path(item, root)
+
+
+def rebase_program(item, root):
+    def program_path(program):
+        return rebase_executable(program, root)
+
+    if isinstance(item, list):
+        if not item or not isinstance(item[0], str):
+            return item
+        return [program_path(item[0]), *item[1:]]
+    if not isinstance(item, str):
+        return item
+    arguments = item.split()
+    if not arguments:
+        return item
+    program = program_path(arguments[0])
+    if program == arguments[0]:
+        return item
+    return [program, *arguments[1:]]
+
+
+def credential_alias_environment_key(name):
+    normalized = name.upper().replace('.', '_').replace('-', '_')
+    return 'CARGO_CREDENTIAL_ALIAS_' + normalized
+
+
+def credential_alias_name(
+    aliases, arguments, reserved_aliases, generated_aliases, cargo_environment
+):
+    encoded = json.dumps(
+        arguments, ensure_ascii=False, separators=(',', ':')
+    ).encode()
+    base = 'atlas-config-mirror-' + hashlib.sha256(encoded).hexdigest()
+    name = base
+    collision = 0
+    while True:
+        if (
+            name in reserved_aliases
+            or credential_alias_environment_key(name) in cargo_environment
+        ):
+            pass
+        elif name in generated_aliases:
+            if generated_aliases[name] == arguments:
+                return name
+        elif name not in aliases:
+            aliases[name] = arguments
+            generated_aliases[name] = arguments
+            return name
+        collision += 1
+        name = f'{base}-{collision}'
+
+
+def rebase_credential_provider(
+    item, root, aliases, visible_aliases, generated_aliases, cargo_environment
+):
+    if isinstance(item, str):
+        if (
+            (isinstance(aliases, dict) and item in aliases)
+            or item in visible_aliases
+            or item in generated_aliases
+            or credential_alias_environment_key(item) in cargo_environment
+        ):
+            return item
+    return rebase_program(item, root)
+
+
+def rebase_field(body, name, root, transform=rebase_path):
+    if isinstance(body, dict) and name in body:
+        body[name] = transform(body[name], root)
+
+
+def rebase_target(item, root):
+    # Cargo accepts target triples or paths to JSON target specifications.
+    # Only the latter carry a config-relative filesystem identity.
+    if isinstance(item, str) and item.endswith('.json'):
+        return rebase_path(item, root)
+    return item
+
+
+def rebase_config(
+    data, root, reserved_aliases, visible_aliases, generated_aliases, cargo_environment
+):
+    # https://doc.rust-lang.org/cargo/reference/config.html#config-relative-paths
+    # File-defined paths resolve from the parent of the defining directory.
+    # Moving a config therefore requires absolute original-relative paths.
+    paths = data.get('paths')
+    if isinstance(paths, list):
+        data['paths'] = [rebase_path(item, root) for item in paths]
+
+    build = data.get('build')
+    if isinstance(build, dict) and 'target' in build:
+        target = build['target']
+        build['target'] = (
+            [rebase_target(item, root) for item in target]
+            if isinstance(target, list) else rebase_target(target, root)
+        )
+    for name in ('target-dir', 'dep-info-basedir'):
+        rebase_field(build, name, root)
+    if isinstance(build, dict) and 'build-dir' in build:
+        build_dir = build['build-dir']
+        anchored_template = isinstance(build_dir, str) and build_dir.startswith(
+            ('{workspace-root}', '{cargo-cache-home}')
+        )
+        if not anchored_template:
+            build['build-dir'] = rebase_path(build_dir, root)
+    for name in ('rustc', 'rustc-wrapper', 'rustc-workspace-wrapper', 'rustdoc'):
+        rebase_field(build, name, root, rebase_executable)
+
+    http = data.get('http')
+    for name in ('cainfo', 'proxy-cainfo'):
+        rebase_field(http, name, root)
+    rebase_field(data.get('install'), 'root', root)
+    rebase_field(data.get('resolver'), 'lockfile-path', root)
+
+    sources = data.get('source')
+    if isinstance(sources, dict):
+        for source in sources.values():
+            for name in ('directory', 'local-registry'):
+                rebase_field(source, name, root)
+
+    targets = data.get('target')
+    if isinstance(targets, dict):
+        for target in targets.values():
+            rebase_field(target, 'runner', root, rebase_program)
+            rebase_field(target, 'linker', root, rebase_executable)
+    rebase_field(data.get('doc'), 'browser', root, rebase_program)
+
+    aliases = data.get('credential-alias')
+    if isinstance(aliases, dict):
+        for name, provider in aliases.items():
+            aliases[name] = rebase_program(provider, root)
+    registry = data.get('registry')
+    if isinstance(registry, dict) and 'credential-provider' in registry:
+        registry['credential-provider'] = rebase_credential_provider(
+            registry['credential-provider'], root, aliases,
+            visible_aliases, generated_aliases, cargo_environment
+        )
+    if isinstance(registry, dict):
+        providers = registry.get('global-credential-providers')
+        if isinstance(providers, list):
+            rebased_providers = []
+            for provider in providers:
+                rebased = rebase_credential_provider(
+                    provider, root, aliases, visible_aliases,
+                    generated_aliases, cargo_environment
+                )
+                if isinstance(provider, str) and isinstance(rebased, list):
+                    if aliases is None:
+                        aliases = {}
+                        data['credential-alias'] = aliases
+                    elif not isinstance(aliases, dict):
+                        raise ValueError('credential-alias must be a table')
+                    rebased = credential_alias_name(
+                        aliases, rebased, reserved_aliases,
+                        generated_aliases, cargo_environment
+                    )
+                rebased_providers.append(rebased)
+            registry['global-credential-providers'] = rebased_providers
+    registries = data.get('registries')
+    if isinstance(registries, dict):
+        for registry in registries.values():
+            if isinstance(registry, dict) and 'credential-provider' in registry:
+                registry['credential-provider'] = rebase_credential_provider(
+                    registry['credential-provider'], root, aliases,
+                    visible_aliases, generated_aliases, cargo_environment
+                )
+
+    if isinstance(aliases, dict):
+        visible_aliases.update(aliases)
+
+    environment = data.get('env')
+    if isinstance(environment, dict):
+        for setting in environment.values():
+            if isinstance(setting, dict) and setting.get('relative') is True:
+                rebase_field(setting, 'value', root)
+
+
+def resolve_include(entry, source):
+    if isinstance(entry, str):
+        include_path = entry
+        rewritten = None
+    elif isinstance(entry, dict) and isinstance(entry.get('path'), str):
+        include_path = entry['path']
+        rewritten = dict(entry)
+    else:
+        raise ValueError(f'invalid include in {source}')
+    included = pathlib.Path(include_path)
+    if not included.is_absolute():
+        included = source.parent / included
+    included = pathlib.Path(os.path.abspath(included))
+    if included.suffix != '.toml':
+        raise ValueError(f'Cargo include does not end in .toml: {included}')
+    optional = isinstance(entry, dict) and entry.get('optional') is True
+    return included, optional, rewritten
+
+
+def reserve_config_aliases(
+    source, active, visited, reserved_aliases
+):
+    source = pathlib.Path(os.path.abspath(source))
+    if source in active:
+        raise ValueError(f'recursive Cargo include: {source}')
+    if source in visited:
+        return
+    active.add(source)
+    with source.open('rb') as stream:
+        data = tomllib.load(stream)
+    aliases = data.get('credential-alias')
+    if isinstance(aliases, dict):
+        reserved_aliases.update(aliases)
+    includes = data.get('include')
+    if includes is not None:
+        if not isinstance(includes, list):
+            raise ValueError(f'invalid include list in {source}')
+        for entry in includes:
+            included, optional, _ = resolve_include(entry, source)
+            if not included.is_file():
+                if not optional:
+                    raise FileNotFoundError(included)
+                continue
+            reserve_config_aliases(
+                included, active, visited, reserved_aliases
+            )
+    active.remove(source)
+    visited.add(source)
+
+
+def mirror_include(
+    entry, source, include_root, active, mirrored_targets,
+    reserved_aliases, visible_aliases, generated_aliases, cargo_environment
+):
+    included, optional, rewritten = resolve_include(entry, source)
+    if not included.is_file():
+        if not optional:
+            raise FileNotFoundError(included)
+        mirrored_path = str(included)
+        included_target = ''
+    else:
+        digest = hashlib.sha256(str(included).encode()).hexdigest()
+        mirrored = include_root / f'{digest}.toml'
+        included_target = mirror_config(
+            included, mirrored, include_root, active, mirrored_targets,
+            reserved_aliases, visible_aliases, generated_aliases, cargo_environment
+        )
+        mirrored_path = str(mirrored)
+    if rewritten is None:
+        return mirrored_path, included_target
+    rewritten['path'] = mirrored_path
+    return rewritten, included_target
+
+
+def mirror_config(
+    source, destination, include_root, active, mirrored_targets,
+    reserved_aliases, visible_aliases, generated_aliases, cargo_environment
+):
+    source = pathlib.Path(os.path.abspath(source))
+    if source in active:
+        raise ValueError(f'recursive Cargo include: {source}')
+    if source in mirrored_targets:
+        return mirrored_targets[source]
+    active.add(source)
+    with source.open('rb') as stream:
+        data = tomllib.load(stream)
+    data.pop('patch', None)
+    includes = data.get('include')
+    configured_target = ''
+    if includes is not None:
+        if not isinstance(includes, list):
+            raise ValueError(f'invalid include list in {source}')
+        rewritten_includes = []
+        for entry in includes:
+            rewritten, included_target = mirror_include(
+                entry, source, include_root, active, mirrored_targets,
+                reserved_aliases, visible_aliases, generated_aliases, cargo_environment
+            )
+            rewritten_includes.append(rewritten)
+            if included_target:
+                configured_target = included_target
+        data['include'] = rewritten_includes
+    build = data.get('build')
+    own_target = build.get('target-dir') if isinstance(build, dict) else None
+    if isinstance(own_target, str) and own_target:
+        configured_target = rebase_path(own_target, source.parent.parent)
+    rebase_config(
+        data, source.parent.parent, reserved_aliases, visible_aliases,
+        generated_aliases, cargo_environment
+    )
+    lines = []
+    table([], data, lines)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    content = ('\n'.join(lines) + '\n').encode()
+    if not destination.is_file() or destination.read_bytes() != content:
+        destination.write_bytes(content)
+    active.remove(source)
+    mirrored_targets[source] = configured_target
+    return configured_target
+
+
+
+def create_layout(parent, configs, *, environment=None):
+    """Return a neutral command directory and the inherited target setting."""
+    cargo_environment = dict(os.environ if environment is None else environment)
+    parent = pathlib.Path(parent)
+    target = ''
+    configs = [pathlib.Path(config) for config in configs]
+    cargo_home = tool_home(cargo_environment, pathlib.Path.cwd(), 'CARGO_HOME', '.cargo')
+    cargo_home_config = cargo_home / 'config'
+    if not cargo_home_config.is_file():
+        cargo_home_config = cargo_home / 'config.toml'
+    reserved_aliases = set()
+    visited = set()
+    cargo_home_aliases = set()
+    if cargo_home_config.is_file():
+        reserve_config_aliases(
+            cargo_home_config, set(), visited, cargo_home_aliases
+        )
+        reserved_aliases.update(cargo_home_aliases)
+    for source in configs:
+        reserve_config_aliases(source, set(), visited, reserved_aliases)
+    visible_aliases = set(reserved_aliases)
+    generated_aliases = {}
+    for source in configs:
+        mirrored = parent / '.cargo' / 'config.toml'
+        configured = mirror_config(
+            source, mirrored, mirrored.parent / 'includes', set(), {},
+            reserved_aliases, visible_aliases, generated_aliases, cargo_environment
+        )
+        if configured:
+            target = configured
+        parent = parent / 'nested'
+    (parent / '.cargo' / 'config.toml').unlink(missing_ok=True)
+    return parent, target
+
+
+def main():
+    # LF lines: bash keeps the CR a Windows text-mode stdout adds.
+    sys.stdout.reconfigure(newline='\n')
+    if sys.argv[1] == '--environment':
+        selected = execution_environment(os.environ, pathlib.Path(sys.argv[2]))
+        for variable in ('CARGO_HOME', 'RUSTUP_HOME', 'CARGO_TARGET_DIR',
+                         'CARGO_BUILD_TARGET_DIR', 'CARGO_BUILD_BUILD_DIR', 'PATH'):
+            if variable in selected:
+                sys.stdout.buffer.write(os.fsencode(variable + '=' + selected[variable]) + b'\0')
+        return
+    parent, target = create_layout(pathlib.Path(sys.argv[1]), sys.argv[2:])
+    print(parent)
+    print(target)
+
+
+if __name__ == '__main__':
+    main()
+PY
+}
+
+# Freeze caller home/output/PATH identities before any exported Cargo cwd.
+if [ -n "$python_bin" ]; then
+  new_run_temp cargo_environment_root cargo-env
+  if ! cargo_layout --environment "$repo_root" > "$cargo_environment_root/values"; then
+    echo "pre-push: BLOCKED -- could not freeze the caller Cargo environment" >&2
+    exit 1
+  fi
+  while IFS= read -r -d '' cargo_assignment; do
+    case "$cargo_assignment" in
+      PATH=*)
+        cargo_search_path="${cargo_assignment#PATH=}"
+        if command -v cygpath >/dev/null 2>&1; then
+          if ! cargo_search_path="$(cygpath -u -p "$cargo_search_path")"; then
+            echo "pre-push: BLOCKED -- could not preserve the caller search path" >&2
+            exit 1
+          fi
+        fi
+        export PATH="$cargo_search_path" ;;
+      CARGO_HOME=*|RUSTUP_HOME=*|CARGO_TARGET_DIR=*|CARGO_BUILD_TARGET_DIR=*|CARGO_BUILD_BUILD_DIR=*)
+        export "$cargo_assignment" ;;
+      *) echo "pre-push: BLOCKED -- invalid frozen Cargo environment record" >&2; exit 1 ;;
+    esac
+  done < "$cargo_environment_root/values"
+fi
+
 # export_revision <sha> <dir>: <dir> becomes a checkout of <sha> in a
 # repository of its own that borrows this member's object store, so the
 # identity checker reads the pushed commit as its `HEAD`.
@@ -560,11 +1070,25 @@ export_revision() (
 # so it spawns none per entry: ages compare against two marker files
 # (`-ot`), and owners and holders read by `read`, which unlike a command
 # substitution keeps the carriage return of a file written on Windows. A marker
-# that could not be written compares false, so a failed `touch` keeps every
+# that could not be timestamped and published compares false, preserving every
 # entry.
 new_run_temp age_marks pl
-touch -d '1 day ago' "$age_marks/day" 2>/dev/null || true
-touch -d '7 days ago' "$age_marks/week" 2>/dev/null || true
+if [ -n "$python_bin" ]; then
+  "$python_bin" - "$age_marks" <<'PY' 2>/dev/null || true
+import os
+import pathlib
+import sys
+import time
+
+root = pathlib.Path(sys.argv[1])
+for name, days in (("day", 1), ("week", 7)):
+    staged = root / ("." + name)
+    staged.touch()
+    age = time.time() - days * 24 * 60 * 60
+    os.utime(staged, (age, age))
+    staged.replace(root / name)
+PY
+fi
 for stale in "$tmp_base"/pre-push-lock.* "$tmp_base"/pre-push-gate.* "$tmp_base"/pl.* "$tmp_base"/pg.* "$tmp_base"/pg-log.* "$tmp_base"/pg-casts.*; do
   [ -e "$stale" ] || continue
   stale_owner=""
@@ -621,7 +1145,7 @@ for ref in origin/HEAD origin/main; do
 done
 extract_stack_scripts() {
   local revision="$1"
-  local checker_cache checker_dir staging checker_users checker_marker
+  local checker_cache checker_dir staging checker_archive checker_users checker_marker
   local copy copy_in_use user
   extracted_stack_scripts=""
   if [ -z "$revision" ] \
@@ -633,7 +1157,17 @@ extract_stack_scripts() {
   if [ ! -d "$checker_dir/scripts" ]; then
     mkdir -p "$checker_cache"
     staging="$(mktemp -d "$checker_cache/.staging.XXXXXX")"
-    outside_checkout git -C "$stack_root" archive "$stack_baseline" scripts | tar -x -C "$staging"
+    checker_archive="$staging.tar"
+    run_temps+=("$checker_archive")
+    # BSD tar may close after the end marker while Git still writes valid
+    # padding. Capture first so both producer and extraction statuses matter.
+    if ! outside_checkout git -C "$stack_root" archive "$stack_baseline" scripts > "$checker_archive" \
+      || ! tar -xf "$checker_archive" -C "$staging"; then
+      echo "pre-push: BLOCKED -- could not extract the fetched Atlas scripts." >&2
+      rm -rf "$staging" "$checker_archive"
+      return 1
+    fi
+    rm -f "$checker_archive"
     # A concurrent push may have placed the same revision first; either
     # copy is the same content, so losing that race is not an error. A
     # rename can also fail with no winner (Windows refuses one while any
@@ -696,11 +1230,14 @@ if [ "$prepared_tools_selected" -eq 1 ]; then
     exit 1
   fi
   new_run_temp prepared_root apt
-  if ! outside_checkout git -C "$stack_root" archive "$prepared_tools" scripts \
-    | tar -x -C "$prepared_root"; then
+  prepared_archive="$prepared_root.tar"
+  run_temps+=("$prepared_archive")
+  if ! outside_checkout git -C "$stack_root" archive "$prepared_tools" scripts > "$prepared_archive" \
+    || ! tar -xf "$prepared_archive" -C "$prepared_root"; then
     echo "pre-push: BLOCKED -- atlas.preparedTools commit $prepared_tools could not be extracted." >&2
     exit 1
   fi
+  rm -f "$prepared_archive"
   prepared_stack_scripts="$prepared_root/scripts"
   if [ ! -f "$prepared_stack_scripts/atlas-conformance.py" ] \
     || [ ! -f "$prepared_stack_scripts/atlas-build-identity.py" ] \
@@ -829,10 +1366,13 @@ else
 fi
 range_args=()
 [ -n "$range_base" ] && range_args=(--base "$range_base")
+# Bash 3.2 treats an empty array as unset under nounset. The guarded
+# expansion below emits no argument for a new range, rather than aborting
+# the hook before the required scanners have run.
 
 budget_checker="${stack_scripts:+$stack_scripts/atlas-artifact-budget.py}"
 if [ -f "$budget_checker" ] && [ -n "$python_bin" ]; then
-  if ! "$python_bin" "$budget_checker" check --root "$repo_root" --rev "$range_rev" "${range_args[@]}"; then
+  if ! "$python_bin" "$budget_checker" check --root "$repo_root" --rev "$range_rev" ${range_args[@]+"${range_args[@]}"}; then
     echo "pre-push: BLOCKED -- a PM board grew past its line budget or a tracked" >&2
     echo "image exceeds the byte budget. Compact the board (done items delete)," >&2
     echo "move evidence captures out of git, and push again." >&2
@@ -871,7 +1411,7 @@ if [ -z "$member_baseline" ]; then
 fi
 secret_status=0
 "$python_bin" -I "$secret_checker" check --root "$repo_root" --rev "$range_rev" \
-    --allowlist-rev "$member_baseline" "${range_args[@]}" || secret_status=$?
+    --allowlist-rev "$member_baseline" ${range_args[@]+"${range_args[@]}"} || secret_status=$?
 if [ "$secret_status" -eq 1 ]; then
   echo "pre-push: BLOCKED -- the pushed range adds a credential. Remove it from" >&2
   echo "every commit in the range; if it ever reached a remote, rotate it." >&2
@@ -1066,7 +1606,11 @@ gate_root="$tmp_base/pg-$gate_key"
 claim_gate_root() {
   local staged="$gate_root.lock.$$"
   mkdir -p "$staged" && printf '%s\n' "$$" > "$staged/pid" || return 1
-  if mv -T "$staged" "$gate_root.lock" 2>/dev/null; then
+  # Rename the populated claim atomically. A live claim contains its pid,
+  # so another rename cannot replace it; unlike GNU mv -T, os.rename also
+  # provides that operation on the BSD tools shipped with macOS.
+  if "$python_bin" -c 'import os, sys; os.rename(sys.argv[1], sys.argv[2])' \
+      "$staged" "$gate_root.lock" 2>/dev/null; then
     run_temps+=("$gate_root.lock")
     return 0
   fi
@@ -1090,384 +1634,7 @@ gate_root="$(cd "$gate_root" && { pwd -W 2>/dev/null || pwd; })"
 gate_log=""
 
 # Parse out every TOML form of `[patch]`; print the child directory and target.
-cargo_layout() {
-"$python_bin" - "$@" <<'PY'
-import hashlib
-import json
-import os
-import pathlib
-import sys
-import tomllib
 
-# LF lines: bash keeps the CR a Windows text-mode stdout adds.
-sys.stdout.reconfigure(newline='\n')
-
-
-def key(name):
-    return json.dumps(name, ensure_ascii=False)
-
-
-def value(item):
-    if isinstance(item, bool):
-        return 'true' if item else 'false'
-    if isinstance(item, (int, float)):
-        return repr(item)
-    if isinstance(item, str):
-        return json.dumps(item, ensure_ascii=False)
-    if isinstance(item, list):
-        return '[' + ', '.join(value(entry) for entry in item) + ']'
-    if isinstance(item, dict):
-        return '{' + ', '.join(f'{key(k)} = {value(v)}' for k, v in item.items()) + '}'
-    return json.dumps(item.isoformat())
-
-
-def table(path, body, lines):
-    scalars = {k: v for k, v in body.items() if not isinstance(v, dict)}
-    if path and (scalars or not body):
-        lines.append('[' + '.'.join(key(part) for part in path) + ']')
-    lines.extend(f'{key(k)} = {value(v)}' for k, v in scalars.items())
-    for name, child in body.items():
-        if isinstance(child, dict):
-            table([*path, name], child, lines)
-
-
-def is_absolute(path):
-    return (
-        pathlib.Path(path).is_absolute()
-        or pathlib.PurePosixPath(path).is_absolute()
-        or pathlib.PureWindowsPath(path).is_absolute()
-    )
-
-
-def rebase_path(item, root):
-    if not isinstance(item, str) or not item or is_absolute(item):
-        return item
-    return os.path.abspath(root / item)
-
-
-def rebase_executable(item, root):
-    if not isinstance(item, str) or ('/' not in item and '\\' not in item):
-        return item
-    return rebase_path(item, root)
-
-
-def rebase_program(item, root):
-    def program_path(program):
-        return rebase_executable(program, root)
-
-    if isinstance(item, list):
-        if not item or not isinstance(item[0], str):
-            return item
-        return [program_path(item[0]), *item[1:]]
-    if not isinstance(item, str):
-        return item
-    arguments = item.split()
-    if not arguments:
-        return item
-    program = program_path(arguments[0])
-    if program == arguments[0]:
-        return item
-    return [program, *arguments[1:]]
-
-
-def credential_alias_environment_key(name):
-    normalized = name.upper().replace('.', '_').replace('-', '_')
-    return 'CARGO_CREDENTIAL_ALIAS_' + normalized
-
-
-def credential_alias_name(
-    aliases, arguments, reserved_aliases, generated_aliases
-):
-    encoded = json.dumps(
-        arguments, ensure_ascii=False, separators=(',', ':')
-    ).encode()
-    base = 'atlas-config-mirror-' + hashlib.sha256(encoded).hexdigest()
-    name = base
-    collision = 0
-    while True:
-        if (
-            name in reserved_aliases
-            or credential_alias_environment_key(name) in os.environ
-        ):
-            pass
-        elif name in generated_aliases:
-            if generated_aliases[name] == arguments:
-                return name
-        elif name not in aliases:
-            aliases[name] = arguments
-            generated_aliases[name] = arguments
-            return name
-        collision += 1
-        name = f'{base}-{collision}'
-
-
-def rebase_credential_provider(
-    item, root, aliases, visible_aliases, generated_aliases
-):
-    if isinstance(item, str):
-        if (
-            (isinstance(aliases, dict) and item in aliases)
-            or item in visible_aliases
-            or item in generated_aliases
-            or credential_alias_environment_key(item) in os.environ
-        ):
-            return item
-    return rebase_program(item, root)
-
-
-def rebase_field(body, name, root, transform=rebase_path):
-    if isinstance(body, dict) and name in body:
-        body[name] = transform(body[name], root)
-
-
-def rebase_config(
-    data, root, reserved_aliases, visible_aliases, generated_aliases
-):
-    # https://doc.rust-lang.org/cargo/reference/config.html#config-relative-paths
-    # File-defined paths resolve from the parent of the defining directory.
-    # Moving a config therefore requires absolute original-relative paths.
-    paths = data.get('paths')
-    if isinstance(paths, list):
-        data['paths'] = [rebase_path(item, root) for item in paths]
-
-    build = data.get('build')
-    for name in ('target-dir', 'dep-info-basedir'):
-        rebase_field(build, name, root)
-    if isinstance(build, dict) and 'build-dir' in build:
-        build_dir = build['build-dir']
-        anchored_template = isinstance(build_dir, str) and build_dir.startswith(
-            ('{workspace-root}', '{cargo-cache-home}')
-        )
-        if not anchored_template:
-            build['build-dir'] = rebase_path(build_dir, root)
-    for name in ('rustc', 'rustc-wrapper', 'rustc-workspace-wrapper', 'rustdoc'):
-        rebase_field(build, name, root, rebase_executable)
-
-    http = data.get('http')
-    for name in ('cainfo', 'proxy-cainfo'):
-        rebase_field(http, name, root)
-    rebase_field(data.get('install'), 'root', root)
-    rebase_field(data.get('resolver'), 'lockfile-path', root)
-
-    sources = data.get('source')
-    if isinstance(sources, dict):
-        for source in sources.values():
-            for name in ('directory', 'local-registry'):
-                rebase_field(source, name, root)
-
-    targets = data.get('target')
-    if isinstance(targets, dict):
-        for target in targets.values():
-            rebase_field(target, 'runner', root, rebase_program)
-            rebase_field(target, 'linker', root, rebase_executable)
-    rebase_field(data.get('doc'), 'browser', root, rebase_program)
-
-    aliases = data.get('credential-alias')
-    if isinstance(aliases, dict):
-        for name, provider in aliases.items():
-            aliases[name] = rebase_program(provider, root)
-    registry = data.get('registry')
-    if isinstance(registry, dict) and 'credential-provider' in registry:
-        registry['credential-provider'] = rebase_credential_provider(
-            registry['credential-provider'], root, aliases,
-            visible_aliases, generated_aliases
-        )
-    if isinstance(registry, dict):
-        providers = registry.get('global-credential-providers')
-        if isinstance(providers, list):
-            rebased_providers = []
-            for provider in providers:
-                rebased = rebase_credential_provider(
-                    provider, root, aliases, visible_aliases,
-                    generated_aliases
-                )
-                if isinstance(provider, str) and isinstance(rebased, list):
-                    if aliases is None:
-                        aliases = {}
-                        data['credential-alias'] = aliases
-                    elif not isinstance(aliases, dict):
-                        raise ValueError('credential-alias must be a table')
-                    rebased = credential_alias_name(
-                        aliases, rebased, reserved_aliases,
-                        generated_aliases
-                    )
-                rebased_providers.append(rebased)
-            registry['global-credential-providers'] = rebased_providers
-    registries = data.get('registries')
-    if isinstance(registries, dict):
-        for registry in registries.values():
-            if isinstance(registry, dict) and 'credential-provider' in registry:
-                registry['credential-provider'] = rebase_credential_provider(
-                    registry['credential-provider'], root, aliases,
-                    visible_aliases, generated_aliases
-                )
-
-    if isinstance(aliases, dict):
-        visible_aliases.update(aliases)
-
-    environment = data.get('env')
-    if isinstance(environment, dict):
-        for setting in environment.values():
-            if isinstance(setting, dict) and setting.get('relative') is True:
-                rebase_field(setting, 'value', root)
-
-
-def resolve_include(entry, source):
-    if isinstance(entry, str):
-        include_path = entry
-        rewritten = None
-    elif isinstance(entry, dict) and isinstance(entry.get('path'), str):
-        include_path = entry['path']
-        rewritten = dict(entry)
-    else:
-        raise ValueError(f'invalid include in {source}')
-    included = pathlib.Path(include_path)
-    if not included.is_absolute():
-        included = source.parent / included
-    included = pathlib.Path(os.path.abspath(included))
-    if included.suffix != '.toml':
-        raise ValueError(f'Cargo include does not end in .toml: {included}')
-    optional = isinstance(entry, dict) and entry.get('optional') is True
-    return included, optional, rewritten
-
-
-def reserve_config_aliases(
-    source, active, visited, reserved_aliases
-):
-    source = pathlib.Path(os.path.abspath(source))
-    if source in active:
-        raise ValueError(f'recursive Cargo include: {source}')
-    if source in visited:
-        return
-    active.add(source)
-    with source.open('rb') as stream:
-        data = tomllib.load(stream)
-    aliases = data.get('credential-alias')
-    if isinstance(aliases, dict):
-        reserved_aliases.update(aliases)
-    includes = data.get('include')
-    if includes is not None:
-        if not isinstance(includes, list):
-            raise ValueError(f'invalid include list in {source}')
-        for entry in includes:
-            included, optional, _ = resolve_include(entry, source)
-            if not included.is_file():
-                if not optional:
-                    raise FileNotFoundError(included)
-                continue
-            reserve_config_aliases(
-                included, active, visited, reserved_aliases
-            )
-    active.remove(source)
-    visited.add(source)
-
-
-def mirror_include(
-    entry, source, include_root, active, mirrored_targets,
-    reserved_aliases, visible_aliases, generated_aliases
-):
-    included, optional, rewritten = resolve_include(entry, source)
-    if not included.is_file():
-        if not optional:
-            raise FileNotFoundError(included)
-        mirrored_path = str(included)
-        included_target = ''
-    else:
-        digest = hashlib.sha256(str(included).encode()).hexdigest()
-        mirrored = include_root / f'{digest}.toml'
-        included_target = mirror_config(
-            included, mirrored, include_root, active, mirrored_targets,
-            reserved_aliases, visible_aliases, generated_aliases
-        )
-        mirrored_path = str(mirrored)
-    if rewritten is None:
-        return mirrored_path, included_target
-    rewritten['path'] = mirrored_path
-    return rewritten, included_target
-
-
-def mirror_config(
-    source, destination, include_root, active, mirrored_targets,
-    reserved_aliases, visible_aliases, generated_aliases
-):
-    source = pathlib.Path(os.path.abspath(source))
-    if source in active:
-        raise ValueError(f'recursive Cargo include: {source}')
-    if source in mirrored_targets:
-        return mirrored_targets[source]
-    active.add(source)
-    with source.open('rb') as stream:
-        data = tomllib.load(stream)
-    data.pop('patch', None)
-    includes = data.get('include')
-    configured_target = ''
-    if includes is not None:
-        if not isinstance(includes, list):
-            raise ValueError(f'invalid include list in {source}')
-        rewritten_includes = []
-        for entry in includes:
-            rewritten, included_target = mirror_include(
-                entry, source, include_root, active, mirrored_targets,
-                reserved_aliases, visible_aliases, generated_aliases
-            )
-            rewritten_includes.append(rewritten)
-            if included_target:
-                configured_target = included_target
-        data['include'] = rewritten_includes
-    build = data.get('build')
-    own_target = build.get('target-dir') if isinstance(build, dict) else None
-    if isinstance(own_target, str) and own_target:
-        configured_target = rebase_path(own_target, source.parent.parent)
-    rebase_config(
-        data, source.parent.parent, reserved_aliases, visible_aliases,
-        generated_aliases
-    )
-    lines = []
-    table([], data, lines)
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    content = ('\n'.join(lines) + '\n').encode()
-    if not destination.is_file() or destination.read_bytes() != content:
-        destination.write_bytes(content)
-    active.remove(source)
-    mirrored_targets[source] = configured_target
-    return configured_target
-
-
-parent = pathlib.Path(sys.argv[1])
-target = ''
-configs = [pathlib.Path(config) for config in sys.argv[2:]]
-cargo_home = pathlib.Path(
-    os.environ.get('CARGO_HOME', pathlib.Path.home() / '.cargo')
-)
-cargo_home_config = cargo_home / 'config'
-if not cargo_home_config.is_file():
-    cargo_home_config = cargo_home / 'config.toml'
-reserved_aliases = set()
-visited = set()
-cargo_home_aliases = set()
-if cargo_home_config.is_file():
-    reserve_config_aliases(
-        cargo_home_config, set(), visited, cargo_home_aliases
-    )
-    reserved_aliases.update(cargo_home_aliases)
-for source in configs:
-    reserve_config_aliases(source, set(), visited, reserved_aliases)
-visible_aliases = set(reserved_aliases)
-generated_aliases = {}
-for source in configs:
-    mirrored = parent / '.cargo' / 'config.toml'
-    configured = mirror_config(
-        source, mirrored, mirrored.parent / 'includes', set(), {},
-        reserved_aliases, visible_aliases, generated_aliases
-    )
-    if configured:
-        target = configured
-    parent = parent / 'nested'
-(parent / '.cargo' / 'config.toml').unlink(missing_ok=True)
-print(parent)
-print(target)
-PY
-}
 
 # Member exports inherit mirrored parent configs. Meta exports keep their own
 # config exact; Cargo uses a separate mirror created after export.
@@ -1476,7 +1643,9 @@ if ! gate_layout="$(cargo_layout "$gate_root" ${stack_configs[@]+"${stack_config
   exit 1
 fi
 { read -r gate_parent; read -r gate_target || true; } <<<"$gate_layout"
-if [ -z "${CARGO_TARGET_DIR:-}" ]; then
+# An explicit empty selector is still Cargo's selection; never inject a
+# higher-priority alias over CARGO_BUILD_TARGET_DIR.
+if [ "${CARGO_TARGET_DIR+x}" != x ] && [ "${CARGO_BUILD_TARGET_DIR+x}" != x ]; then
   export CARGO_TARGET_DIR="${gate_target:-$repo_root/target}"
 fi
 
