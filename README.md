@@ -81,6 +81,12 @@ malformed cache data is `None`, never a synthetic capacity. Leto consumes cache
 sizes as tiling hints, and Moirai consumes shared-processor rows as
 chunk-locality hints. Consumers must preserve typed cache absence.
 
+Linux cache sharing accepts complete, ordered, disjoint decimal CPU ranges.
+A malformed `shared_cpu_list` invalidates that cache record; it cannot shrink
+the reported sharing domain by discarding bad tokens. Other valid cache
+records remain available. Filesystem fixtures exercise this reader on every
+test host; native Linux CI also compiles and exercises the platform dispatcher.
+
 `CpuTopology::efficiency()` similarly discharges efficiency-class absence once
 and returns total class-level queries. On Windows, `ProcessorAffinityGroups`
 owns Themis's flattened processor numbering and partitions processor sets into

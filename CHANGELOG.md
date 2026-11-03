@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.11.4 — Unreleased
+
+### Fixed
+
+- Reject malformed Linux cache-sharing reports as typed absence instead of
+  publishing a cache over only the valid CPU-list prefix. Decimal ranges must
+  be ordered, disjoint and within the existing processor bound. Other valid
+  cache records survive; tolerant NUMA, SMT and efficiency parsing is preserved.
+
+### Verification
+
+- Exercise the production Linux filesystem reader with isolated sysfs-shaped
+  fixtures on every test host. Add malformed-prefix, sparse-list, independent
+  record, allocation-boundary and exhaustive small-bitmap regressions.
+
 ## 0.11.3 — Unreleased
 
 ### Fixed

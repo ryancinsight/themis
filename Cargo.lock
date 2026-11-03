@@ -388,7 +388,7 @@ dependencies = [
 
 [[package]]
 name = "themis-topology"
-version = "0.11.3"
+version = "0.11.4"
 dependencies = [
  "libc",
  "melinoe",
