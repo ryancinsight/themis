@@ -1,6 +1,6 @@
 # Backlog — themis
 
-- [THEMIS-CACHE-REPORT-VALIDATION](backlog/themis-cache-report-validation.md) — Reject partial cache-sharing reports [patch] — review
+<a id="themis-cache-report-validation"></a>- [THEMIS-CACHE-REPORT-VALIDATION](backlog/themis-cache-report-validation.md) — Reject partial cache-sharing reports [patch] — todo
 
 - [THEMIS-SMT-REPORTED-PARTITION](backlog/themis-smt-reported-partition.md) — Reject overlapping sibling sets [patch] — review
 

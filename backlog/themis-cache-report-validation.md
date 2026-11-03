@@ -1,6 +1,6 @@
-# THEMIS-CACHE-REPORT-VALIDATION [patch]
+## THEMIS-CACHE-REPORT-VALIDATION — Reject partial cache-sharing reports [patch] — todo <a id="themis-cache-report-validation"></a>
 
-- status: review; priority: correctness; target: 0.11.4; branch: `fix/cache-report-validation`.
+- status: todo; priority: correctness; target: 0.11.4; branch: `fix/cache-report-validation`.
 - owner: codex:01a17995-4c0b-701d-8625-8650165230c2.
 - baseline: [a421be51](https://github.com/ryancinsight/themis/commit/a421be512bf93c459cc9e6047d7bda466c3beb6e).
 - contract: cache sharing is a complete provider-reported CPU set, or absence.
