@@ -1,5 +1,20 @@
 # themis gap audit
 
+## Cache-sharing report validation (0.11.4) [patch]
+
+At `a421be512bf93c459cc9e6047d7bda466c3beb6e`, the production Linux
+cache reader accepts `0-1,broken` as a cache shared by `[0,1]`: the tolerant
+CPU-list parser discards the invalid token. A real filesystem fixture returns
+an 8 MiB `CacheLevel` where the documented malformed-report contract requires
+absence. The valid sparse-report control passes before the repair.
+
+Cache sharing now validates the complete decimal range sequence. Ascending,
+disjoint ranges below the common bound prove uniqueness and bounded allocation;
+invalid suffixes remain errors even after the full processor domain is read.
+The shared numeric decoder preserves tolerant parsing for the other consumers.
+The [repair checklist](backlog/themis-cache-report-validation.md) tracks full
+qualification and delivery separately from the reproduced red/green evidence.
+
 ## SMT reported partition (0.11.3) [patch]
 
 The [unchanged baseline](https://github.com/ryancinsight/themis/commit/5595fc0a5fdae7d9c017a26023f8960b8f8511fb) accepts reciprocal but non-transitive

@@ -6,9 +6,8 @@ mod affinity;
 mod binding;
 mod cache;
 // Shared by the Linux NUMA and cache backends and by the Intel hybrid CPU-type
-// parser. The parser's fixtures also run in the Windows test build, which is
-// why `test` widens the gate there but nowhere else.
-#[cfg(all(feature = "std", any(target_os = "linux", all(test, windows))))]
+// parser. Filesystem fixtures exercise the Linux cache reader on every host.
+#[cfg(all(feature = "std", any(target_os = "linux", test)))]
 mod cpulist;
 mod detect;
 #[cfg(all(feature = "std", any(windows, target_os = "linux")))]
@@ -55,7 +54,7 @@ pub use topology::CpuTopology;
 /// Processor ids are `u32` throughout the crate; this is the tighter bound the
 /// detection paths enforce so a malformed platform mask cannot size an
 /// allocation. Every consumer is a platform detection path.
-#[cfg(all(feature = "std", any(windows, target_os = "linux")))]
+#[cfg(all(feature = "std", any(windows, target_os = "linux", test)))]
 pub(crate) const MAX_PROCESSOR_ID: usize = 32_768;
 
 // The efficiency surface is std-only, as is `CpuTopology::detect`; these

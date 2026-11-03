@@ -1,5 +1,7 @@
 # Backlog — themis
 
+<a id="themis-cache-report-validation"></a>- [THEMIS-CACHE-REPORT-VALIDATION](backlog/themis-cache-report-validation.md) — Reject partial cache-sharing reports [patch] — todo
+
 - [THEMIS-SMT-REPORTED-PARTITION](backlog/themis-smt-reported-partition.md) — Reject overlapping sibling sets [patch] — review
 
 <a id="themis-testing-darwin-visibility"></a>- [THEMIS-TESTING-DARWIN-VISIBILITY](backlog/themis-testing-darwin-visibility.md) — Restore portable testing helpers [patch] — blocked

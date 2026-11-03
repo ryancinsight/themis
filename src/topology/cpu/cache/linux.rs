@@ -1,17 +1,16 @@
 //! Linux sysfs cache-index discovery.
 
-use crate::topology::cpu::parse_cpu_list;
+use crate::topology::cpu::cpulist::parse_cpu_set;
 use crate::topology::types::CacheLevel;
 use std::fs;
 use std::path::Path;
 
-const CPU_ROOT: &str = "/sys/devices/system/cpu";
 const MAX_CPU_ENTRIES: usize = 32_768;
 const MAX_CACHE_INDICES: usize = 64;
 const MAX_CACHE_LEVELS: usize = 512;
 
-pub(super) fn detect() -> Option<Box<[CacheLevel]>> {
-    let mut cpu_paths = fs::read_dir(CPU_ROOT)
+pub(super) fn detect(cpu_root: &Path) -> Option<Box<[CacheLevel]>> {
+    let mut cpu_paths = fs::read_dir(cpu_root)
         .ok()?
         .filter_map(Result::ok)
         .filter_map(|entry| {
@@ -107,8 +106,8 @@ fn holds_data(index_path: &Path) -> bool {
 }
 
 fn read_shared_processors(index_path: &Path) -> Option<Box<[u32]>> {
-    let processors = parse_cpu_list(&fs::read_to_string(index_path.join("shared_cpu_list")).ok()?);
-    (!processors.is_empty()).then(|| processors.into_boxed_slice())
+    parse_cpu_set(&fs::read_to_string(index_path.join("shared_cpu_list")).ok()?)
+        .map(Vec::into_boxed_slice)
 }
 
 fn read_positive_usize(path: impl AsRef<Path>) -> Option<usize> {
@@ -133,7 +132,10 @@ fn parse_cache_size(value: &str) -> Option<usize> {
 }
 
 #[cfg(test)]
-mod tests {
+mod tests;
+
+#[cfg(test)]
+mod size_tests {
     use super::parse_cache_size;
 
     #[test]
