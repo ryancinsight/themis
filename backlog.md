@@ -1,6 +1,6 @@
 # Backlog — themis
 
-<a id="themis-cpu-type-report-validation"></a>- [THEMIS-CPU-TYPE-REPORT-VALIDATION](backlog/themis-cpu-type-report-validation.md) — Reject partial CPU-type reports [patch] — review
+<a id="themis-cpu-type-report-validation"></a>- [THEMIS-CPU-TYPE-REPORT-VALIDATION](backlog/themis-cpu-type-report-validation.md) — Reject partial CPU-type reports [patch] — todo
 
 <a id="themis-cache-report-validation"></a>- [THEMIS-CACHE-REPORT-VALIDATION](backlog/themis-cache-report-validation.md) — Reject partial cache-sharing reports [patch] — todo
 
