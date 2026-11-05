@@ -16,7 +16,7 @@
 //! on every target so their fixtures run in every CI leg; only the reads that
 //! produce those contents are Linux-gated.
 
-use crate::topology::cpu::parse_cpu_list;
+use crate::topology::cpu::cpulist::parse_cpu_set;
 
 /// Kernel CPU-type directory names, ordered from least to most performant.
 ///
@@ -36,6 +36,9 @@ pub(super) const CPU_TYPE_NAMES: [&str; 2] = ["intel_atom", "intel_core"];
 /// claimed by two types, or when the claimed processors do not exactly cover
 /// `0..logical_processors`. Partial coverage is absence: a class table with
 /// holes would be a fabricated split over the processors it did cover.
+/// Every nonempty type list must be a complete, ordered, disjoint decimal CPU
+/// set. An empty list claims no processors; a malformed list invalidates the
+/// table even if its valid tokens would cover the snapshot.
 pub(super) fn capacities_from_cpu_types(
     type_lists: &[Option<&str>],
     logical_processors: usize,
@@ -43,8 +46,13 @@ pub(super) fn capacities_from_cpu_types(
     let mut capacities = vec![None; logical_processors];
     for (type_index, list) in type_lists.iter().enumerate() {
         let Some(list) = list else { continue };
+        // The kernel's bitmap-list formatter emits no ids for an empty set.
+        // This is distinct from discarding invalid tokens in a nonempty list.
+        if list.trim().is_empty() {
+            continue;
+        }
         let raw = u32::try_from(type_index).ok()?;
-        for processor in parse_cpu_list(list) {
+        for processor in parse_cpu_set(list)? {
             let slot = capacities.get_mut(usize::try_from(processor).ok()?)?;
             if slot.is_some() {
                 return None;
@@ -76,6 +84,97 @@ pub(super) fn capacities_from_cpu_capacity(capacity_files: &[Option<&str>]) -> O
 #[cfg(test)]
 mod tests {
     use super::{capacities_from_cpu_capacity, capacities_from_cpu_types, CPU_TYPE_NAMES};
+
+    #[test]
+    fn malformed_type_reports_cannot_publish_efficiency_classes() {
+        for report in [
+            "0-1,broken",
+            "broken,0-1",
+            "0-1,",
+            ",0-1",
+            "0,,1",
+            "0-1,3-2",
+            "0-1,32768",
+            "0-1,4294967296",
+            "+0-1",
+            "1,0",
+            "0-1,0",
+            "0, 1",
+            "0-1,１",
+            "0-1,2-",
+            "0-1,2-3-4",
+        ] {
+            let classes = capacities_from_cpu_types(&[Some(report), Some("2-3")], 4)
+                .and_then(|raw| super::super::classes_from_capacities(&raw, 4));
+            assert_eq!(classes, None, "malformed report {report:?}");
+        }
+    }
+
+    #[test]
+    fn malformed_other_type_is_not_an_empty_type() {
+        assert_eq!(
+            capacities_from_cpu_types(&[Some("broken"), Some("0-3")], 4),
+            None
+        );
+    }
+
+    #[test]
+    fn a_full_capacity_report_does_not_hide_an_invalid_suffix() {
+        let count = crate::topology::cpu::MAX_PROCESSOR_ID;
+        let complete = format!("0-{}", count - 1);
+        assert_eq!(
+            capacities_from_cpu_types(&[Some(&complete)], count),
+            Some(vec![0; count])
+        );
+        for suffix in ["broken", "32768", "0"] {
+            let report = format!("{complete},{suffix}");
+            let length = capacities_from_cpu_types(&[Some(&report)], count).map(|raw| raw.len());
+            assert_eq!(length, None, "invalid suffix {suffix:?}");
+        }
+    }
+
+    #[test]
+    fn empty_types_preserve_complete_homogeneous_reports() {
+        for empty in ["", "\n", " \n"] {
+            assert_eq!(
+                capacities_from_cpu_types(&[Some(empty), Some("0-3\n")], 4),
+                Some(vec![1; 4])
+            );
+            assert_eq!(
+                capacities_from_cpu_types(&[Some("0-3"), Some(empty)], 4),
+                Some(vec![0; 4])
+            );
+            assert_eq!(capacities_from_cpu_types(&[Some(empty), None], 4), None);
+        }
+    }
+
+    #[test]
+    fn every_eight_cpu_partition_preserves_membership_and_rank() {
+        // Enumerate all 2^8 ways to partition eight ids into the two kernel
+        // types. The bitmap is the oracle, independent of the range parser.
+        for bitmap in 0..=255u32 {
+            let mut members = [Vec::new(), Vec::new()];
+            let expected: Vec<u32> = (0..8)
+                .map(|id| {
+                    let class = u32::from(bitmap & (1 << id) != 0);
+                    members[usize::try_from(class).expect("class fits usize")].push(id.to_string());
+                    class
+                })
+                .collect();
+            let reports = members.map(|ids| format!("{}\n", ids.join(",")));
+            let raw = capacities_from_cpu_types(&reports.each_ref().map(|s| Some(s.as_str())), 8)
+                .expect("complete disjoint partition");
+            assert_eq!(raw, expected);
+            let classes = super::super::classes_from_capacities(&raw, 8)
+                .expect("reported partition has a class for every processor");
+            let ranks: Vec<u8> = classes.iter().map(|class| class.rank()).collect();
+            let expected_ranks: Vec<u8> = expected
+                .iter()
+                .map(|&class| u8::from(bitmap != 255 && class == 1))
+                .collect();
+            assert_eq!(ranks, expected_ranks);
+        }
+    }
 
     #[test]
     fn cpu_type_order_is_the_ranking_least_performant_first() {

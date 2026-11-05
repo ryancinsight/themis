@@ -88,7 +88,10 @@ records remain available. Filesystem fixtures exercise this reader on every
 test host; native Linux CI also compiles and exercises the platform dispatcher.
 
 `CpuTopology::efficiency()` similarly discharges efficiency-class absence once
-and returns total class-level queries. On Windows, `ProcessorAffinityGroups`
+and returns total class-level queries. Linux CPU-type reports must be complete
+ordered decimal sets; malformed reports cannot publish classes from their valid
+prefix. Empty types claim no processors, while complete homogeneous reports
+remain distinct from absence. On Windows, `ProcessorAffinityGroups`
 owns Themis's flattened processor numbering and partitions processor sets into
 sorted native group masks without dropping unrepresentable ids.
 `bind_current_thread(processor)` confines the calling thread to one logical

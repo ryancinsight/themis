@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.11.5 — 2026-11-05
+
+### Fixed
+
+- Linux efficiency classes reject malformed CPU-type reports instead of
+  publishing the classes inferred from their valid tokens. Valid empty types,
+  complete partitions, homogeneous reports and the ARM capacity fallback retain
+  their behavior. Pure efficiency parsers now run in macOS unit tests as well
+  as Linux and Windows tests; production backend availability is unchanged.
+
 ## 0.11.4 — Unreleased
 
 ### Fixed
