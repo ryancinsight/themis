@@ -7,9 +7,8 @@
 //! there by exactly the amount that matters. Only the platform knows, and a
 //! platform that does not say is typed absence, never a fabricated split.
 
-// The pure parsers are compiled wherever their fixtures can run — in the test
-// build of either backend target, and on the target that actually reads them —
-// so the Linux CI leg verifies the Windows record walk and vice versa.
+// The pure parsers are compiled in every std test build and on the target
+// that actually reads them, so each CI host verifies both backend parsers.
 // Compiling a parser its target never calls would be dead code under the lint
 // floor.
 mod rank;
@@ -32,8 +31,9 @@ use crate::topology::types::EfficiencyClass;
 /// `0..logical_processors`. `None` means the platform reported nothing usable;
 /// `Some` with one distinct class means a homogeneous host.
 ///
-/// The module is compiled only on a target with a backend, so there is no
+/// This function is compiled only on a target with a backend, so there is no
 /// third branch here; a target with neither never reaches this call.
+#[cfg(any(windows, target_os = "linux"))]
 pub(crate) fn detect_efficiency_classes(
     logical_processors: usize,
 ) -> Option<Box<[EfficiencyClass]>> {

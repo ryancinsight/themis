@@ -10,7 +10,7 @@ mod cache;
 #[cfg(all(feature = "std", any(target_os = "linux", test)))]
 mod cpulist;
 mod detect;
-#[cfg(all(feature = "std", any(windows, target_os = "linux")))]
+#[cfg(all(feature = "std", any(windows, target_os = "linux", test)))]
 mod efficiency;
 mod efficiency_view;
 #[cfg(all(feature = "std", any(windows, target_os = "linux")))]

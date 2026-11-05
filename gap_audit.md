@@ -1,5 +1,22 @@
 # themis gap audit
 
+## CPU-type report validation (0.11.5) [patch]
+
+At `18490a597dc4f2d2a04ad9f66e8d125fa16e037c`, the Linux efficiency
+parser accepts type lists `["0-1,broken", "2-3"]` and publishes class ranks
+`[0,0,1,1]`. A wholly malformed type is treated as empty, and a bad suffix
+after the allocation bound is ignored. Three native regressions fail before
+the repair. These are parser fixtures, not a claim that a live kernel emitted
+malformed data.
+
+Each nonempty CPU-type list now uses the existing strict CPU-set decoder.
+The original coverage, overlap and fallback contracts remain. Twelve parser
+tests pass, including all 256 eight-CPU type partitions, empty-type controls,
+malformed reports and the allocation boundary. The pure efficiency module is
+compiled for all std unit-test hosts; production detection remains restricted
+to Linux and Windows. The [repair checklist](backlog/themis-cpu-type-report-validation.md)
+tracks independent review and final qualification.
+
 ## Cache-sharing report validation (0.11.4) [patch]
 
 At `a421be512bf93c459cc9e6047d7bda466c3beb6e`, the production Linux
