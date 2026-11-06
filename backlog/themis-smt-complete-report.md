@@ -1,6 +1,6 @@
-# THEMIS-SMT-COMPLETE-REPORT [patch]
+## THEMIS-SMT-COMPLETE-REPORT — Reject partial SMT sibling reports [patch] — todo <a id="themis-smt-complete-report"></a>
 
-- status: review; priority: correctness; target: 0.11.6.
+- status: todo; priority: correctness; target: 0.11.6.
 - baseline: `f5fb5fcc048842807c4c38fa9929b52bf6c81571`.
 - contract: a sibling partition is published only when every source token is
   valid and the resulting complete lists form the partition required by ADR 0005.
