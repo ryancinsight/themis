@@ -19,6 +19,7 @@ use crate::topology::types::CoreId;
 /// `None` means the platform reported nothing usable, or reported a table that
 /// does not cover exactly `0..logical_processors`. A host without SMT is a
 /// present table with one processor per core, not absence.
+#[cfg(any(target_os = "linux", windows))]
 pub(crate) fn detect_core_ids(logical_processors: usize) -> Option<Box<[CoreId]>> {
     #[cfg(target_os = "linux")]
     {
@@ -62,11 +63,12 @@ fn cores_from_processor_records(bytes: &[u8], logical_processors: usize) -> Opti
 /// Assembles per-processor `thread_siblings_list` contents into a core table.
 ///
 /// `lists[n]` is the contents for processor `n`, or `None` when the file is
-/// absent. Each list must contain its own processor, name only processors below
-/// `logical_processors`, and equal every sibling's set. Equality along each
-/// membership makes the relation symmetric and transitive, hence a partition;
-/// anything else is absence rather than a partially believed partition.
-#[cfg(all(feature = "std", any(target_os = "linux", all(test, windows))))]
+/// absent. Every token must parse, and each list must contain its own processor,
+/// name only processors below `logical_processors`, and equal every sibling's
+/// set. Equality along each membership makes the relation symmetric and
+/// transitive, hence a partition; anything else is absence rather than a
+/// partially believed partition.
+#[cfg(all(feature = "std", any(target_os = "linux", test)))]
 fn cores_from_sibling_lists(
     lists: &[Option<&str>],
     logical_processors: usize,
@@ -79,14 +81,7 @@ fn cores_from_sibling_lists(
     }
     let parsed: Vec<Vec<u32>> = lists
         .iter()
-        .map(|list| {
-            list.map(|list| {
-                let mut siblings = super::parse_cpu_list(list);
-                siblings.sort_unstable();
-                siblings.dedup();
-                siblings
-            })
-        })
+        .map(|list| super::cpulist::parse_complete_cpu_list((*list)?))
         .collect::<Option<Vec<_>>>()?;
     let mut raw = Vec::with_capacity(logical_processors);
     for (processor, siblings) in parsed.iter().enumerate() {
@@ -228,7 +223,6 @@ mod tests {
         assert_eq!(dense_core_ids(&[0, 99]), None);
     }
 
-    #[cfg(any(target_os = "linux", windows))]
     mod sibling_lists {
         use super::super::cores_from_sibling_lists;
         use super::ids;
@@ -238,6 +232,14 @@ mod tests {
             let lists = [Some("0-1"), Some("0,1"), Some("2-3"), Some("2-3")];
             let table = cores_from_sibling_lists(&lists, 4).expect("two cores");
             assert_eq!(ids(&table), vec![0, 0, 1, 1]);
+        }
+
+        #[test]
+        fn malformed_sibling_reports_do_not_publish_a_partial_partition() {
+            for malformed in ["0-1,broken", "0-1,32768", "0-1,2-1", "0-1,"] {
+                let lists = [Some(malformed), Some("0-1")];
+                assert_eq!(cores_from_sibling_lists(&lists, 2), None, "{lists:?}");
+            }
         }
 
         #[test]

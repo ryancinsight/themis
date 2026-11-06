@@ -1,5 +1,7 @@
 # Backlog — themis
 
+<a id="themis-smt-complete-report"></a>- [THEMIS-SMT-COMPLETE-REPORT](backlog/themis-smt-complete-report.md) — Reject partial SMT sibling reports [patch] — todo
+
 <a id="themis-cpu-type-report-validation"></a>- [THEMIS-CPU-TYPE-REPORT-VALIDATION](backlog/themis-cpu-type-report-validation.md) — Reject partial CPU-type reports [patch] — todo
 
 <a id="themis-cache-report-validation"></a>- [THEMIS-CACHE-REPORT-VALIDATION](backlog/themis-cache-report-validation.md) — Reject partial cache-sharing reports [patch] — todo
