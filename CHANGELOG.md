@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.11.6 — Unreleased
+
+### Fixed
+
+- Reject malformed Linux SMT sibling reports instead of publishing a core
+  partition inferred from their valid tokens. Reordered and repeated valid
+  entries remain supported. Pure sibling parsers now run in macOS unit tests;
+  production backend availability is unchanged.
+
 ## 0.11.5 — 2026-11-05
 
 ### Fixed

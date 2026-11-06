@@ -1,4 +1,43 @@
-use super::{parse_cpu_list, parse_cpu_set, MAX_PROCESSOR_ID};
+use super::{parse_complete_cpu_list, parse_cpu_list, parse_cpu_set, MAX_PROCESSOR_ID};
+
+#[test]
+fn complete_list_preserves_valid_reordering_and_duplicates() {
+    assert_eq!(
+        parse_complete_cpu_list("3,1,1,0-2,+4-+5"),
+        Some(vec![0, 1, 2, 3, 4, 5])
+    );
+    assert_eq!(
+        parse_complete_cpu_list("2-4,0-3"),
+        Some(vec![0, 1, 2, 3, 4])
+    );
+}
+
+#[test]
+fn complete_list_checks_suffixes_after_the_entire_domain() {
+    let highest = u32::try_from(MAX_PROCESSOR_ID - 1).expect("CPU bound fits u32");
+    let report = format!("0-{highest},0-{highest}");
+    let expected: Vec<u32> = (0..=highest).collect();
+    assert_eq!(parse_complete_cpu_list(&report), Some(expected));
+    for suffix in ["broken", "32768", "2-1", ""] {
+        assert_eq!(parse_complete_cpu_list(&format!("{report},{suffix}")), None);
+    }
+}
+
+#[test]
+fn complete_list_unions_every_pair_of_small_ranges() {
+    for a in 0..8u32 {
+        for b in a..8 {
+            for c in 0..8u32 {
+                for d in c..8 {
+                    let mask = (a..=b).chain(c..=d).fold(0u32, |bits, id| bits | (1 << id));
+                    let expected: Vec<u32> = (0..8).filter(|id| mask & (1 << id) != 0).collect();
+                    let report = format!("{c}-{d},{a}-{b},{c}-{d}");
+                    assert_eq!(parse_complete_cpu_list(&report), Some(expected), "{report}");
+                }
+            }
+        }
+    }
+}
 
 #[test]
 fn every_small_bitmap_round_trips_through_decimal_ranges() {

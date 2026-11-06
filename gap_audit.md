@@ -1,5 +1,20 @@
 # themis gap audit
 
+## SMT sibling report validation (0.11.6) [patch]
+
+At `f5fb5fcc048842807c4c38fa9929b52bf6c81571`, the Linux sibling parser
+accepts `["0-1,broken", "0-1"]` as one two-processor core. The tolerant
+CPU-list reader discards the malformed token, so a partial report becomes a
+published placement fact. This is a parser-fixture result, not evidence that a
+live kernel produced the malformed report.
+
+Each sibling list now validates all tokens before normalizing its ranges.
+Valid reordering, overlaps and duplicates retain their existing set semantics;
+invalid tokens, including suffixes after the full processor domain, yield
+absence. The pure parser and partition fixtures also run on non-Linux unit-test
+hosts, without changing production backend selection. The
+[repair checklist](backlog/themis-smt-complete-report.md) tracks qualification.
+
 ## CPU-type report validation (0.11.5) [patch]
 
 At `18490a597dc4f2d2a04ad9f66e8d125fa16e037c`, the Linux efficiency

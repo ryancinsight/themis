@@ -13,7 +13,7 @@ mod detect;
 #[cfg(all(feature = "std", any(windows, target_os = "linux", test)))]
 mod efficiency;
 mod efficiency_view;
-#[cfg(all(feature = "std", any(windows, target_os = "linux")))]
+#[cfg(all(feature = "std", any(windows, target_os = "linux", test)))]
 mod smt;
 mod smt_view;
 mod tables;

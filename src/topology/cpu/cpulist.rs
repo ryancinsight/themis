@@ -23,6 +23,33 @@ pub(crate) fn parse_cpu_list(cpulist: &str) -> Vec<u32> {
     processors
 }
 
+/// Parses every token, then returns the sorted, deduplicated processor set.
+///
+/// Sibling reports have historically accepted reordered and repeated valid
+/// ranges, but ignoring one malformed token would fabricate a partition.
+/// Sort ranges before expanding them: even overlapping full-domain ranges
+/// allocate at most `MAX_PROCESSOR_ID` output entries. Invalid suffixes are
+/// checked even when an earlier range covers the entire domain.
+pub(super) fn parse_complete_cpu_list(cpulist: &str) -> Option<Vec<u32>> {
+    let mut ranges = cpulist
+        .trim()
+        .split(',')
+        .map(processor_range)
+        .collect::<Option<Vec<_>>>()?;
+    ranges.sort_unstable_by_key(|range| (*range.start(), *range.end()));
+
+    let mut processors: Vec<u32> = Vec::new();
+    for range in ranges {
+        let start = processors
+            .last()
+            .map_or(*range.start(), |last| (*range.start()).max(last + 1));
+        if start <= *range.end() {
+            processors.extend(start..=*range.end());
+        }
+    }
+    Some(processors)
+}
+
 /// Parses a complete sysfs bitmap-list report, never its valid prefix.
 ///
 /// Linux `bitmap_list_string` emits decimal ids/ranges in ascending disjoint
