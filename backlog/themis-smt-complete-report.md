@@ -5,8 +5,7 @@
 - contract: a sibling partition is published only when every source token is
   valid and the resulting complete lists form the partition required by ADR 0005.
 - [x] Reproduce a malformed suffix becoming a valid two-processor core.
-- [x] Reject malformed, reversed, out-of-bound and empty suffixes without
-  truncating after a full-domain range.
+- [x] Reject malformed, reversed, out-of-bound and empty suffixes after any range.
 - [x] Preserve reordered, overlapping and duplicate valid ranges and existing
   partition tests; check range unions against an independent bitmap oracle.
 - [ ] Complete final-revision tests, independent review, normal hooks and CI.
