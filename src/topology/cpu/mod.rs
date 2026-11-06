@@ -27,7 +27,7 @@ pub use affinity::{ProcessorAffinityGroups, ProcessorGroupAffinity};
 pub use binding::{bind_current_thread, BindError};
 #[cfg(all(feature = "std", any(windows, target_os = "linux")))]
 pub(crate) use cache::detect_cache_levels;
-#[cfg(all(feature = "std", any(target_os = "linux", all(test, windows))))]
+#[cfg(all(feature = "std", target_os = "linux"))]
 pub(crate) use cpulist::parse_cpu_list;
 #[cfg(all(feature = "std", any(windows, target_os = "linux")))]
 pub(crate) use efficiency::detect_efficiency_classes;
