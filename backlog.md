@@ -23,6 +23,7 @@ mnemosyne (allocation), moirai (scheduling), and hephaestus (devices) consume.
   processor set with the same typed failure before hermes migrates.
 - status: todo
 - priority: tightening
+- milestone: M-placement-binding
 - needs: THEMIS-THREAD-BINDING-2026-09-29 merged.
 - scope: hermes `numa/processor/`, themis `src/topology/cpu/binding/`.
 - **Next step:** read hermes `numa/processor/*.rs` and decide the set-binding shape.
@@ -36,6 +37,7 @@ mnemosyne (allocation), moirai (scheduling), and hephaestus (devices) consume.
   tests remain, each body unchanged; the gate is green at CI's feature set.
 - **Non-goals:** a second test binary (the harness already exists) and any
   change to the placement surface under test.
+- milestone: M-topology-contracts.
 
 ## THE-WASM-2026-09-06 [patch] — gate host-only topology helpers
 
