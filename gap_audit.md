@@ -1,52 +1,5 @@
 # themis gap audit
 
-## CPU-type report validation (0.11.5) [patch]
-
-At `18490a597dc4f2d2a04ad9f66e8d125fa16e037c`, the Linux efficiency
-parser accepts type lists `["0-1,broken", "2-3"]` and publishes class ranks
-`[0,0,1,1]`. A wholly malformed type is treated as empty, and a bad suffix
-after the allocation bound is ignored. Three native regressions fail before
-the repair. These are parser fixtures, not a claim that a live kernel emitted
-malformed data.
-
-Each nonempty CPU-type list now uses the existing strict CPU-set decoder.
-The original coverage, overlap and fallback contracts remain. Twelve parser
-tests pass, including all 256 eight-CPU type partitions, empty-type controls,
-malformed reports and the allocation boundary. The pure efficiency module is
-compiled for all std unit-test hosts; production detection remains restricted
-to Linux and Windows. The [repair checklist](backlog/themis-cpu-type-report-validation.md)
-tracks independent review and final qualification.
-
-## Cache-sharing report validation (0.11.4) [patch]
-
-At `a421be512bf93c459cc9e6047d7bda466c3beb6e`, the production Linux
-cache reader accepts `0-1,broken` as a cache shared by `[0,1]`: the tolerant
-CPU-list parser discards the invalid token. A real filesystem fixture returns
-an 8 MiB `CacheLevel` where the documented malformed-report contract requires
-absence. The valid sparse-report control passes before the repair.
-
-Cache sharing now validates the complete decimal range sequence. Ascending,
-disjoint ranges below the common bound prove uniqueness and bounded allocation;
-invalid suffixes remain errors even after the full processor domain is read.
-The shared numeric decoder preserves tolerant parsing for the other consumers.
-The [repair checklist](backlog/themis-cache-report-validation.md) tracks full
-qualification and delivery separately from the reproduced red/green evidence.
-
-## SMT reported partition (0.11.3) [patch]
-
-The [unchanged baseline](https://github.com/ryancinsight/themis/commit/5595fc0a5fdae7d9c017a26023f8960b8f8511fb) accepts reciprocal but non-transitive
-reports `["0,1", "0,1,2", "1,2"]` as `[0,0,1]`, contradicting ADR 0005.
-Linux-target Miri reproduces this. Normalized sets now must equal every
-referenced sibling set; together with self-membership this proves symmetry
-and transitivity. Bounds, typed absence, parser behavior and dense ids remain.
-
-The [repair item](backlog/themis-smt-reported-partition.md) tracks regression,
-relation-oracle, independent-review and compatibility evidence. Mac-native runs
-exclude the platform-gated SMT module; cross-target checks only compile it.
-Linux-target Miri executes the fixtures under an interpreter, not a Linux kernel.
-Task receipts preserve the original standalone scanner refusal. The registered
-lane's trusted scanner passes; final delivery and CI gates remain required.
-
 ## Testing-helper visibility repair (0.11.2) [patch]
 
 Current default's Mac testing feature enables outer exports while helper
