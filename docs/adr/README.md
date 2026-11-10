@@ -15,3 +15,4 @@
 | [0004](0004-efficiency-class-is-an-ordinal.md) | Efficiency class is a dense ordinal, and absence is typed | Accepted |
 | [0005](0005-smt-siblings-are-a-reported-partition.md) | SMT siblings are a reported partition, and absence is typed | Accepted |
 | [0006](0006-thread-binding-fails-closed.md) | Thread binding lives in the placement provider and fails closed | Accepted |
+| [0007](0007-release-scope-1-0.md) | Themis release scope for 1.0 | Accepted |
