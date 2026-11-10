@@ -54,6 +54,7 @@ mnemosyne (allocation), moirai (scheduling), and hephaestus (devices) consume.
   -- -D warnings`, native warning-denied Clippy, and `cargo nextest run
   --offline` (77/77) passed; the WASM check is covered by the same target
   compilation.
+- milestone: M-topology-contracts (host-target gating on the query surface).
 
 ## THEMIS-AFFINITY-MASK-ACCESSOR-2026-09-01 [minor] — in progress
 
@@ -118,6 +119,7 @@ mnemosyne (allocation), moirai (scheduling), and hephaestus (devices) consume.
   shape — fix it before landing, do not ship a partial.
 - **Sequencing:** after the absence-equality trap, which is a correctness fix
   and should not wait behind ergonomics.
+- milestone: M-placement-binding (branded placement and binding contracts).
 
 ## THEMIS-ABSENCE-EQUALITY-TRAP-2026-09-01 [minor] — done 2026-09-01
 
@@ -222,6 +224,8 @@ mnemosyne (allocation), moirai (scheduling), and hephaestus (devices) consume.
   consumer needs it; SMT has the clearest present consumer (the pinned
   measurement instruments in apollo and mnemosyne, which currently cannot
   tell a sibling from a core).
+- milestone: M-placement-binding for axes 2 and 3, on consumer demand only;
+  axis 1 is delivered and does not gate any milestone.
 
 ## Delivered
 

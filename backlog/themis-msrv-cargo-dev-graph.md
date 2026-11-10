@@ -2,6 +2,7 @@
 ## THEMIS-MSRV-CARGO-DEV-GRAPH — Assess the old Cargo developer graph [patch] — blocked
 
 - status: blocked; owner: unclaimed; target: future; priority: correctness.
+- milestone: none (developer-tooling contract; does not gate the 1.0 ladder per ADR 0007).
 - Cargo 1.81 fetch/test of the locked dev graph fails parsing edition 2024 in
   serde_spanned 1.1.1; unchanged 0.11.1 and candidate 0.11.2 fail identically.
 - Rust/Cargo 1.81 candidate library all-features check passes; its all-target
