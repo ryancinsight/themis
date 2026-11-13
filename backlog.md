@@ -7,25 +7,30 @@ themis is the Atlas placement-law SSOT: typed, stateless vocabulary that
 mnemosyne (allocation), moirai (scheduling), and hephaestus (devices) consume.
 
 <a id="HERMES-NUMA-BINDING-ON-THEMIS-2026-09-29"></a>
-## HERMES-NUMA-BINDING-ON-THEMIS-2026-09-29 — hermes NumaBinding reuses the Themis binding primitive [minor]
+## HERMES-NUMA-BINDING-ON-THEMIS-2026-09-29 — hermes affinity guards reuse the Themis set binding [minor]
 
-- **Outcome:** hermes's best-effort `NumaBinding`
-  (`crates/hermes-simd-core/src/numa/processor/{linux,windows}.rs`) keeps its
-  policy (bind to a node's processors, report coverage) but drops its own
-  `SetThreadGroupAffinity` / `sched_setaffinity` declarations and uses the
-  Themis primitive for the mechanism ([ADR 0006](docs/adr/0006-thread-binding-fails-closed.md)).
-- **Acceptance oracle:** hermes carries no direct affinity FFI declaration; its
-  NumaBinding tests pass unchanged; a Themis `Err` still degrades to a reported
-  coverage shortfall, never a panic.
-- **Gap to close first:** `bind_current_thread` binds one processor, while
-  `NumaBinding` binds a node's processor set. Extend the primitive to a
-  processor set with the same typed failure before hermes migrates.
+- **Outcome:** Themis ships `ThreadAffinity`, `current_thread_affinity`,
+  `bind_current_thread_to` (no `std` needed) per [ADR 0006](docs/adr/0006-thread-binding-fails-closed.md)
+  rev. 2026-11-13; hermes `ProcessorBinding`/`NumaBinding` keep guards, `Drop`
+  restore and coverage policy on it and drop their own affinity FFI.
+- **Themis oracle:** on a fresh thread a two-processor set binds with
+  `effective` = the set, re-applying `previous` restores the prior affinity;
+  Windows `from_processors([0, 64])` is `SpansGroups { groups: 2 }`, `[]` and
+  `bind_current_thread(65_535 * 64)` are `NoActiveProcessor` (was `Os`); Linux
+  out-of-cpuset is `Os { code: 22 }`, affinity unchanged in every `Err`; Miri
+  `Unsupported`; `cargo check --no-default-features` passes.
+- **Hermes oracle:** `git grep -nE '(Set|Get)ThreadGroupAffinity|sched_(set|get)affinity|sched_getcpu|GetCurrentProcessorNumberEx|GetActiveProcessor(Group)?Count' -- '*.rs'`
+  is empty (27 hits at 00ab4ba); numa test names in `cargo nextest list` are
+  kept; a Themis `Err` yields `Unbound`; `u32::MAX` is `ProcessorUnavailable`;
+  hermes ADRs 010 and 021 name the Themis mechanism.
+- Non-goals: libnuma `numa_bind` (also sets memory policy), `numa/locality.rs`;
+  moirai's `NoActiveProcessor` arm (moirai board, on adoption).
 - status: todo
 - priority: tightening
 - milestone: M-placement-binding
-- needs: THEMIS-THREAD-BINDING-2026-09-29 merged.
-- scope: hermes `numa/processor/`, themis `src/topology/cpu/binding/`.
-- **Next step:** read hermes `numa/processor/*.rs` and decide the set-binding shape.
+- needs: none (THEMIS-THREAD-BINDING-2026-09-29 landed as PR #84).
+- scope: themis `src/topology/cpu/{binding,binding/,mod.rs}`; hermes `crates/hermes-simd-core/src/numa/{affinity,binding,processor}.rs`, `numa/processor/`, `docs/adr/{010,021}-*.md`.
+- **Next step:** themis PR for the set path; then the hermes PR on that revision.
 
 <a id="THE-WASM-2026-09-06"></a>
 ## THEMIS-STRUCTURE-SCOPE-SPLIT-2026-09-21 — the branded scope tests crossed the structural target [patch] <a id="themis-structure-scope-split-2026-09-21"></a>
