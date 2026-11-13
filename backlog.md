@@ -9,27 +9,17 @@ mnemosyne (allocation), moirai (scheduling), and hephaestus (devices) consume.
 <a id="HERMES-NUMA-BINDING-ON-THEMIS-2026-09-29"></a>
 ## HERMES-NUMA-BINDING-ON-THEMIS-2026-09-29 — hermes affinity guards reuse the Themis set binding [minor]
 
-- **Outcome:** Themis ships `ThreadAffinity`, `current_thread_affinity`,
-  `bind_current_thread_to` (no `std` needed) per [ADR 0006](docs/adr/0006-thread-binding-fails-closed.md)
-  rev. 2026-11-13; hermes `ProcessorBinding`/`NumaBinding` keep guards, `Drop`
-  restore and coverage policy on it and drop their own affinity FFI.
-- **Themis oracle:** on a fresh thread a two-processor set binds with
-  `effective` = the set, re-applying `previous` restores the prior affinity;
-  Windows `from_processors([0, 64])` is `SpansGroups { groups: 2 }`, `[]` and
-  `bind_current_thread(65_535 * 64)` are `NoActiveProcessor` (was `Os`); Linux
-  out-of-cpuset is `Os { code: 22 }`, affinity unchanged in every `Err`; Miri
-  `Unsupported`; `cargo check --no-default-features` passes.
-- **Hermes oracle:** `git grep -nE '(Set|Get)ThreadGroupAffinity|sched_(set|get)affinity|sched_getcpu|GetCurrentProcessorNumberEx|GetActiveProcessor(Group)?Count' -- '*.rs'`
-  is empty (27 hits at 00ab4ba); numa test names in `cargo nextest list` are
-  kept; a Themis `Err` yields `Unbound`; `u32::MAX` is `ProcessorUnavailable`;
-  hermes ADRs 010 and 021 name the Themis mechanism.
-- Non-goals: libnuma `numa_bind` (also sets memory policy), `numa/locality.rs`;
-  moirai's `NoActiveProcessor` arm (moirai board, on adoption).
-- status: todo
-- priority: tightening
-- milestone: M-placement-binding
-- needs: none (THEMIS-THREAD-BINDING-2026-09-29 landed as PR #84).
-- scope: themis `src/topology/cpu/{binding,binding/,mod.rs}`; hermes `crates/hermes-simd-core/src/numa/{affinity,binding,processor}.rs`, `numa/processor/`, `docs/adr/{010,021}-*.md`.
+- **Outcome:** Themis ships [ADR 0006](docs/adr/0006-thread-binding-fails-closed.md) rev. 2026-11-13 (set binding, allocation-free restore, `current_processor` without `std`); hermes guards and `ProcessorIndex::current` run on it.
+- **Themis oracle:** CI adds `cargo nextest run --no-default-features -E 'test(/binding::tests::|query::tests::/)'` on ubuntu and windows: `set_binding_round_trips` asserts `effective` and
+  `current_thread_affinity()` equal a two-processor set, then `previous` after re-applying it; `query_reports_the_processor_a_pinned_thread_runs_on` (today Linux-and-`std`-only) asserts `current_processor() == Some(p)`;
+  Windows `[0, 64]` is `SpansGroups { groups: 2 }`, `[]` and `bind_current_thread(65_535 * 64)` `NoActiveProcessor`; Linux `bind_current_thread(32_767)` is `Os { code: 22 }`, affinity
+  unchanged. `git grep -nE '^[^/]*(vec!|Vec<|Box<|alloc::|\.expect\(|\.unwrap\(|panic!)' -- src/topology/cpu/binding.rs src/topology/cpu/binding/linux.rs src/topology/cpu/binding/windows.rs` is empty.
+- **Hermes oracle:** `git grep -nE 'ThreadGroupAffinity|sched_(set|get)|GetCurrentProcessorNumber|GetActiveProcessor' -- '*.rs'` is empty (27 hits on 2026-11-13) with
+  `cargo check --workspace --no-default-features` (`ci.yml:110`) green; `numa::processor` and `numa::binding` tests assert bound and restored affinity by value against `current_thread_affinity()`;
+  `binding_tests::themis_refusal_yields_unbound` feeds the Windows group-bind seam group 65 535 and gets `Unbound`; ADR 021 (option 2 revised) and ADR 010 name `bind_current_thread_to`.
+- Non-goals: libnuma `numa_bind`, `numa/locality.rs`; moirai's `NoActiveProcessor` arm (moirai board).
+- status: todo; priority: tightening; milestone: M-placement-binding; needs: none (THEMIS-THREAD-BINDING-2026-09-29 landed as PR #84).
+- scope: themis `src/{lib.rs,query/,topology/mod.rs,topology/cpu/{mod.rs,binding.rs,binding/}}`, `.github/workflows/ci.yml`, `Cargo.toml` (libc comment), `README.md`, `docs/book/cpu_topology.md`; hermes `crates/hermes-simd-core/src/numa/`, `Cargo.{toml,lock}`, `docs/adr/{010,021}-*.md`.
 - **Next step:** themis PR for the set path; then the hermes PR on that revision.
 
 <a id="THE-WASM-2026-09-06"></a>

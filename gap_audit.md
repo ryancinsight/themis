@@ -32,6 +32,12 @@ name `--features testing` and does not run outside the overlay.
 pre-push hook and CI invoke, so the feature set cannot diverge between
 them (`engineering_gates`: one gate definition).
 
+### THEMIS-NODE-PRIMARY-GROUP-2026-11-13 — a Windows node past 64 processors reports one group
+
+`src/topology/cpu/detect/windows.rs` reads one `GROUP_AFFINITY` per node from `GetNumaNodeProcessorMaskEx`, which returns only the node's primary group from the release its page calls "TBD Release Iron" ([page](https://learn.microsoft.com/en-us/windows/win32/api/systemtopologyapi/nf-systemtopologyapi-getnumanodeprocessormaskex), Remarks), while a node exceeding the group size spans several groups ([Processor Groups](https://learn.microsoft.com/en-us/windows/win32/procthread/processor-groups)), so its other processors go unreported. `GetLogicalProcessorInformationEx(RelationNumaNodeEx)` returns every group ([page](https://learn.microsoft.com/en-us/windows/win32/api/sysinfoapi/nf-sysinfoapi-getlogicalprocessorinformationex), Remarks).
+
+**Re-open trigger:** a Windows host with a NUMA node of more than 64 logical processors, or a consumer binding a whole node there.
+
 ## Resolved in current branch
 
 ### REGION-MANIFEST-001 — branded region manifest contained implementation
