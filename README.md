@@ -107,8 +107,8 @@ outside the Atlas development overlay. The `testing` feature implies `std` and
 provides portable fixture constructors/table builders to integration tests;
 normal dependency builds do not set `cfg(test)`. CI runs this complete feature
 set on Linux, Windows and macOS. The default platform detection and binding
-availability remains unchanged. See the [repair checklist](backlog/themis-testing-darwin-visibility.md)
-and [Cargo limitation](backlog/themis-msrv-cargo-dev-graph.md).
+availability remains unchanged. See the
+[Cargo limitation](backlog/themis-msrv-cargo-dev-graph.md).
 
 ## Benchmarks
 

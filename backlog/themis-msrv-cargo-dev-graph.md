@@ -10,4 +10,4 @@
 - All 62 external versions stay identical; only the current Melinoe Git pin advances.
 - [x] [patch] Preserve baseline/candidate fetch failures and library controls.
 - [ ] [patch] Assess intended developer Cargo policy before broader tooling claims.
-- Details: [gap audit](../gap_audit.md#testing-helper-visibility-repair-0112-patch).
+- Details: [gap audit](../gap_audit.md#old-cargo-developer-graph).
