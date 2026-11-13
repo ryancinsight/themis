@@ -28,16 +28,6 @@ mnemosyne (allocation), moirai (scheduling), and hephaestus (devices) consume.
 - **Next step:** read hermes `numa/processor/*.rs` and decide the set-binding shape.
 
 <a id="THE-WASM-2026-09-06"></a>
-## THEMIS-STRUCTURE-SCOPE-SPLIT-2026-09-21 — the branded scope tests crossed the structural target [patch] <a id="themis-structure-scope-split-2026-09-21"></a>
-
-- **Outcome:** `tests/branded/scope.rs` (508 lines) raises `oversized_files`,
-  holding the member's pin behind the atlas sweep.
-- **Acceptance:** no Rust file exceeds the 500-line target; all 14 branded
-  tests remain, each body unchanged; the gate is green at CI's feature set.
-- **Non-goals:** a second test binary (the harness already exists) and any
-  change to the placement surface under test.
-- milestone: M-topology-contracts.
-
 ## THE-WASM-2026-09-06 [patch] — gate host-only topology helpers
 
 - **Outcome:** the CPU topology table helpers are available only on the host
