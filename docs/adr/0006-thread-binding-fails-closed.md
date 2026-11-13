@@ -63,10 +63,17 @@ the kernel produced `previous`. Hermes keeps its `!Send` guards, explicit
 `restore` and best-effort `Drop`. No path reaches `handle_alloc_error`, which
 by default aborts when `std` is linked ("Future versions of Rust may panic by
 default instead") and calls `panic!` when it is not ([handle_alloc_error][hae]),
-so hermes's `Drop` stays panic-free without `std` and ADR 021 holds. A token
-grep over the binding sources and the `--no-default-features` build (no
-`extern crate alloc`) check this; indexing and arithmetic panics and helpers
-outside those files fall to review and the adversarial cases.
+so hermes's `Drop` stays panic-free without `std` and ADR 021 holds. This token
+grep over the binding sources checks it, empty at the implementation:
+
+```sh
+git grep -nP '^(?!\s*(//|const )).*(vec!|Vec[:<]|Box<|String|format!|\balloc\b|\.(collect|to_vec|unwrap|expect)\(|panic!|assert\w*!|unreachable!|split_at\()' \
+  -- 'src/topology/cpu/binding*' ':!*tests.rs'
+```
+
+It also reports tokens in trailing comments and misses indexing and arithmetic
+panics and helpers outside those files; the no-`std` build does not reject an
+allocating import, because the topology tables link `alloc` there.
 
 **Windows.** Construction applies the host-free checks (`OutOfRange`,
 `SpansGroups`, empty set) first, then the binding backend narrows the mask to
@@ -118,9 +125,9 @@ gating them makes both `UnsupportedPlatform`; `NumaBinding::bind` returns
 stays `Unbound` there. Hermes's `no_std` checks (`ci.yml:110`, `:370`) run
 `--workspace`, which unifies `std` on through `hermes-simd-intrinsics` and
 `hermes-simd-benches`: `cargo tree -e features,normal -i themis-topology` shows
-`std` there and none under `-p hermes-simd-core --no-default-features`, adopted
-with a `cfg(not(feature = "std"))` assertion naming each guard entry point, so
-gating one fails the check.
+`std` there and none under `-p hermes-simd-core --no-default-features`, adopted.
+That check proves only that the no-`std` build compiles: the
+`hermes-simd-intrinsics` edges link `std` into tests.
 
 **Leave `ProcessorIndex::current` on hermes's own FFI.** It keeps working, but
 hermes would keep private `sched_getcpu` / `GetCurrentProcessorNumberEx`

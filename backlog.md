@@ -11,15 +11,15 @@ mnemosyne (allocation), moirai (scheduling), and hephaestus (devices) consume.
 
 - **Outcome:** [ADR 0006](docs/adr/0006-thread-binding-fails-closed.md) rev. 2026-11-13; hermes adopts.
 - **Themis oracle:** CI adds `nextest run --no-default-features -E 'test(/binding::tests::|query::tests::/)'`:
-  `set_binding_round_trips` and `query_reports_the_processor_a_pinned_thread_runs_on` by value, Windows
-  `[0, 64]`, `[]`, group 65 535, Linux id 32 767 (`Os { code: 22 }`). Empty (10 hits at base), limits in ADR:
-  `git grep -niP '^(?!\s*//).*(vec|box|string|format!|alloc|collect|expect|unwrap|panic|assert|unreach|split_at)'`
-  `-- 'src/topology/cpu/binding*' ':!*tests.rs'`
+  `set_binding_round_trips`, `query_reports_the_processor_a_pinned_thread_runs_on` by value; Windows `[0, 64]`
+  `SpansGroups`, `[]` and group 65 535 `NoActiveProcessor`; Linux id 32 767 `Os { code: 22 }`. Empty
+  (10 hits at base; limits in ADR): the `git grep` in ADR 0006, Restore.
 - **Hermes oracle:** no `ThreadGroupAffinity|sched_(set|get)|GetCurrentProcessorNumber|GetActiveProcessor`
   in `*.rs` (27 hits); `cargo check -p hermes-simd-core --no-default-features` on linux-gnu, windows-msvc
-  (ADR); tests by value, `themis_refusal_yields_unbound`; ADRs 010, 021 name `bind_current_thread_to`.
-- status: todo; priority: tightening; milestone: M-placement-binding; needs: none (PR #84 landed).
-- scope: themis `src/`, `ci.yml`, `Cargo.toml`, `README.md`, `docs/book/`; hermes `numa/`, `ci.yml`, ADRs.
+  (compile only: tests still link `std`, see ADR); tests by value, `themis_refusal_yields_unbound`; ADRs 010,
+  021 name `bind_current_thread_to`.
+- status: todo; priority: tightening; milestone: M-placement-binding; needs: none.
+- scope: themis `src/`, `ci.yml`, `Cargo.toml`, README, book; hermes `numa/`, `Cargo.*`, `ci.yml`, ADRs.
 - **Next step:** themis PR, then hermes PR. Unfiled residual: moirai's `NoActiveProcessor` arm.
 
 <a id="THE-WASM-2026-09-06"></a>
