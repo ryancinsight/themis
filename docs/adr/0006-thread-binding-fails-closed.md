@@ -63,7 +63,10 @@ the kernel produced `previous`. Hermes keeps its `!Send` guards, explicit
 `restore` and best-effort `Drop`. No path reaches `handle_alloc_error`, which
 by default aborts when `std` is linked ("Future versions of Rust may panic by
 default instead") and calls `panic!` when it is not ([handle_alloc_error][hae]),
-so hermes's `Drop` stays panic-free without `std` and ADR 021 holds.
+so hermes's `Drop` stays panic-free without `std` and ADR 021 holds. A token
+grep over the binding sources and the `--no-default-features` build (no
+`extern crate alloc`) check this; indexing and arithmetic panics and helpers
+outside those files fall to review and the adversarial cases.
 
 **Windows.** Construction applies the host-free checks (`OutOfRange`,
 `SpansGroups`, empty set) first, then the binding backend narrows the mask to
@@ -71,10 +74,12 @@ the group's active bits (`NoActiveProcessor` when none remain), read by
 `GetLogicalProcessorInformationEx(RelationGroup)` into a stack buffer for 512
 groups, the 32 768-processor bound: an 8-byte record header, the 24-byte
 `GROUP_RELATIONSHIP` prefix and one 48-byte `PROCESSOR_GROUP_INFO` per active
-group ([GROUP_RELATIONSHIP][gr]), 24 608 bytes (derived). A larger reply fails
-with `ERROR_INSUFFICIENT_BUFFER` ([page][glpie], ReturnedLength) as `Os`, never
-read truncated. `ThreadAffinity` is one 16-byte `GROUP_AFFINITY`, applied by
-`SetThreadGroupAffinity` with the previous out-pointer and read back by
+group ([GROUP_RELATIONSHIP][gr]), 24 608 bytes (derived). The sizes assume a
+64-bit target (`KAFFINITY` is 8 bytes; with 4 the entry is 44 bytes and
+`GROUP_AFFINITY` 12); Themis configures no 32-bit Windows target. A larger reply
+fails with `ERROR_INSUFFICIENT_BUFFER` ([page][glpie], ReturnedLength) as `Os`,
+never read truncated. `ThreadAffinity` is one 16-byte `GROUP_AFFINITY`, applied
+by `SetThreadGroupAffinity` with the previous out-pointer and read back by
 `GetThreadGroupAffinity`. No page read says whether that call rejects or
 intersects inactive bits (`SetThreadAffinityMask` documents
 `ERROR_INVALID_PARAMETER` outside the process mask ([page][stam])); narrowing
@@ -105,9 +110,17 @@ Themis guard would own a drop path whose failure it cannot report.
 processors are the low `GetActiveProcessorCount` bits, which no page read
 documents; one mechanism belongs at the placement leaf Moirai already uses.
 
-**Stay `std`-only and gate hermes's guards on `std`.** Hermes CI checks its
-`no_std` build (`.github/workflows/ci.yml:110`); both guards would become
-`UnsupportedPlatform` there.
+**Stay `std`-only and gate hermes's guards on `std`.** `ProcessorBinding` and
+`ProcessorIndex::current` work without `std` in hermes today (own FFI), so
+gating them makes both `UnsupportedPlatform`; `NumaBinding::bind` returns
+`Self`, its Windows arm is `cfg(all(windows, feature = "std"))`
+(`numa/binding.rs:96`) and the fallback is `Self::unbound()` (`:106-113`), so it
+stays `Unbound` there. Hermes's `no_std` checks (`ci.yml:110`, `:370`) run
+`--workspace`, which unifies `std` on through `hermes-simd-intrinsics` and
+`hermes-simd-benches`: `cargo tree -e features,normal -i themis-topology` shows
+`std` there and none under `-p hermes-simd-core --no-default-features`, adopted
+with a `cfg(not(feature = "std"))` assertion naming each guard entry point, so
+gating one fails the check.
 
 **Leave `ProcessorIndex::current` on hermes's own FFI.** It keeps working, but
 hermes would keep private `sched_getcpu` / `GetCurrentProcessorNumberEx`
@@ -146,7 +159,7 @@ Overturning evidence: a consumer needing a faithful restore of a never-bound
 Windows 11 multi-group thread; a documented `SetThreadGroupAffinity` rule for
 inactive bits; a host past 512 active groups; an id beyond `u32`.
 
-Revision 2026-11-13: extend to processor sets with an allocation-free, caller-held restore and a `no_std` `current_processor` for hermes's guards (`HERMES-NUMA-BINDING-ON-THEMIS-2026-09-29`); evidence: hermes and themis default branches and the linked pages, read 2026-11-13.
+Revision 2026-11-13: extend to processor sets with an allocation-free, caller-held restore and a `no_std` `current_processor` for hermes's guards (`HERMES-NUMA-BINDING-ON-THEMIS-2026-09-29`); evidence: hermes and themis default branches and the linked pages, read 2026-11-13; the std-gating alternative corrected against hermes `numa/` and `cargo tree`.
 
 [linux]: https://man7.org/linux/man-pages/man2/sched_setaffinity.2.html
 [getcpu]: https://man7.org/linux/man-pages/man2/getcpu.2.html
