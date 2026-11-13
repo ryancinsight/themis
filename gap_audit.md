@@ -34,9 +34,15 @@ them (`engineering_gates`: one gate definition).
 
 ### THEMIS-NODE-PRIMARY-GROUP-2026-11-13 — a Windows node past 64 processors reports one group
 
-`src/topology/cpu/detect/windows.rs` reads one `GROUP_AFFINITY` per node from `GetNumaNodeProcessorMaskEx`, which returns only the node's primary group from the release its page calls "TBD Release Iron" ([page](https://learn.microsoft.com/en-us/windows/win32/api/systemtopologyapi/nf-systemtopologyapi-getnumanodeprocessormaskex), Remarks), while a node exceeding the group size spans several groups ([Processor Groups](https://learn.microsoft.com/en-us/windows/win32/procthread/processor-groups)), so its other processors go unreported. `GetLogicalProcessorInformationEx(RelationNumaNodeEx)` returns every group ([page](https://learn.microsoft.com/en-us/windows/win32/api/sysinfoapi/nf-sysinfoapi-getlogicalprocessorinformationex), Remarks).
+`detect/windows.rs` takes one `GROUP_AFFINITY` per node from `GetNumaNodeProcessorMaskEx`, which
+returns only the primary group since "TBD Release Iron" ([Remarks][gnnpm]); a node past the group
+size spans several ([Processor Groups][pg]), so the rest go unreported (cure: [RelationNumaNodeEx][glpie]).
 
-**Re-open trigger:** a Windows host with a NUMA node of more than 64 logical processors, or a consumer binding a whole node there.
+**Re-open trigger:** a Windows host with a node of over 64 logical processors, or a consumer binding it.
+
+[gnnpm]: https://learn.microsoft.com/en-us/windows/win32/api/systemtopologyapi/nf-systemtopologyapi-getnumanodeprocessormaskex
+[pg]: https://learn.microsoft.com/en-us/windows/win32/procthread/processor-groups
+[glpie]: https://learn.microsoft.com/en-us/windows/win32/api/sysinfoapi/nf-sysinfoapi-getlogicalprocessorinformationex
 
 ## Resolved in current branch
 
