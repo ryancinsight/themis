@@ -11,8 +11,8 @@
 //! topology. A host that reports nothing usable is `None`, never a guessed
 //! "one thread per core".
 
-use super::MAX_PROCESSOR_ID;
 use crate::topology::types::CoreId;
+use crate::topology::MAX_PROCESSOR_ID;
 
 /// Detects the per-processor core table for `0..logical_processors`.
 ///
