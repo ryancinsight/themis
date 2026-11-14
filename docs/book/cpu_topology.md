@@ -82,16 +82,32 @@ silently collapsing them to one flat mask.
 ## Binding the calling thread
 
 `bind_current_thread(processor)` confines the calling thread to exactly one
-logical processor for the rest of the thread's life, using the same flattened
-numbering. Windows calls `SetThreadGroupAffinity`; Linux calls
-`sched_setaffinity` with a mask sized to the processor. It returns `Ok(())`
-only when the operating system accepted the request, so a scheduler publishes
-a worker-to-processor assignment after `Ok` and refuses to start the worker on
-`Err`. `BindError::Unsupported` reports a target with no backend,
-`BindError::OutOfRange { processor }` an id the target cannot name, and
-`BindError::Os { code }` a kernel refusal (for example `EINVAL` for a processor
-outside the process's cpuset). A failed call leaves the thread's affinity
-unchanged. Rationale: ADR 0006.
+logical processor, using the same flattened numbering.
+`bind_current_thread_to(&ThreadAffinity)` confines it to a set and returns an
+`AffinityChange`: `previous()` is the affinity replaced and `effective()` the
+affinity read back, which can be a proper subset of the request because Linux
+intersects it with the online, permitted processors. `current_thread_affinity()`
+reports the present affinity. Windows calls `SetThreadGroupAffinity`, narrowing
+the request to the active processors of its group first, so one call binds the
+processors of one group; Linux calls `sched_setaffinity` with a 4 KiB bitmap
+covering the crate's 32 768-processor bound. None of these allocate or panic,
+and none needs the `std` feature.
+
+There is no guard. A caller restores with
+`bind_current_thread_to(change.previous())`, which replaces whatever was set in
+between and returns `Err` when the kernel refuses. On a Windows 11 host with
+more than 64 processors, a thread never bound spans every group but reports its
+primary group only, so restoring it narrows to that group.
+
+A call succeeds only when the operating system accepted the request, so a
+scheduler publishes a worker-to-processor assignment after `Ok` and refuses to
+start the worker on `Err`. `BindError::Unsupported` reports a target with no
+backend, `OutOfRange { processor }` an id the target cannot name,
+`SpansGroups { groups }` a Windows set in several groups, `NoActiveProcessor` an
+empty set or a Windows group or processor the host lacks, and `Os { code }` a
+kernel refusal (for example `EINVAL` for a processor outside the process's
+cpuset). A failed call leaves the thread's affinity unchanged. Rationale:
+ADR 0006.
 
 ## Distance matrix
 

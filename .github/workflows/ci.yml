@@ -98,6 +98,13 @@ jobs:
       - name: cargo nextest
         run: cargo nextest run --locked --features testing
 
+      # Binding and the processor query build without `std`; their tests run
+      # here against the OS's own affinity report, on the two hosts with a
+      # backend.
+      - name: cargo nextest (binding, no default features)
+        if: runner.os != 'macOS'
+        run: cargo nextest run --locked --no-default-features -E 'test(/binding::tests::|query::tests::/)'
+
       # nextest does not run doctests; the compile_fail placement proofs live
       # there, so this step is not optional.
       - name: cargo test --doc

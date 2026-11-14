@@ -1,60 +1,98 @@
-//! Linux backend: `sched_setaffinity` on the calling thread.
+//! Linux backend: `sched_getaffinity` and `sched_setaffinity` on the calling
+//! thread.
 
-use core::ffi::c_int;
+use core::ffi::c_ulong;
 use core::mem::size_of;
 
-use super::{last_os_error, BindError};
+use super::BindError;
 use crate::topology::cpu::MAX_PROCESSOR_ID;
 
-// SAFETY: the declaration matches glibc and musl `sched.h`: `pid_t` is `int`,
-// the size is a `size_t` byte count, and the mask is a `cpu_set_t`, which is a
-// bitmap of `unsigned long` words. The kernel reads exactly `cpusetsize` bytes
-// through `mask` and retains nothing.
-extern "C" {
-    fn sched_setaffinity(pid: c_int, cpusetsize: usize, mask: *const usize) -> c_int;
+const WORD_BITS: usize = size_of::<c_ulong>() * 8;
+const WORDS: usize = MAX_PROCESSOR_ID / WORD_BITS;
+const MASK_BYTES: usize = WORDS * size_of::<c_ulong>();
+
+// The kernel's `cpumask` layout is `unsigned long` words; 4 KiB covers the
+// crate's 32 768-processor bound exactly.
+const _: () = assert!(MASK_BYTES == 4096 && MAX_PROCESSOR_ID % WORD_BITS == 0);
+
+/// The processors one `sched_setaffinity` call can express: an inline bitmap
+/// of `unsigned long` words, bit `n` of word `w` naming processor
+/// `w * WORD_BITS + n`.
+#[derive(Clone, Eq, Hash, PartialEq)]
+pub(super) struct Mask {
+    words: [c_ulong; WORDS],
 }
 
-const WORD_BITS: usize = usize::BITS as usize;
+/// Word index and bit of a processor, or `None` when the id is not a `usize`.
+fn locate(processor: u32) -> Option<(usize, c_ulong)> {
+    let bit = usize::try_from(processor).ok()?;
+    Some((bit / WORD_BITS, 1 << (bit % WORD_BITS)))
+}
 
-pub(super) fn bind_current_thread(processor: u32) -> Result<(), BindError> {
-    let bit = processor as usize;
-    if bit >= MAX_PROCESSOR_ID {
-        return Err(BindError::OutOfRange { processor });
+impl Mask {
+    pub(super) fn from_processors(
+        processors: impl Iterator<Item = u32>,
+    ) -> Result<Self, BindError> {
+        let mut words = [0; WORDS];
+        for processor in processors {
+            let (index, bit) = locate(processor).ok_or(BindError::OutOfRange { processor })?;
+            *words
+                .get_mut(index)
+                .ok_or(BindError::OutOfRange { processor })? |= bit;
+        }
+        Ok(Self { words })
     }
 
-    // The kernel bitmap is `unsigned long` words, so `usize` words give the
-    // right bit order on every endianness. Sizing the mask to the requested
-    // bit, not to a fixed 1024-bit `cpu_set_t`, lets hosts past 1024 cpus bind.
-    let mut mask = vec![0usize; bit / WORD_BITS + 1];
-    mask[bit / WORD_BITS] = 1 << (bit % WORD_BITS);
+    pub(super) fn contains(&self, processor: u32) -> bool {
+        locate(processor)
+            .is_some_and(|(index, bit)| self.words.get(index).is_some_and(|word| word & bit != 0))
+    }
 
-    // SAFETY: pid 0 names the calling thread. `mask` is a live, initialized
-    // allocation of exactly `mask.len() * size_of::<usize>()` bytes, which is
-    // the `cpusetsize` passed, and it outlives the call.
-    let status = unsafe { sched_setaffinity(0, mask.len() * size_of::<usize>(), mask.as_ptr()) };
+    pub(super) fn len(&self) -> u32 {
+        self.words.iter().map(|word| word.count_ones()).sum()
+    }
+
+    pub(super) fn processors(&self) -> impl Iterator<Item = u32> + '_ {
+        (0u32..)
+            .take(MAX_PROCESSOR_ID)
+            .filter(|processor| self.contains(*processor))
+    }
+}
+
+/// Reads the `errno` the failed call just left in the thread's error slot.
+fn errno_error() -> BindError {
+    // SAFETY: `__errno_location` has no preconditions and returns the calling
+    // thread's valid, aligned `errno` slot, which this thread alone writes.
+    let code = unsafe { *libc::__errno_location() };
+    BindError::Os { code }
+}
+
+/// Reports the processors the calling thread may currently run on.
+pub(super) fn current() -> Result<Mask, BindError> {
+    let mut words = [0; WORDS];
+    // SAFETY: pid 0 names the calling thread. `words` is a live, initialized
+    // allocation of exactly `MASK_BYTES` bytes, the `cpusetsize` passed, which
+    // is the length of the data pointed to, not `size_of::<cpu_set_t>()`; the
+    // pointer cast keeps `unsigned long` alignment, and the kernel writes only
+    // within the bytes.
+    let status = unsafe { libc::sched_getaffinity(0, MASK_BYTES, words.as_mut_ptr().cast()) };
+    if status == 0 {
+        Ok(Mask { words })
+    } else {
+        Err(errno_error())
+    }
+}
+
+/// Confines the calling thread to `mask`; on `Err` its affinity is unchanged.
+pub(super) fn apply(mask: &Mask) -> Result<(), BindError> {
+    // SAFETY: pid 0 names the calling thread. `mask.words` is a live,
+    // initialized allocation of exactly `MASK_BYTES` bytes, the `cpusetsize`
+    // passed, the pointer cast keeps `unsigned long` alignment, and the kernel
+    // retains nothing past the call.
+    let status = unsafe { libc::sched_setaffinity(0, MASK_BYTES, mask.words.as_ptr().cast()) };
     if status == 0 {
         Ok(())
     } else {
-        Err(last_os_error())
+        Err(errno_error())
     }
-}
-
-/// Reports the processors the calling thread may currently run on, ascending.
-#[cfg(test)]
-pub(super) fn current_confinement() -> Vec<u32> {
-    extern "C" {
-        fn sched_getaffinity(pid: c_int, cpusetsize: usize, mask: *mut usize) -> c_int;
-    }
-
-    let mut mask = vec![0usize; MAX_PROCESSOR_ID / WORD_BITS];
-    // SAFETY: pid 0 names the calling thread. `mask` is a live, zero-initialized
-    // allocation of exactly `mask.len() * size_of::<usize>()` bytes, the size
-    // passed, and the kernel writes only within it.
-    let status =
-        unsafe { sched_getaffinity(0, mask.len() * size_of::<usize>(), mask.as_mut_ptr()) };
-    assert_eq!(status, 0, "sched_getaffinity failed: {:?}", last_os_error());
-    (0..MAX_PROCESSOR_ID)
-        .filter(|bit| mask[bit / WORD_BITS] >> (bit % WORD_BITS) & 1 == 1)
-        .map(|bit| u32::try_from(bit).expect("invariant: the bound fits u32"))
-        .collect()
 }
