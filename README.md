@@ -66,9 +66,10 @@ NUMA nodes must call `refresh_current_numa_node()` at an explicit scheduling
 boundary; the refresh probes the platform and replaces that thread's cached
 value. `try_current_numa_node()` and `current_processor()` are uncached,
 optional probes for verification or diagnostics and preserve `None` when the
-platform does not expose the requested value. In `no_std` builds the cached
-placement query has the deterministic node-zero fallback because no OS probe is
-available.
+platform does not expose the requested value. The OS probes need no `std`: in
+`no_std` builds `try_current_numa_node()`, `refresh_current_numa_node()` and
+`current_processor()` report the OS value, while `current_numa_node()` has no
+thread-local cache and is always `NumaNodeId::ZERO`.
 
 This distinction is intentional: Themis owns the locality vocabulary and query
 contract, while Moirai decides scheduling boundaries and Mnemosyne decides how
