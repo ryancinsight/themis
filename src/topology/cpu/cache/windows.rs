@@ -1,7 +1,7 @@
 //! Windows logical-processor cache discovery.
 
-use crate::topology::cpu::MAX_PROCESSOR_ID;
 use crate::topology::types::CacheLevel;
+use crate::topology::MAX_PROCESSOR_ID;
 use core::mem::size_of;
 use std::ffi::c_void;
 

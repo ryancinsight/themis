@@ -4,7 +4,7 @@ use core::ffi::c_int;
 use core::mem::size_of;
 
 use super::{last_os_error, BindError};
-use crate::topology::cpu::MAX_PROCESSOR_ID;
+use crate::topology::MAX_PROCESSOR_ID;
 
 // SAFETY: the declaration matches glibc and musl `sched.h`: `pid_t` is `int`,
 // the size is a `size_t` byte count, and the mask is a `cpu_set_t`, which is a
