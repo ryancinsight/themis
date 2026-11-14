@@ -18,15 +18,17 @@ fn uncached_node_matches_defaulted_cached_node_when_reported() {
     }
 }
 
-#[cfg(all(feature = "std", any(target_os = "linux", windows), not(miri)))]
+#[cfg(all(any(target_os = "linux", windows), not(miri)))]
 #[test]
 fn query_reports_the_processor_a_pinned_thread_runs_on() {
     use super::current_processor;
-    use crate::bind_current_thread;
+    use crate::{bind_current_thread, current_thread_affinity};
 
     // A fresh thread, so the harness thread is never left pinned.
     std::thread::spawn(|| {
         let running = current_processor().expect("the OS reports the running processor");
+        let allowed = current_thread_affinity().expect("a running thread reports its affinity");
+        assert!(allowed.contains(running));
         assert_eq!(bind_current_thread(running), Ok(()));
 
         // Pinned to one processor, every later report is that processor.

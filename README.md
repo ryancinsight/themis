@@ -14,7 +14,7 @@ It is the shared source of truth for:
 - placement hints
 - topology snapshots
 - reported CPU efficiency classes and group-aware affinity masks
-- confining the calling thread to one logical processor, with a typed failure
+- confining the calling thread to a logical processor or one group of them, with a typed failure
 - current CPU/NUMA node queries
 
 It does not own allocation, scheduling, queues, worker loops, or thread-local
@@ -95,9 +95,12 @@ remain distinct from absence. On Windows, `ProcessorAffinityGroups`
 owns Themis's flattened processor numbering and partitions processor sets into
 sorted native group masks without dropping unrepresentable ids.
 `bind_current_thread(processor)` confines the calling thread to one logical
-processor on Windows and Linux and reports a refusal as a typed `BindError`
-(`Unsupported`, `OutOfRange`, or `Os { code }`), so a scheduler can refuse to
-start a worker whose binding failed. Allocation and worker loops remain
+processor on Windows and Linux, and `bind_current_thread_to(&ThreadAffinity)`
+to a set of them, returning the previous and effective affinity so the caller
+restores it; both work without the `std` feature and without allocating. A
+refusal is a typed `BindError` (`Unsupported`, `OutOfRange`, `SpansGroups`,
+`NoActiveProcessor`, or `Os { code }`), so a scheduler can refuse to start a
+worker whose binding failed. Allocation and worker loops remain
 consumer responsibilities.
 
 ## Standalone verification

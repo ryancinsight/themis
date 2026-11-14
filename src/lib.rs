@@ -9,7 +9,7 @@
 #![deny(unsafe_op_in_unsafe_fn)]
 #![deny(missing_docs)]
 
-#[cfg(feature = "std")]
+#[cfg(any(feature = "std", test))]
 extern crate std;
 
 mod law;
@@ -34,8 +34,10 @@ pub use law::{
 pub use query::{
     current_numa_node, current_processor, refresh_current_numa_node, try_current_numa_node,
 };
-#[cfg(feature = "std")]
-pub use topology::{bind_current_thread, BindError};
+pub use topology::{
+    bind_current_thread, bind_current_thread_to, current_thread_affinity, AffinityChange,
+    BindError, ThreadAffinity,
+};
 pub use topology::{
     CacheLevel, CoreId, CpuEfficiencyView, CpuSmtView, CpuTopology, EfficiencyClass,
     GpuDeviceProperties, GpuTopology, NumaNode, TpuDeviceProperties, TpuTopology,

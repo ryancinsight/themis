@@ -2,7 +2,6 @@
 
 #[cfg(windows)]
 mod affinity;
-#[cfg(feature = "std")]
 mod binding;
 mod cache;
 // Shared by the Linux NUMA and cache backends and by the Intel hybrid CPU-type
@@ -23,8 +22,10 @@ mod topology;
 // with neither they would be dead code under the lint floor.
 #[cfg(windows)]
 pub use affinity::{ProcessorAffinityGroups, ProcessorGroupAffinity};
-#[cfg(feature = "std")]
-pub use binding::{bind_current_thread, BindError};
+pub use binding::{
+    bind_current_thread, bind_current_thread_to, current_thread_affinity, AffinityChange,
+    BindError, ThreadAffinity,
+};
 #[cfg(all(feature = "std", any(windows, target_os = "linux")))]
 pub(crate) use cache::detect_cache_levels;
 #[cfg(all(feature = "std", any(target_os = "linux", all(test, windows))))]
@@ -54,7 +55,7 @@ pub use topology::CpuTopology;
 /// Processor ids are `u32` throughout the crate; this is the tighter bound the
 /// detection paths enforce so a malformed platform mask cannot size an
 /// allocation. Every consumer is a platform detection path.
-#[cfg(all(feature = "std", any(windows, target_os = "linux", test)))]
+#[cfg(any(all(feature = "std", windows), target_os = "linux", test))]
 pub(crate) const MAX_PROCESSOR_ID: usize = 32_768;
 
 // The efficiency surface is std-only, as is `CpuTopology::detect`; these
