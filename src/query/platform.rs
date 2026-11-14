@@ -32,20 +32,24 @@ pub(super) fn query_numa_node_or_default() -> NumaNodeId {
     try_current_numa_node().unwrap_or(NumaNodeId::ZERO)
 }
 
-/// Processor ids the crate reports, exclusive: the bound the topology
-/// detection paths enforce (`MAX_PROCESSOR_ID`).
-#[cfg(all(any(target_os = "linux", windows), not(miri)))]
-const PROCESSOR_BOUND: u32 = 32_768;
-
 fn query_processor_os() -> Option<u32> {
-    query_os(false).map(|raw| raw.processor)
+    query_os(ProbeScope::ProcessorOnly).map(|raw| raw.processor)
 }
 
 fn query_numa_node_os() -> Option<NumaNodeId> {
-    let node = query_os(true)?.node?;
+    let node = query_os(ProbeScope::ProcessorAndNode)?.node?;
     usize::try_from(node)
         .is_ok_and(|node| node < MAX_NUMA_NODE_IDS)
         .then(|| NumaNodeId::new(node))
+}
+
+/// What one OS probe is asked to report.
+#[derive(Clone, Copy)]
+enum ProbeScope {
+    /// The running processor only; the node lookup is not issued.
+    ProcessorOnly,
+    /// The running processor and the node the platform assigns to it.
+    ProcessorAndNode,
 }
 
 /// The OS report before the node bound is applied; `node` is `None` unless
@@ -53,6 +57,13 @@ fn query_numa_node_os() -> Option<NumaNodeId> {
 struct RawLocality {
     processor: u32,
     node: Option<u32>,
+}
+
+/// Whether the crate reports `processor`: below the bound every topology
+/// detection path enforces (`crate::topology::MAX_PROCESSOR_ID`).
+#[cfg(all(any(target_os = "linux", windows), not(miri)))]
+fn within_processor_bound(processor: u32) -> bool {
+    usize::try_from(processor).is_ok_and(|processor| processor < crate::topology::MAX_PROCESSOR_ID)
 }
 
 // Miri does not emulate the raw `getcpu` syscall or
@@ -63,13 +74,12 @@ struct RawLocality {
 // locality for.
 #[cfg(all(target_os = "linux", not(miri)))]
 #[inline(never)]
-fn query_os(with_node: bool) -> Option<RawLocality> {
+fn query_os(scope: ProbeScope) -> Option<RawLocality> {
     let mut cpu = 0u32;
     let mut node = 0u32;
-    let node_out = if with_node {
-        core::ptr::addr_of_mut!(node)
-    } else {
-        core::ptr::null_mut()
+    let node_out = match scope {
+        ProbeScope::ProcessorOnly => core::ptr::null_mut(),
+        ProbeScope::ProcessorAndNode => core::ptr::addr_of_mut!(node),
     };
     // The kernel entry point, not a libc `getcpu` wrapper: musl exports
     // none (its `sched_getcpu` reads the vDSO or issues this syscall
@@ -92,15 +102,15 @@ fn query_os(with_node: bool) -> Option<RawLocality> {
             core::ptr::null_mut::<core::ffi::c_void>(),
         )
     };
-    (status == 0 && cpu < PROCESSOR_BOUND).then_some(RawLocality {
+    (status == 0 && within_processor_bound(cpu)).then_some(RawLocality {
         processor: cpu,
-        node: with_node.then_some(node),
+        node: matches!(scope, ProbeScope::ProcessorAndNode).then_some(node),
     })
 }
 
 #[cfg(all(windows, not(miri)))]
 #[inline(never)]
-fn query_os(with_node: bool) -> Option<RawLocality> {
+fn query_os(scope: ProbeScope) -> Option<RawLocality> {
     #[repr(C)]
     struct ProcessorNumber {
         group: u16,
@@ -126,24 +136,26 @@ fn query_os(with_node: bool) -> Option<RawLocality> {
     // out-pointer and retains it never; it has no failure return.
     unsafe { GetCurrentProcessorNumberEx(core::ptr::addr_of_mut!(proc_num)) };
     let processor = u32::from(proc_num.group) * 64 + u32::from(proc_num.number);
-    if processor >= PROCESSOR_BOUND {
+    if !within_processor_bound(processor) {
         return None;
     }
-    let node = if with_node {
-        let mut node = 0u16;
-        // SAFETY: reads the `PROCESSOR_NUMBER` local above and writes one node
-        // through a valid, exclusive out-pointer; neither pointer is retained.
-        let reported = unsafe {
-            GetNumaProcessorNodeEx(core::ptr::addr_of!(proc_num), core::ptr::addr_of_mut!(node))
-        };
-        (reported != 0).then_some(u32::from(node))
-    } else {
-        None
+    let node = match scope {
+        ProbeScope::ProcessorOnly => None,
+        ProbeScope::ProcessorAndNode => {
+            let mut node = 0u16;
+            // SAFETY: reads the `PROCESSOR_NUMBER` local above and writes one
+            // node through a valid, exclusive out-pointer; neither pointer is
+            // retained.
+            let reported = unsafe {
+                GetNumaProcessorNodeEx(core::ptr::addr_of!(proc_num), core::ptr::addr_of_mut!(node))
+            };
+            (reported != 0).then_some(u32::from(node))
+        }
     };
     Some(RawLocality { processor, node })
 }
 
 #[cfg(not(any(all(target_os = "linux", not(miri)), all(windows, not(miri)))))]
-fn query_os(_with_node: bool) -> Option<RawLocality> {
+fn query_os(_scope: ProbeScope) -> Option<RawLocality> {
     None
 }

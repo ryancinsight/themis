@@ -15,6 +15,18 @@ mod types;
 /// this one value.
 pub(crate) const MAX_NUMA_NODE_IDS: usize = 1024;
 
+/// Exclusive upper bound on logical processor ids across every backend.
+///
+/// Processor ids are `u32` throughout the crate; this is the tighter bound the
+/// detection paths and the locality probes enforce so a malformed platform
+/// mask cannot size an allocation and no path reports an id the others
+/// reject.
+#[cfg(any(
+    all(feature = "std", any(windows, target_os = "linux", test)),
+    all(any(windows, target_os = "linux"), not(miri))
+))]
+pub(crate) const MAX_PROCESSOR_ID: usize = 32_768;
+
 #[cfg(feature = "std")]
 pub use cpu::{bind_current_thread, BindError};
 pub use cpu::{CpuEfficiencyView, CpuSmtView, CpuTopology};

@@ -6,7 +6,7 @@ extern crate alloc;
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 
-use super::MAX_PROCESSOR_ID;
+use crate::topology::MAX_PROCESSOR_ID;
 use core::ops::RangeInclusive;
 
 pub(crate) fn parse_cpu_list(cpulist: &str) -> Vec<u32> {

@@ -49,14 +49,6 @@ pub use tables::{LOCAL_DISTANCE, REMOTE_DISTANCE};
 pub(crate) use topology::logical_processor_count;
 pub use topology::CpuTopology;
 
-/// Exclusive upper bound on logical processor ids across every backend.
-///
-/// Processor ids are `u32` throughout the crate; this is the tighter bound the
-/// detection paths enforce so a malformed platform mask cannot size an
-/// allocation. Every consumer is a platform detection path.
-#[cfg(all(feature = "std", any(windows, target_os = "linux", test)))]
-pub(crate) const MAX_PROCESSOR_ID: usize = 32_768;
-
 // The efficiency surface is std-only, as is `CpuTopology::detect`; these
 // tests allocate, so they build alongside it rather than under bare
 // `cfg(test)`.
