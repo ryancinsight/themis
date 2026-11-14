@@ -28,7 +28,10 @@ pub(crate) const MAX_NUMA_NODE_IDS: usize = 1024;
 pub(crate) const MAX_PROCESSOR_ID: usize = 32_768;
 
 #[cfg(feature = "std")]
-pub use cpu::{bind_current_thread, BindError};
+pub use cpu::{
+    bind_current_thread, bind_current_thread_to, current_thread_affinity, AffinityChange,
+    BindError, ThreadAffinity,
+};
 pub use cpu::{CpuEfficiencyView, CpuSmtView, CpuTopology};
 #[cfg(windows)]
 pub use cpu::{ProcessorAffinityGroups, ProcessorGroupAffinity};

@@ -24,7 +24,10 @@ mod topology;
 #[cfg(windows)]
 pub use affinity::{ProcessorAffinityGroups, ProcessorGroupAffinity};
 #[cfg(feature = "std")]
-pub use binding::{bind_current_thread, BindError};
+pub use binding::{
+    bind_current_thread, bind_current_thread_to, current_thread_affinity, AffinityChange,
+    BindError, ThreadAffinity,
+};
 #[cfg(all(feature = "std", any(windows, target_os = "linux")))]
 pub(crate) use cache::detect_cache_levels;
 #[cfg(all(feature = "std", any(target_os = "linux", all(test, windows))))]
@@ -48,6 +51,7 @@ pub use tables::{build_default_distance_row, build_processor_to_node};
 pub use tables::{LOCAL_DISTANCE, REMOTE_DISTANCE};
 pub(crate) use topology::logical_processor_count;
 pub use topology::CpuTopology;
+
 
 // The efficiency surface is std-only, as is `CpuTopology::detect`; these
 // tests allocate, so they build alongside it rather than under bare

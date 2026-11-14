@@ -9,18 +9,14 @@ mnemosyne (allocation), moirai (scheduling), and hephaestus (devices) consume.
 <a id="HERMES-NUMA-BINDING-ON-THEMIS-2026-09-29"></a>
 ## HERMES-NUMA-BINDING-ON-THEMIS-2026-09-29 — hermes affinity guards reuse the Themis set binding [minor]
 
-- **Outcome:** Themis ships [ADR 0006](docs/adr/0006-thread-binding-fails-closed.md) rev. 2026-11-13 (set binding, allocation-free restore, `current_processor` without `std`); hermes guards and `ProcessorIndex::current` run on it.
-- **Themis oracle:** CI adds `cargo nextest run --no-default-features -E 'test(/binding::tests::|query::tests::/)'` on ubuntu and windows: `set_binding_round_trips` asserts `effective` and
-  `current_thread_affinity()` equal a two-processor set, then `previous` after re-applying it; `query_reports_the_processor_a_pinned_thread_runs_on` (today Linux-and-`std`-only) asserts `current_processor() == Some(p)`;
-  Windows `[0, 64]` is `SpansGroups { groups: 2 }`, `[]` and `bind_current_thread(65_535 * 64)` `NoActiveProcessor`; Linux `bind_current_thread(32_767)` is `Os { code: 22 }`, affinity unchanged.
-  `git grep -nP '^(?!\s*(//|const )).*(vec!|Vec[:<]|Box[:<]|String|format!|(?<!:)\balloc\b|\.(collect|to_vec|to_string|to_owned|unwrap|expect|unwrap_err|expect_err|copy_from_slice)\(|panic!|todo!|unimplemented!|assert\w*!|unreachable!|split_at(_mut)?\()' -- 'src/topology/cpu/binding*' ':!*tests.rs'` is empty (10 hits at base; also reports tokens in trailing comments, misses indexing and arithmetic panics and helpers outside these files).
+- **Outcome:** hermes guards and `ProcessorIndex::current` run on the set binding that Themis ships under [ADR 0006](docs/adr/0006-thread-binding-fails-closed.md) rev. 2026-11-13 (themis PR #131).
 - **Hermes oracle:** `git grep -nE 'ThreadGroupAffinity|sched_(set|get)|GetCurrentProcessorNumber|GetActiveProcessor' -- '*.rs'` is empty (27 hits on 2026-11-13) with `cargo check -p hermes-simd-core --no-default-features` green on
   x86_64-unknown-linux-gnu and x86_64-pc-windows-msvc (compile only: tests still link `std`, ADR 0006); `numa::processor` and `numa::binding` tests assert bound and restored affinity by value against `current_thread_affinity()`;
   `binding_tests::themis_refusal_yields_unbound` feeds the Windows group-bind seam group 65 535 and gets `Unbound`; ADR 021 (option 2 revised) and ADR 010 name `bind_current_thread_to`.
 - Non-goals: libnuma `numa_bind`, `numa/locality.rs`; moirai's `NoActiveProcessor` arm (an unfiled residual).
-- status: todo; priority: tightening; milestone: M-placement-binding; needs: none (THEMIS-THREAD-BINDING-2026-09-29 landed as PR #84).
-- scope: themis `src/{lib.rs,query/,topology/mod.rs,topology/cpu/{mod.rs,binding.rs,binding/}}`, `.github/workflows/ci.yml`, `Cargo.toml` (libc comment), `README.md`, `docs/book/cpu_topology.md`; hermes `crates/hermes-simd-core/src/numa/`, `Cargo.{toml,lock}`, `docs/adr/{010,021}-*.md`.
-- **Next step:** themis PR for the set path; then the hermes PR on that revision. Unfiled residual: moirai's `NoActiveProcessor` arm, absent from the moirai board.
+- status: todo; priority: tightening; milestone: M-placement-binding; needs: themis PR #131 merged.
+- scope: hermes `crates/hermes-simd-core/src/numa/`, `Cargo.{toml,lock}`, `docs/adr/{010,021}-*.md`.
+- **Next step:** the hermes PR on the merged themis revision.
 
 <a id="THE-WASM-2026-09-06"></a>
 ## THE-WASM-2026-09-06 [patch] — gate host-only topology helpers

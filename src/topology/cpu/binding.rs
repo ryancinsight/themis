@@ -1,22 +1,38 @@
-//! Confining the calling thread to one logical processor.
+//! Confining the calling thread to logical processors.
 //!
-//! Unlike the best-effort node binding a consumer may layer on top, this
-//! primitive reports every failure as a typed [`BindError`], so a scheduler can
-//! refuse to start a worker whose binding did not take effect.
+//! Unlike the best-effort node binding a consumer may layer on top, these
+//! primitives report every failure as a typed [`BindError`], so a scheduler can
+//! refuse to start a worker whose binding did not take effect. Nothing here
+//! allocates or panics, so a consumer's restore path can call it from `Drop`.
 
 use core::fmt;
 
 #[cfg(all(target_os = "linux", not(miri)))]
 mod linux;
+mod thread_affinity;
+#[cfg(not(any(all(target_os = "linux", not(miri)), all(windows, not(miri)))))]
+mod unsupported;
 #[cfg(all(windows, not(miri)))]
 mod windows;
 
-/// Why the calling thread could not be confined to a logical processor.
+#[cfg(all(target_os = "linux", not(miri)))]
+use linux as sys;
+#[cfg(not(any(all(target_os = "linux", not(miri)), all(windows, not(miri)))))]
+use unsupported as sys;
+#[cfg(all(windows, not(miri)))]
+use windows as sys;
+
+pub use thread_affinity::{AffinityChange, ThreadAffinity};
+
+/// Why the calling thread could not be confined to a set of logical processors.
 ///
 /// The variants partition the failure by who can act on it: the target has no
-/// backend ([`Self::Unsupported`]), the processor id is not addressable
-/// ([`Self::OutOfRange`]), or the operating system refused the request
-/// ([`Self::Os`]). In every case the thread keeps its previous affinity.
+/// backend ([`Self::Unsupported`]), the set is not expressible
+/// ([`Self::OutOfRange`], [`Self::SpansGroups`], [`Self::NoActiveProcessor`]),
+/// or the operating system refused the request ([`Self::Os`]). Every `Err`
+/// leaves the thread's affinity unchanged, except that a readback failing after
+/// the kernel accepted the call re-applies the previous affinity first and, if
+/// that is refused too, leaves the accepted affinity in force.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 #[non_exhaustive]
 pub enum BindError {
@@ -29,6 +45,15 @@ pub enum BindError {
         /// The requested flattened logical processor id.
         processor: u32,
     },
+    /// The set lies in several Windows processor groups, and one call confines
+    /// a thread to one group.
+    SpansGroups {
+        /// How many distinct groups the set names.
+        groups: u32,
+    },
+    /// The set holds no processor the host can run on: it is empty, or on
+    /// Windows names a group the host lacks or only inactive processors.
+    NoActiveProcessor,
     /// The operating system rejected the request, for example because the
     /// processor is offline or outside the process's allowed set.
     Os {
@@ -48,6 +73,13 @@ impl fmt::Display for BindError {
                 formatter,
                 "logical processor {processor} is outside the range this target can bind"
             ),
+            Self::SpansGroups { groups } => write!(
+                formatter,
+                "the processor set spans {groups} processor groups, and one call binds one group"
+            ),
+            Self::NoActiveProcessor => {
+                formatter.write_str("the processor set names no active logical processor")
+            }
             Self::Os { code } => write!(
                 formatter,
                 "the operating system refused the thread binding (error code {code})"
@@ -56,19 +88,91 @@ impl fmt::Display for BindError {
     }
 }
 
-impl std::error::Error for BindError {}
+impl core::error::Error for BindError {}
+
+/// Reports the processors the calling thread may currently run on.
+///
+/// On a Windows 11 or Server 2022 host with more than 64 processors, a thread
+/// that was never bound spans every group but reports only its primary group,
+/// so restoring that report narrows the thread to one group.
+///
+/// # Errors
+///
+/// - [`BindError::Unsupported`] when the target has no backend.
+/// - [`BindError::Os`] with the raw error code when the query fails.
+///
+/// # Examples
+///
+/// ```
+/// use themis::{current_thread_affinity, BindError};
+///
+/// match current_thread_affinity() {
+///     Ok(affinity) => assert!(affinity.len() >= 1),
+///     Err(error) => assert_eq!(error, BindError::Unsupported),
+/// }
+/// ```
+pub fn current_thread_affinity() -> Result<ThreadAffinity, BindError> {
+    sys::current().map(ThreadAffinity::from_mask)
+}
+
+/// Confines the calling thread to `target` and reports what changed.
+///
+/// The call succeeds only when the operating system accepted the new affinity,
+/// so a caller that publishes a worker-to-processor assignment after `Ok`
+/// publishes a fact. [`AffinityChange::effective`] is the affinity read back
+/// and can be a proper subset of `target`. There is no guard: restoring is
+/// `bind_current_thread_to(change.previous())`, which replaces any affinity set
+/// in between, returns `Err` rather than panicking when the kernel refuses it,
+/// and never allocates.
+///
+/// # Errors
+///
+/// - [`BindError::Unsupported`] when the target has no backend.
+/// - [`BindError::NoActiveProcessor`] on Windows when `target` names a group
+///   the host lacks or no active processor of its group.
+/// - [`BindError::Os`] with the raw error code when the operating system
+///   refuses, for example `EINVAL` on Linux when no requested processor is
+///   online and permitted.
+///
+/// # Examples
+///
+/// A worker pins itself to one processor of its current set and restores the
+/// set when done. Which processors the host permits is environmental, so the
+/// example is not run:
+///
+/// ```no_run
+/// use themis::{bind_current_thread_to, current_thread_affinity, ThreadAffinity};
+///
+/// let first = current_thread_affinity()?
+///     .processors()
+///     .next()
+///     .expect("an affinity names a processor");
+/// let change = bind_current_thread_to(&ThreadAffinity::from_processors([first])?)?;
+/// // ... pinned work ...
+/// bind_current_thread_to(change.previous())?;
+/// # Ok::<(), themis::BindError>(())
+/// ```
+pub fn bind_current_thread_to(target: &ThreadAffinity) -> Result<AffinityChange, BindError> {
+    let previous = sys::current()?;
+    sys::apply(target.mask())?;
+    match sys::current() {
+        Ok(effective) => Ok(AffinityChange::new(
+            ThreadAffinity::from_mask(previous),
+            ThreadAffinity::from_mask(effective),
+        )),
+        // The readback error is the one reported. A refused restore leaves the
+        // accepted affinity in force and adds nothing the caller can act on.
+        Err(readback) => sys::apply(&previous).and(Err(readback)).or(Err(readback)),
+    }
+}
 
 /// Confines the calling thread to exactly one logical processor.
 ///
 /// `processor` uses the flattened numbering of [`crate::CpuTopology`]: on
 /// Windows `group * 64 + bit`, on Linux the kernel's cpu number. The binding
-/// lasts for the thread's life. There is no guard and no restore, because a
-/// worker thread pins once at startup; a second call rebinds the thread.
-///
-/// The call succeeds only when the operating system accepted the new
-/// affinity, so a caller that publishes a worker-to-processor assignment after
-/// `Ok(())` publishes a fact, and a caller that receives `Err` may refuse to
-/// start the worker.
+/// lasts for the thread's life unless a later call replaces it. It is
+/// [`ThreadAffinity::from_processors`] over one id followed by
+/// [`bind_current_thread_to`], keeping their error contract.
 ///
 /// # Errors
 ///
@@ -76,6 +180,8 @@ impl std::error::Error for BindError {}
 /// - [`BindError::OutOfRange`] when the processor id cannot be named by the
 ///   target's affinity interface: a Windows processor group beyond `u16`, or a
 ///   Linux id at or past the crate's processor-id bound of 32 768.
+/// - [`BindError::NoActiveProcessor`] on Windows for a group the host lacks or
+///   an inactive processor.
 /// - [`BindError::Os`] with the raw error code when the operating system
 ///   refuses, for example `EINVAL` on Linux for a processor that is offline or
 ///   outside the process's cpuset.
@@ -105,32 +211,7 @@ impl std::error::Error for BindError {}
 /// # Ok::<(), themis::BindError>(())
 /// ```
 pub fn bind_current_thread(processor: u32) -> Result<(), BindError> {
-    #[cfg(all(target_os = "linux", not(miri)))]
-    {
-        linux::bind_current_thread(processor)
-    }
-    #[cfg(all(windows, not(miri)))]
-    {
-        windows::bind_current_thread(processor)
-    }
-    #[cfg(not(any(all(target_os = "linux", not(miri)), all(windows, not(miri)))))]
-    {
-        let _ = processor;
-        Err(BindError::Unsupported)
-    }
-}
-
-/// Reads the error the failed call just left in the thread's error slot.
-///
-/// Must run immediately after the failing call, before any other system call
-/// on the thread can overwrite it.
-#[cfg(all(any(target_os = "linux", windows), not(miri)))]
-fn last_os_error() -> BindError {
-    BindError::Os {
-        code: std::io::Error::last_os_error()
-            .raw_os_error()
-            .expect("invariant: last_os_error is built from a raw OS code"),
-    }
+    bind_current_thread_to(&ThreadAffinity::from_processors([processor])?).map(|_change| ())
 }
 
 #[cfg(test)]

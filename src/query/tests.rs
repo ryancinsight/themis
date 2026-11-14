@@ -65,24 +65,23 @@ fn on_pinned_thread(check: fn()) {
     .expect("invariant: the assertions run inside the closure and are joined here");
 }
 
-#[cfg(all(any(target_os = "linux", windows), not(miri)))]
+#[cfg(all(feature = "std", any(target_os = "linux", windows), not(miri)))]
 #[test]
 fn query_reports_the_processor_a_pinned_thread_runs_on() {
     use super::current_processor;
+    use crate::{bind_current_thread, current_thread_affinity};
 
     // A fresh thread, so the harness thread is never left pinned. The expected
     // processor comes from the OS affinity API, not from `current_processor`.
     std::thread::spawn(|| {
-        let allowed = pin::allowed_processors();
-        assert!(
-            !allowed.is_empty(),
-            "the OS reports the processors the thread may run on"
-        );
-        for processor in allowed {
-            pin::pin_to(processor);
-            for _ in 0..8 {
-                assert_eq!(current_processor(), Some(processor));
-            }
+        let running = current_processor().expect("the OS reports the running processor");
+        let allowed = current_thread_affinity().expect("a running thread reports its affinity");
+        assert!(allowed.contains(running));
+        assert_eq!(bind_current_thread(running), Ok(()));
+
+        // Pinned to one processor, every later report is that processor.
+        for _ in 0..64 {
+            assert_eq!(current_processor(), Some(running));
         }
     })
     .join()
