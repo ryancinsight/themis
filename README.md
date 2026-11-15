@@ -112,7 +112,7 @@ provides portable fixture constructors/table builders to integration tests;
 normal dependency builds do not set `cfg(test)`. CI runs this complete feature
 set on Linux, Windows and macOS. The default platform detection and binding
 availability remains unchanged. See the
-[Cargo limitation](backlog/themis-msrv-cargo-dev-graph.md).
+[Cargo limitation](backlog.md#themis-msrv-cargo-dev-graph).
 
 ## Benchmarks
 
