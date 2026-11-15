@@ -1,15 +1,28 @@
 //! Behaviour of thread binding, asserted against the operating system's own
-//! report of the thread's affinity.
+//! report of the thread's affinity through [`current_thread_affinity`].
 //!
 //! Every binding runs on a spawned thread so the harness thread is never left
 //! pinned.
 
-use super::{bind_current_thread, BindError};
+use std::string::ToString;
+#[cfg(all(any(target_os = "linux", windows), not(miri)))]
+use std::vec::Vec;
+#[cfg(all(any(target_os = "linux", windows), not(miri)))]
+use std::{format, vec};
 
-#[cfg(all(target_os = "linux", not(miri)))]
-use super::linux::current_confinement;
-#[cfg(all(windows, not(miri)))]
-use super::windows::current_confinement;
+#[cfg(all(any(target_os = "linux", windows), not(miri)))]
+use super::bind_current_thread_to;
+use super::{bind_current_thread, current_thread_affinity, BindError, ThreadAffinity};
+
+#[cfg(all(any(target_os = "linux", windows), not(miri)))]
+fn set(processors: impl IntoIterator<Item = u32>) -> ThreadAffinity {
+    ThreadAffinity::from_processors(processors).expect("invariant: the fixture ids are bindable")
+}
+
+#[cfg(all(any(target_os = "linux", windows), not(miri)))]
+fn ids(affinity: &ThreadAffinity) -> Vec<u32> {
+    affinity.processors().collect()
+}
 
 #[cfg(all(any(target_os = "linux", windows), not(miri)))]
 fn on_fresh_thread<T: Send + 'static>(body: impl FnOnce() -> T + Send + 'static) -> T {
@@ -19,24 +32,57 @@ fn on_fresh_thread<T: Send + 'static>(body: impl FnOnce() -> T + Send + 'static)
 }
 
 #[cfg(all(any(target_os = "linux", windows), not(miri)))]
+fn allowed() -> Vec<u32> {
+    ids(&current_thread_affinity().expect("a running thread reports its affinity"))
+}
+
+#[cfg(all(any(target_os = "linux", windows), not(miri)))]
 #[test]
 fn binding_confines_the_thread_to_exactly_the_requested_processor() {
     on_fresh_thread(|| {
-        let allowed = current_confinement();
-        let first = *allowed
+        let initial = allowed();
+        let first = *initial
             .first()
             .expect("a running thread is allowed somewhere");
 
         assert_eq!(bind_current_thread(first), Ok(()));
-        assert_eq!(current_confinement(), vec![first]);
+        assert_eq!(allowed(), vec![first]);
 
         // A second call moves the thread within the permitted set, which is how
         // a caller corrects a placement.
-        let last = *allowed
+        let last = *initial
             .last()
             .expect("a running thread is allowed somewhere");
         assert_eq!(bind_current_thread(last), Ok(()));
-        assert_eq!(current_confinement(), vec![last]);
+        assert_eq!(allowed(), vec![last]);
+    });
+}
+
+#[cfg(all(any(target_os = "linux", windows), not(miri)))]
+#[test]
+fn set_binding_round_trips() {
+    on_fresh_thread(|| {
+        let before = current_thread_affinity().expect("a running thread reports its affinity");
+        let pair: Vec<u32> = before.processors().take(2).collect();
+        assert_eq!(pair.len(), 2, "the host allows this thread two processors");
+        let requested = set(pair.iter().copied());
+
+        let change = bind_current_thread_to(&requested).expect("two permitted processors bind");
+        assert_eq!(change.previous(), &before);
+        assert_eq!(change.effective(), &requested);
+        assert_eq!(
+            current_thread_affinity().expect("a bound thread reports its affinity"),
+            requested
+        );
+
+        // Restoring is one more bind of `previous`, which replaces what was set.
+        let restored = bind_current_thread_to(change.previous()).expect("the previous set binds");
+        assert_eq!(restored.previous(), &requested);
+        assert_eq!(restored.effective(), &before);
+        assert_eq!(
+            current_thread_affinity().expect("a restored thread reports its affinity"),
+            before
+        );
     });
 }
 
@@ -44,13 +90,10 @@ fn binding_confines_the_thread_to_exactly_the_requested_processor() {
 #[test]
 fn a_refused_binding_leaves_the_thread_confinement_unchanged() {
     on_fresh_thread(|| {
-        let allowed = current_confinement();
+        let before = allowed();
 
-        assert!(matches!(
-            bind_current_thread(refused_processor()),
-            Err(BindError::Os { .. })
-        ));
-        assert_eq!(current_confinement(), allowed);
+        assert_eq!(bind_current_thread(refused_processor()), Err(refusal()));
+        assert_eq!(allowed(), before);
     });
 }
 
@@ -63,39 +106,63 @@ fn refused_processor() -> u32 {
     u32::try_from(crate::topology::MAX_PROCESSOR_ID - 1).expect("invariant: the bound fits u32")
 }
 
+#[cfg(all(target_os = "linux", not(miri)))]
+fn refusal() -> BindError {
+    const EINVAL: i32 = 22;
+    BindError::Os { code: EINVAL }
+}
+
 #[cfg(all(windows, not(miri)))]
 fn refused_processor() -> u32 {
-    // Group 65_535 is representable as a `GROUP_AFFINITY` but names no group
-    // the host has, so the kernel refuses it rather than the mapping.
+    // Group 65_535 is representable as a `GROUP_AFFINITY` but is no group the
+    // host has, so narrowing to the group's active processors leaves nothing.
     65_535 * 64
 }
 
-#[cfg(all(target_os = "linux", not(miri)))]
+#[cfg(all(windows, not(miri)))]
+fn refusal() -> BindError {
+    BindError::NoActiveProcessor
+}
+
+#[cfg(all(any(target_os = "linux", windows), not(miri)))]
 #[test]
-fn linux_reports_einval_for_a_processor_outside_the_cpuset() {
-    const EINVAL: i32 = 22;
-    on_fresh_thread(|| {
-        assert_eq!(
-            bind_current_thread(refused_processor()),
-            Err(BindError::Os { code: EINVAL })
-        );
-    });
+fn a_set_names_its_processors_once_and_in_ascending_order() {
+    let affinity = set([5, 3, 5]);
+    assert_eq!(ids(&affinity), vec![3, 5]);
+    assert_eq!(affinity.len(), 2);
+    assert!(affinity.contains(3) && affinity.contains(5));
+    assert!(!affinity.contains(4) && !affinity.contains(u32::MAX));
+    assert_eq!(format!("{affinity:?}"), "[3, 5]");
+
+    // Processors 67 and 69 are group 1, bits 3 and 5, on Windows.
+    assert_eq!(ids(&set([69, 67])), vec![67, 69]);
+    assert_eq!(set([3, 5]), set([5, 3]));
+    assert_ne!(set([3, 5]), set([3]));
+}
+
+#[cfg(all(any(target_os = "linux", windows), not(miri)))]
+#[test]
+fn an_empty_set_names_no_active_processor() {
+    assert_eq!(
+        ThreadAffinity::from_processors([]),
+        Err(BindError::NoActiveProcessor)
+    );
 }
 
 #[cfg(all(target_os = "linux", not(miri)))]
 #[test]
-fn linux_processor_at_the_bound_is_out_of_range_before_any_allocation() {
-    let processor = u32::try_from(crate::topology::MAX_PROCESSOR_ID).expect("invariant: fits u32");
-    assert_eq!(
-        bind_current_thread(processor),
-        Err(BindError::OutOfRange { processor })
-    );
-    assert_eq!(
-        bind_current_thread(u32::MAX),
-        Err(BindError::OutOfRange {
-            processor: u32::MAX
-        })
-    );
+fn linux_processor_at_the_bound_is_out_of_range_before_any_binding() {
+    let bound = u32::try_from(crate::topology::MAX_PROCESSOR_ID).expect("invariant: fits u32");
+    for processor in [bound, u32::MAX] {
+        assert_eq!(
+            bind_current_thread(processor),
+            Err(BindError::OutOfRange { processor })
+        );
+        assert_eq!(
+            ThreadAffinity::from_processors([0, processor]),
+            Err(BindError::OutOfRange { processor })
+        );
+    }
 }
 
 #[cfg(all(windows, not(miri)))]
@@ -109,10 +176,40 @@ fn windows_group_beyond_u16_is_out_of_range() {
     }
 }
 
+#[cfg(all(windows, not(miri)))]
+#[test]
+fn windows_set_in_several_groups_reports_its_group_count() {
+    assert_eq!(
+        ThreadAffinity::from_processors([0, 64]),
+        Err(BindError::SpansGroups { groups: 2 })
+    );
+    // Repeated and unordered ids count each group once.
+    assert_eq!(
+        ThreadAffinity::from_processors([130, 1, 64, 2, 131, 65]),
+        Err(BindError::SpansGroups { groups: 3 })
+    );
+}
+
+#[cfg(all(windows, not(miri)))]
+#[test]
+fn windows_from_group_names_the_processors_of_the_native_mask() {
+    use crate::ProcessorAffinityGroups;
+
+    let groups = ProcessorAffinityGroups::from_processors([0, 2, 64]);
+    let first = ThreadAffinity::from_group(groups.groups()[0]);
+    assert_eq!(ids(&first), vec![0, 2]);
+    assert_eq!(first, set([2, 0]));
+}
+
 #[cfg(any(miri, not(any(target_os = "linux", windows))))]
 #[test]
 fn a_target_without_a_backend_reports_unsupported() {
     assert_eq!(bind_current_thread(0), Err(BindError::Unsupported));
+    assert_eq!(
+        ThreadAffinity::from_processors([0]),
+        Err(BindError::Unsupported)
+    );
+    assert_eq!(current_thread_affinity(), Err(BindError::Unsupported));
 }
 
 #[test]
@@ -128,5 +225,13 @@ fn errors_render_their_payload() {
     assert_eq!(
         BindError::Unsupported.to_string(),
         "thread binding is unsupported on this target"
+    );
+    assert_eq!(
+        BindError::SpansGroups { groups: 2 }.to_string(),
+        "the processor set spans 2 processor groups, and one call binds one group"
+    );
+    assert_eq!(
+        BindError::NoActiveProcessor.to_string(),
+        "the processor set names no active logical processor"
     );
 }

@@ -24,7 +24,10 @@ mod topology;
 #[cfg(windows)]
 pub use affinity::{ProcessorAffinityGroups, ProcessorGroupAffinity};
 #[cfg(feature = "std")]
-pub use binding::{bind_current_thread, BindError};
+pub use binding::{
+    bind_current_thread, bind_current_thread_to, current_thread_affinity, AffinityChange,
+    BindError, ThreadAffinity,
+};
 #[cfg(all(feature = "std", any(windows, target_os = "linux")))]
 pub(crate) use cache::detect_cache_levels;
 #[cfg(all(feature = "std", any(target_os = "linux", all(test, windows))))]
