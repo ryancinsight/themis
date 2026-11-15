@@ -52,7 +52,6 @@ pub use tables::{LOCAL_DISTANCE, REMOTE_DISTANCE};
 pub(crate) use topology::logical_processor_count;
 pub use topology::CpuTopology;
 
-
 // The efficiency surface is std-only, as is `CpuTopology::detect`; these
 // tests allocate, so they build alongside it rather than under bare
 // `cfg(test)`.

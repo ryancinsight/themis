@@ -36,8 +36,8 @@ fn allowed() -> Vec<u32> {
 #[test]
 fn binding_confines_the_thread_to_exactly_the_requested_processor() {
     on_fresh_thread(|| {
-        let allowed = allowed();
-        let first = *allowed
+        let initial = allowed();
+        let first = *initial
             .first()
             .expect("a running thread is allowed somewhere");
 
@@ -46,7 +46,7 @@ fn binding_confines_the_thread_to_exactly_the_requested_processor() {
 
         // A second call moves the thread within the permitted set, which is how
         // a caller corrects a placement.
-        let last = *allowed
+        let last = *initial
             .last()
             .expect("a running thread is allowed somewhere");
         assert_eq!(bind_current_thread(last), Ok(()));
