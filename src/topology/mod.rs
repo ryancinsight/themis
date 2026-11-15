@@ -21,7 +21,10 @@ pub(crate) const MAX_NUMA_NODE_IDS: usize = 1024;
 /// detection paths and the locality probes enforce so a malformed platform
 /// mask cannot size an allocation and no path reports an id the others
 /// reject.
-#[cfg(all(feature = "std", any(windows, target_os = "linux", test)))]
+#[cfg(any(
+    all(feature = "std", any(windows, target_os = "linux", test)),
+    all(any(windows, target_os = "linux"), not(miri))
+))]
 pub(crate) const MAX_PROCESSOR_ID: usize = 32_768;
 
 #[cfg(feature = "std")]

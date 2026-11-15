@@ -9,7 +9,9 @@
 #![deny(unsafe_op_in_unsafe_fn)]
 #![deny(missing_docs)]
 
-#[cfg(feature = "std")]
+// Unit tests run under the std test harness whichever features the library
+// itself enables, so they may name `std` with the `std` feature off.
+#[cfg(any(feature = "std", test))]
 extern crate std;
 
 mod law;
