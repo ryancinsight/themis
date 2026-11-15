@@ -22,8 +22,8 @@ mod linux;
 #[cfg(windows)]
 pub(in crate::topology::cpu) mod windows;
 
-use super::MAX_PROCESSOR_ID;
 use crate::topology::types::EfficiencyClass;
+use crate::topology::MAX_PROCESSOR_ID;
 
 /// Detects the per-processor efficiency-class table for a snapshot.
 ///

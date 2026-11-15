@@ -29,7 +29,7 @@
 //! This walker reads the 64-bit `KAFFINITY` layout. The Windows entry point
 //! reports absence rather than misreading a 32-bit buffer.
 
-use crate::topology::cpu::MAX_PROCESSOR_ID;
+use crate::topology::MAX_PROCESSOR_ID;
 
 /// `LOGICAL_PROCESSOR_RELATIONSHIP::RelationProcessorCore`.
 pub(super) const RELATION_PROCESSOR_CORE: u32 = 0;

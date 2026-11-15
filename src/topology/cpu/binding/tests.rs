@@ -60,7 +60,7 @@ fn refused_processor() -> u32 {
     // rejects a set bit beyond the kernel cpumask size with `EINVAL`, and a
     // kernel that accepts the width intersects the mask with the online set and
     // finds it empty, also `EINVAL`.
-    u32::try_from(super::super::MAX_PROCESSOR_ID - 1).expect("invariant: the bound fits u32")
+    u32::try_from(crate::topology::MAX_PROCESSOR_ID - 1).expect("invariant: the bound fits u32")
 }
 
 #[cfg(all(windows, not(miri)))]
@@ -85,7 +85,7 @@ fn linux_reports_einval_for_a_processor_outside_the_cpuset() {
 #[cfg(all(target_os = "linux", not(miri)))]
 #[test]
 fn linux_processor_at_the_bound_is_out_of_range_before_any_allocation() {
-    let processor = u32::try_from(super::super::MAX_PROCESSOR_ID).expect("invariant: fits u32");
+    let processor = u32::try_from(crate::topology::MAX_PROCESSOR_ID).expect("invariant: fits u32");
     assert_eq!(
         bind_current_thread(processor),
         Err(BindError::OutOfRange { processor })

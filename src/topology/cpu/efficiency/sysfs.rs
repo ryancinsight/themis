@@ -120,7 +120,7 @@ mod tests {
 
     #[test]
     fn a_full_capacity_report_does_not_hide_an_invalid_suffix() {
-        let count = crate::topology::cpu::MAX_PROCESSOR_ID;
+        let count = crate::topology::MAX_PROCESSOR_ID;
         let complete = format!("0-{}", count - 1);
         assert_eq!(
             capacities_from_cpu_types(&[Some(&complete)], count),
