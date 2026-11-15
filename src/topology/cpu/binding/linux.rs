@@ -2,14 +2,13 @@
 //! thread.
 
 use core::ffi::c_ulong;
-use core::mem::size_of;
 
 use super::BindError;
 use crate::topology::MAX_PROCESSOR_ID;
 
-const WORD_BITS: usize = size_of::<c_ulong>() * 8;
+const WORD_BITS: usize = c_ulong::BITS as usize;
 const WORDS: usize = MAX_PROCESSOR_ID / WORD_BITS;
-const MASK_BYTES: usize = WORDS * size_of::<c_ulong>();
+const MASK_BYTES: usize = WORDS * (c_ulong::BITS as usize / 8);
 
 // The kernel's `cpumask` layout is `unsigned long` words; 4 KiB covers the
 // crate's 32 768-processor bound exactly.

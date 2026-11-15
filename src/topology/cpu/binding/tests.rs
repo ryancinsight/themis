@@ -5,17 +5,21 @@
 //! pinned.
 
 use std::string::ToString;
+#[cfg(all(any(target_os = "linux", windows), not(miri)))]
 use std::vec::Vec;
+#[cfg(all(any(target_os = "linux", windows), not(miri)))]
 use std::{format, vec};
 
-use super::{
-    bind_current_thread, bind_current_thread_to, current_thread_affinity, BindError, ThreadAffinity,
-};
+use super::{bind_current_thread, BindError, ThreadAffinity};
+#[cfg(all(any(target_os = "linux", windows), not(miri)))]
+use super::{bind_current_thread_to, current_thread_affinity};
 
+#[cfg(all(any(target_os = "linux", windows), not(miri)))]
 fn set(processors: impl IntoIterator<Item = u32>) -> ThreadAffinity {
     ThreadAffinity::from_processors(processors).expect("invariant: the fixture ids are bindable")
 }
 
+#[cfg(all(any(target_os = "linux", windows), not(miri)))]
 fn ids(affinity: &ThreadAffinity) -> Vec<u32> {
     affinity.processors().collect()
 }
