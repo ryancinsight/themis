@@ -10,9 +10,9 @@ use std::vec::Vec;
 #[cfg(all(any(target_os = "linux", windows), not(miri)))]
 use std::{format, vec};
 
-use super::{bind_current_thread, BindError, ThreadAffinity};
 #[cfg(all(any(target_os = "linux", windows), not(miri)))]
-use super::{bind_current_thread_to, current_thread_affinity};
+use super::bind_current_thread_to;
+use super::{bind_current_thread, current_thread_affinity, BindError, ThreadAffinity};
 
 #[cfg(all(any(target_os = "linux", windows), not(miri)))]
 fn set(processors: impl IntoIterator<Item = u32>) -> ThreadAffinity {
