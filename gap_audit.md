@@ -18,7 +18,7 @@ claimed.
 them reports a clean 77/77 while CI, which passes `--features testing`,
 runs 119 and was red for three days on a compile error in `branded`
 ([#54](https://github.com/ryancinsight/themis/pull/54)). The closed
-THEMIS-AFFINITY-MASK-ACCESSOR block recorded `77/77` for the
+THE-WASM-2026-09-06 block recorded `77/77` for the
 same reason, so the gap has been mistaken for a pass more than once.
 
 The stack's `[patch]` overlay compounds it: under the atlas umbrella
