@@ -1,14 +1,5 @@
 # themis gap audit
 
-## Old Cargo developer graph
-
-Recorded in [THEMIS-MSRV-CARGO-DEV-GRAPH](backlog.md#themis-msrv-cargo-dev-graph):
-Cargo 1.81 cannot fetch/build tests for the locked developer graph because of an
-edition 2024 dev manifest. The library passes the actual Rust/Cargo 1.81
-all-features check. Additional Rust 1.81 compiler-only library checks with
-current Cargo pass. A complete Cargo 1.81 developer test-gate pass is not
-claimed.
-
 ## Open risks
 
 ### GATE-FEATURE-GATED-HARNESS-2026-09-21 — a default-feature gate skips two harnesses

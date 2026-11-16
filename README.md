@@ -111,8 +111,20 @@ outside the Atlas development overlay. The `testing` feature implies `std` and
 provides portable fixture constructors/table builders to integration tests;
 normal dependency builds do not set `cfg(test)`. CI runs this complete feature
 set on Linux, Windows and macOS. The default platform detection and binding
-availability remains unchanged. See the
-[Cargo limitation](backlog.md#themis-msrv-cargo-dev-graph).
+availability remains unchanged.
+
+The declared `rust-version` (1.81.0) binds the library a consumer compiles:
+[`msrv.yml`](.github/workflows/msrv.yml) runs
+`cargo check --locked --all-features` at Rust 1.81.0 on Linux and Windows.
+Tests, benches, examples and dev-dependencies are not held to that floor: they
+build on the pinned toolchain (`rust-toolchain.toml`, 1.97.0), and
+[`ci.yml`](.github/workflows/ci.yml) also runs the doctests and the `branded`
+Miri tests on nightly. Their locked closure includes edition-2024 manifests
+such as `serde_spanned` 1.1.1, which Cargo 1.81 cannot parse, and
+dev-dependencies do not set this crate's `rust-version`.
+The crate stays on edition 2021 because edition 2024 needs Rust 1.85; raising
+the floor is a decision for the release-scope ADR
+([0007](docs/adr/0007-release-scope-1-0.md)).
 
 ## Benchmarks
 
