@@ -8,18 +8,18 @@ Items are ordered by priority, then dependency; delivered work lives in git hist
 <a id="themis-msrv-fallback-target-2026-11-16"></a>
 ## THEMIS-MSRV-FALLBACK-TARGET-2026-11-16 — Compile the no-backend fallback at the 1.81 floor [patch] — todo
 
-- Outcome: the fallback every target other than Linux and Windows compiles (macOS included) is built at the declared `rust-version` 1.81.0, so a floor break there fails a check before a consumer meets it.
-- Evidence: the fallback arms are `query_os` (`src/query/platform.rs:158`) and `unsupported` (`src/topology/cpu/binding.rs:13`, `:20`). `msrv.yml` runs `cargo check --locked --all-features` on `ubuntu-latest` and `windows-latest` only, each of which selects a native backend. The fallback is built at 1.97.0 (`ci.yml` `verify` on `macos-latest`) and on nightly (`cfg(miri)` selects it under the Miri job), never at 1.81.0.
-- Acceptance: `git grep -n -i 'darwin\|macos' .github/workflows/msrv.yml` is empty today; after, `msrv.yml` runs `cargo check --locked --all-features` for a non-Linux, non-Windows target at `RUSTUP_TOOLCHAIN` 1.81.0 (a `macos-latest` cell, or `rustup target add` plus `--target` on Linux), green on the PR head and red when the fallback arm is made to need a newer rustc.
+- Outcome: the fallbacks that every target other than Linux and Windows compiles (macOS included) are built at the declared `rust-version` 1.81.0, so a floor break there fails a check before a consumer meets it.
+- Evidence: three arms compile only on targets other than Linux and Windows: `query_os` (`src/query/platform.rs:158`), `unsupported` (`src/topology/cpu/binding.rs:13`, `:20`) and the `single_node` arm of `CpuTopology::detect` (`src/topology/cpu/detect/mod.rs:8-12`, `:29-35`, gated on `std` plus the OS). `msrv.yml` runs `cargo check --locked --all-features` on `ubuntu-latest` and `windows-latest` only (`:58`); `--all-features` turns `std` on, so each selects a native backend and none of the three arms is built at 1.81.0. They are built at 1.97.0 (`ci.yml` `verify` on `macos-latest`). The first two also build on nightly under Miri, because their `cfg` carries `not(miri)`; the detect arm does not.
+- Acceptance: today no `msrv.yml` job checks any target but the Linux and Windows runners (`matrix.os`, `:58`). After: a job at `RUSTUP_TOOLCHAIN` 1.81.0, whose `rustc --version` step prints 1.81.0, runs `cargo check --locked --all-features` for a non-Linux, non-Windows target (a `macos-latest` cell, or `rustup target add` plus `--target` on Linux) and is green on the PR head; the same job is red when a construct needing a newer rustc is added to each of the three arms in turn.
 - priority: verification; milestone: M-topology-contracts; needs: none.
-- scope: `.github/workflows/msrv.yml`, `src/query/platform.rs`, `src/topology/cpu/binding.rs`.
-- Next step: add the target cell to the existing matrix and prove it red against a deliberately 1.82-only construct in the fallback arm.
+- scope: `.github/workflows/msrv.yml`, `src/query/platform.rs`, `src/topology/cpu/binding.rs`, `src/topology/cpu/detect/mod.rs`.
+- Next step: add the target cell to the existing matrix, then prove it red against a construct newer than 1.81 in each of the three arms.
 - basis: e230e7aed16129441115c0049cd3a94faf3b143f.
 
 <a id="themis-nightly-locked-2026-11-16"></a>
 ## THEMIS-NIGHTLY-LOCKED-2026-11-16 — Pass --locked to the nightly cargo steps [patch] — todo
 
-- Outcome: the nightly doctest and Miri jobs verify the dependency set `Cargo.lock` records, as every other cargo step in CI does, instead of re-resolving when the lock and manifest disagree.
+- Outcome: the nightly doctest and Miri jobs verify the dependency set `Cargo.lock` records, as the dependency-resolving steps of `ci.yml` and `msrv.yml` already do, instead of re-resolving when the lock and manifest disagree.
 - Evidence: `.github/workflows/ci.yml:140` (`cargo +nightly test --doc`), `:168` (`cargo +nightly miri test --features testing --lib branded`) and `:171` (`cargo +nightly miri test --features testing --test branded`) carry no `--locked`. Every other cargo step that resolves dependencies carries it: the clippy, nextest, doctest and doc steps in `ci.yml` (`:92`, `:96`, `:99`, `:106`, `:111`, `:116`) and the check in `msrv.yml:79`. `cargo fmt --check` (`ci.yml:89`) and `cargo --version` (`msrv.yml:70`) carry none and resolve nothing.
 - Acceptance: `git grep -n 'cargo +nightly' .github/workflows/ci.yml | grep -v -e '--locked'` prints three lines today and none after; the `doctest-error-codes` and `miri` jobs pass on the PR head.
 - priority: verification; milestone: M-topology-contracts; needs: none.
