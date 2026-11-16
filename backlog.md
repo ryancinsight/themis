@@ -5,19 +5,6 @@ themis is the Atlas placement-law SSOT: typed, stateless vocabulary that
 mnemosyne (allocation), moirai (scheduling), and hephaestus (devices) consume.
 Items are ordered by priority, then dependency; delivered work lives in git history.
 
-<a id="themis-msrv-cargo-dev-graph"></a>
-## THEMIS-MSRV-CARGO-DEV-GRAPH — State the developer Cargo policy [patch] — todo
-
-- Outcome: README and gap_audit state one policy: `rust-version = "1.81.0"` binds the library a consumer compiles; tests, benches, examples and dev-dependencies build on the pinned toolchain (`rust-toolchain.toml`, 1.97.0) only.
-- Evidence: `.github/workflows/msrv.yml` already runs `cargo check --locked --all-features` at 1.81.0 on Linux and Windows (green on ef8de1c0) and records that dev-dependencies do not set `rust-version`; Cargo 1.81 failing on edition-2024 `serde_spanned` 1.1.1 in the dev graph falls outside that contract. No blocker remains.
-- Recommendation: adopt that policy. Rejected: holding dev-dependencies at Cargo-1.81-parsable releases, which stales the developer graph with no consumer contract behind it.
-- Veto point: edition 2021 rests only on the 1.81 floor; moving to edition 2024 (Rust 1.85) is a separate floor decision for the release-scope ADR 0007.
-- Acceptance: README "Standalone verification" names the policy and links `msrv.yml` instead of this block; the gap_audit `Old Cargo developer graph` section and this block are deleted.
-- priority: verification; milestone: M-topology-contracts; needs: none.
-- scope: `README.md`, `gap_audit.md`, `backlog.md`.
-- Next step: rewrite the README sentence, delete the gap_audit section and this block.
-- basis: ef8de1c0cd1199ef3fdd7426adc966453e04d81f.
-
 <a id="themis-class-processors-doctest"></a>
 ## THEMIS-CLASS-PROCESSORS-DOCTEST — Discharge absence once in the class-iteration doctest [patch] — todo
 
