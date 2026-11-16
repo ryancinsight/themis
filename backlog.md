@@ -20,7 +20,7 @@ Items are ordered by priority, then dependency; delivered work lives in git hist
 ## THEMIS-NIGHTLY-LOCKED-2026-11-16 — Pass --locked to the nightly cargo steps [patch] — todo
 
 - Outcome: the nightly doctest and Miri jobs verify the dependency set `Cargo.lock` records, as every other cargo step in CI does, instead of re-resolving when the lock and manifest disagree.
-- Evidence: `.github/workflows/ci.yml:140` (`cargo +nightly test --doc`), `:168` (`cargo +nightly miri test --features testing --lib branded`) and `:171` (`cargo +nightly miri test --features testing --test branded`) carry no `--locked`; the remaining cargo steps in `ci.yml` and `msrv.yml` do.
+- Evidence: `.github/workflows/ci.yml:140` (`cargo +nightly test --doc`), `:168` (`cargo +nightly miri test --features testing --lib branded`) and `:171` (`cargo +nightly miri test --features testing --test branded`) carry no `--locked`. Every other cargo step that resolves dependencies carries it: the clippy, nextest, doctest and doc steps in `ci.yml` (`:92`, `:96`, `:99`, `:106`, `:111`, `:116`) and the check in `msrv.yml:79`. `cargo fmt --check` (`ci.yml:89`) and `cargo --version` (`msrv.yml:70`) carry none and resolve nothing.
 - Acceptance: `git grep -n 'cargo +nightly' .github/workflows/ci.yml | grep -v -e '--locked'` prints three lines today and none after; the `doctest-error-codes` and `miri` jobs pass on the PR head.
 - priority: verification; milestone: M-topology-contracts; needs: none.
 - scope: `.github/workflows/ci.yml`.
