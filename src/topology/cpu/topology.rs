@@ -336,8 +336,10 @@ impl CpuTopology {
     /// class below [`Self::efficiency_class_count`] always yields at least one
     /// processor, because ranks are dense; a class at or above it yields none.
     ///
-    /// Pair with [`Self::highest_efficiency_class`] to select a representative
-    /// performance processor without hardcoding an id.
+    /// To select a representative performance processor without hardcoding an
+    /// id, discharge the no-class absence once through [`Self::efficiency`] and
+    /// take [`crate::CpuEfficiencyView::highest_class_processors`]; this method
+    /// serves a class chosen by other means.
     ///
     /// # Examples
     ///
@@ -348,8 +350,7 @@ impl CpuTopology {
     /// use themis::CpuTopology;
     ///
     /// fn performance_processor(topology: &CpuTopology) -> Option<u32> {
-    ///     let fastest = topology.highest_efficiency_class()?;
-    ///     topology.processors_in_efficiency_class(fastest)?.next()
+    ///     topology.efficiency()?.highest_class_processors().next()
     /// }
     ///
     /// // A topology that reports no classes yields no processor, rather than

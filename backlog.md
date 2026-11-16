@@ -5,17 +5,6 @@ themis is the Atlas placement-law SSOT: typed, stateless vocabulary that
 mnemosyne (allocation), moirai (scheduling), and hephaestus (devices) consume.
 Items are ordered by priority, then dependency; delivered work lives in git history.
 
-<a id="themis-class-processors-doctest"></a>
-## THEMIS-CLASS-PROCESSORS-DOCTEST — Discharge absence once in the class-iteration doctest [patch] — todo
-
-- Outcome: the `CpuTopology::processors_in_efficiency_class` doctest and its "Pair with" sentence discharge the no-class absence once.
-- Evidence: `src/topology/cpu/topology.rs:339-353` calls `highest_efficiency_class()?` then `processors_in_efficiency_class(fastest)?`; the second `?` cannot fire, because that method returns `None` only when `efficiency()` is `None` (`topology.rs:367`), which the first call already excluded. `CpuEfficiencyView::highest_class_processors` (`efficiency_view.rs:83`, fde4629) is the collapse the retired THEMIS-ABSENCE-EQUALITY-TRAP block proposed; the doctest predates it.
-- Acceptance: the doctest selects the processor through `topology.efficiency()?.highest_class_processors().next()`, keeps the `None` assertion on the unreported fixture, and `cargo test --locked --doc --all-features` passes.
-- priority: verification; milestone: M-topology-contracts; needs: none.
-- scope: `src/topology/cpu/topology.rs`.
-- Next step: rewrite the example and the sentence above it.
-- basis: ef8de1c0cd1199ef3fdd7426adc966453e04d81f.
-
 <a id="themis-efficiency-class-label"></a>
 ## THEMIS-EFFICIENCY-CLASS-LABEL — Own the efficiency-class label in Themis [minor] — todo
 
