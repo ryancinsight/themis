@@ -4,6 +4,7 @@
 //! Every binding runs on a spawned thread so the harness thread is never left
 //! pinned.
 
+use core::hash::{Hash, Hasher};
 use std::string::ToString;
 #[cfg(all(any(target_os = "linux", windows), not(miri)))]
 use std::vec::Vec;
@@ -234,4 +235,44 @@ fn errors_render_their_payload() {
         BindError::NoActiveProcessor.to_string(),
         "the processor set names no active logical processor"
     );
+}
+
+/// Keeps the integer the derived [`Hash`] writes for a variant tag.
+///
+/// Only the tag is read, through [`TagRecorder::tag`]; the digest is unused.
+#[derive(Default)]
+struct TagRecorder {
+    tag: Option<isize>,
+}
+
+impl Hasher for TagRecorder {
+    fn write(&mut self, _bytes: &[u8]) {}
+
+    fn write_isize(&mut self, value: isize) {
+        self.tag.get_or_insert(value);
+    }
+
+    fn finish(&self) -> u64 {
+        0
+    }
+}
+
+fn hash_tag(error: BindError) -> Option<isize> {
+    let mut recorder = TagRecorder::default();
+    error.hash(&mut recorder);
+    recorder.tag
+}
+
+/// `BindError` has no `repr`, so a variant's tag is observable through
+/// `mem::discriminant` and the derived `Hash`. themis-topology 0.11.5 released
+/// `Unsupported`, `OutOfRange` and `Os` as 0, 1 and 2; inserting a variant
+/// before `Os` renumbers it, which is a SemVer-major change. New variants
+/// append, so these tags never move.
+#[test]
+fn variant_tags_keep_their_released_values() {
+    assert_eq!(hash_tag(BindError::Unsupported), Some(0));
+    assert_eq!(hash_tag(BindError::OutOfRange { processor: 9 }), Some(1));
+    assert_eq!(hash_tag(BindError::Os { code: 22 }), Some(2));
+    assert_eq!(hash_tag(BindError::SpansGroups { groups: 2 }), Some(3));
+    assert_eq!(hash_tag(BindError::NoActiveProcessor), Some(4));
 }

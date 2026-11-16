@@ -29,17 +29,6 @@ Items are ordered by priority, then dependency; delivered work lives in git hist
 - Next step: rewrite the example and the sentence above it.
 - basis: ef8de1c0cd1199ef3fdd7426adc966453e04d81f.
 
-<a id="themis-binderror-semver-discriminant"></a>
-## THEMIS-BINDERROR-SEMVER-DISCRIMINANT — Settle the BindError discriminant SemVer finding [patch] — todo
-
-- Outcome: cargo-semver-checks reports no major finding for `BindError` at the next release comparison, or the release that ships the reorder is classified [major].
-- Evidence: job 132942179043 (`SemVer (informational)`, PR #133 head 9bb2e30, `continue-on-error`) exits 100 with `enum_no_repr_variant_discriminant_changed`: `BindError::Os` 2 -> 4, because `SpansGroups` and `NoActiveProcessor` were inserted before it. The same comparison against the registry release themis-topology 0.11.5, run on ef8de1c0 sources (cargo-semver-checks 0.51.0), reaches the checks and reports the same finding, exit 100. The finding is real: `BindError` is `#[non_exhaustive]` with data-carrying variants and no `repr`, so a numeric cast is rejected (E0605), but safe code still observes the change through `std::mem::discriminant` (its `Debug` prints `Discriminant(4)` for `Os` at ef8de1c0) and through the derived `Hash`, which writes the discriminant (themis#139 round-2 judge witness).
-- Acceptance: `cargo semver-checks check-release --package themis-topology` against the latest registry release exits 0 on the candidate after the new variants move after `Os`, or the release that ships the reorder is classified [major].
-- priority: verification; milestone: M-topology-contracts; needs: none.
-- scope: `src/topology/cpu/binding.rs`, `CHANGELOG.md`.
-- Next step: move `SpansGroups` and `NoActiveProcessor` after `Os`, or classify the next release [major], then rerun the comparison.
-- basis: ef8de1c0cd1199ef3fdd7426adc966453e04d81f.
-
 <a id="themis-efficiency-class-label"></a>
 ## THEMIS-EFFICIENCY-CLASS-LABEL — Own the efficiency-class label in Themis [minor] — todo
 

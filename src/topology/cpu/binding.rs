@@ -33,6 +33,11 @@ pub use thread_affinity::{AffinityChange, ThreadAffinity};
 /// leaves the thread's affinity unchanged, except that a readback failing after
 /// the kernel accepted the call re-applies the previous affinity first and, if
 /// that is refused too, leaves the accepted affinity in force.
+///
+/// The enum has no `repr`, so safe code observes variant order through
+/// [`core::mem::discriminant`] and the derived [`Hash`](core::hash::Hash).
+/// Declaration order is therefore part of the contract: a new variant goes
+/// last, and the order is pinned by a regression test.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 #[non_exhaustive]
 pub enum BindError {
@@ -45,6 +50,13 @@ pub enum BindError {
         /// The requested flattened logical processor id.
         processor: u32,
     },
+    /// The operating system rejected the request, for example because the
+    /// processor is offline or outside the process's allowed set.
+    Os {
+        /// The raw operating-system error code: `GetLastError` on Windows,
+        /// `errno` on Linux.
+        code: i32,
+    },
     /// The set lies in several Windows processor groups, and one call confines
     /// a thread to one group.
     SpansGroups {
@@ -54,13 +66,6 @@ pub enum BindError {
     /// The set holds no processor the host can run on: it is empty, or on
     /// Windows names a group the host lacks or only inactive processors.
     NoActiveProcessor,
-    /// The operating system rejected the request, for example because the
-    /// processor is offline or outside the process's allowed set.
-    Os {
-        /// The raw operating-system error code: `GetLastError` on Windows,
-        /// `errno` on Linux.
-        code: i32,
-    },
 }
 
 impl fmt::Display for BindError {
