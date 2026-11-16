@@ -39,7 +39,7 @@ jobs:
   check:
     # Linux and Windows compile disjoint topology backends
     # (`src/topology/cpu/detect/{linux,windows}.rs`, `src/query/platform.rs`),
-    # so a single-OS run leaves half the crate unbuilt. The Windows backend
+    # so a single-OS run leaves half the crate unbuilt.
     # The floor is set by `#[expect(lint, reason = ...)]` (stabilized in 1.81).
     # The platform backends retain Rust 1.81-compatible extern declarations,
     # and the branded constructors avoid `&mut` parameters in `const fn`.
