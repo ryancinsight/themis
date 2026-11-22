@@ -1,5 +1,15 @@
 # Backlog — themis
 
+<a id="themis-stable-qualification"></a>
+## THEMIS-STABLE-QUALIFICATION — themis stable-release qualification [patch] — todo
+- priority: verification; milestone: M-topology-contracts; basis: `4ec2fb99b191`.
+- Outcome: Exercise the fallback topology path at the declared Rust floor. Follow the [release scope](docs/adr/0007-release-scope-1-0.md) and [milestone exits](backlog/milestones.md).
+- Representative manifest `themis-topology 0.11.5`. Target 1.0.0.
+- [ ] [patch] Add the missing Rust 1.81 build for the no-backend fallback in THEMIS-MSRV-FALLBACK-TARGET-2026-11-16. Exercise supported feature combinations and the single-node result on a fallback target.
+- [ ] [patch] Qualify discovery and binding with a real consumer. Compare reported placement with host topology and assert the documented unsupported result where binding is unavailable.
+- [ ] [major] Close M-placement-binding and verify the stable topology package, MSRV claim, platform matrix and registry-only resolution on the release candidate.
+- [ ] [patch] Attach exact-revision evidence for the local exits and this member’s [Atlas qualification criteria](https://github.com/ryancinsight/atlas/blob/17b0124a7548ad81e817284afc5cb115c1d1bc78/docs/parity/repositories.json).
+
 Milestone ladder: [backlog/milestones.md](backlog/milestones.md) ([ADR 0007](docs/adr/0007-release-scope-1-0.md)).
 themis is the Atlas placement-law SSOT: typed, stateless vocabulary that
 mnemosyne (allocation), moirai (scheduling), and hephaestus (devices) consume.
