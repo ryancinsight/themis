@@ -2,13 +2,15 @@
 
 <a id="themis-stable-qualification"></a>
 ## THEMIS-STABLE-QUALIFICATION — themis stable-release qualification [patch] — todo
-- priority: verification; milestone: M-topology-contracts; basis: `4ec2fb99b191`.
-- Outcome: Exercise the fallback topology path at the declared Rust floor. Follow the [release scope](docs/adr/0007-release-scope-1-0.md) and [milestone exits](backlog/milestones.md).
+- priority: verification; milestone: M-topology-contracts; basis: `8a38eb37152f`.
+- Outcome: Exercise the fallback topology path at the declared Rust floor. Follow the [release scope](docs/adr/0007-release-scope-1-0.md) and [milestone exits](backlog/milestones.md). Planning targets for `themis-topology` are 0.12.0, then 0.13.0, then 1.0.0. Verification alone can advance the current version.
 - Representative manifest `themis-topology 0.11.5`. Target 1.0.0.
 - [ ] [patch] Add the missing Rust 1.81 build for the no-backend fallback in THEMIS-MSRV-FALLBACK-TARGET-2026-11-16. Exercise supported feature combinations and the single-node result on a fallback target.
 - [ ] [patch] Qualify discovery and binding with a real consumer. Compare reported placement with host topology and assert the documented unsupported result where binding is unavailable.
 - [ ] [major] Close M-placement-binding and verify the stable topology package, MSRV claim, platform matrix and registry-only resolution on the release candidate.
-- [ ] [patch] Attach exact-revision evidence for the local exits and this member’s [Atlas qualification criteria](https://github.com/ryancinsight/atlas/blob/17b0124a7548ad81e817284afc5cb115c1d1bc78/docs/parity/repositories.json).
+- [ ] [minor] **0.12.0.** Run the no-backend fallback at the declared Rust floor, then compare the reported CPU adjacency and single-node placement with the documented host contract. [Source and baseline](gap_audit.md#incremental-release-baseline).
+- [ ] [minor] **0.13.0.** Enter and exit a branded placement scope, verify the effective placement and restore the original affinity. Check error reporting for a rejected binding on supported hosts.
+- [ ] [major] **1.0.0-beta.1 → 1.0.0-rc.1 → 1.0.0.** Freeze the supported surface at beta. A downstream placement caller repeats topology discovery and scoped binding without leaking thread affinity. Repeat the applicable exits on the exact RC before stable promotion. Attach exact-revision evidence for the local exits and this member’s [Atlas qualification criteria](https://github.com/ryancinsight/atlas/blob/17b0124a7548ad81e817284afc5cb115c1d1bc78/docs/parity/repositories.json).
 
 Milestone ladder: [backlog/milestones.md](backlog/milestones.md) ([ADR 0007](docs/adr/0007-release-scope-1-0.md)).
 themis is the Atlas placement-law SSOT: typed, stateless vocabulary that

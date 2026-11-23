@@ -1,5 +1,11 @@
 # themis gap audit
 
+## Incremental release baseline
+
+Reviewed [themis-topology 0.11.5](Cargo.toml) at [8a38eb37152f](https://github.com/ryancinsight/themis/tree/8a38eb37152f608b46b627b225491b4d5c809103). The exact version appears in the [registry](https://crates.io/crates/themis-topology/0.11.5).
+
+The next [minor] checkpoint uses [adjacency properties](tests/topology/cpu/adjacency_properties.rs). [Target version and acceptance criteria](backlog.md#themis-stable-qualification).
+
 ## Open risks
 
 ### GATE-FEATURE-GATED-HARNESS-2026-09-21 — a default-feature gate skips two harnesses
