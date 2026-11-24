@@ -20,7 +20,7 @@ Items are ordered by priority, then dependency; delivered work lives in git hist
 <a id="themis-msrv-fallback-target-2026-11-16"></a>
 ## THEMIS-MSRV-FALLBACK-TARGET-2026-11-16 — Compile the no-backend fallback at the 1.81 floor [patch] — todo
 
-- Outcome: the fallbacks that every target other than Linux and Windows compiles (macOS included) are built at the declared `rust-version` 1.81.0, so a floor break there fails a check before a consumer meets it.
+- Outcome: the fallbacks that every target other than Linux and Windows compiles with `std` on (macOS included) are built at the declared `rust-version` 1.81.0, so a floor break there fails a check before a consumer meets it.
 - Evidence: `msrv.yml` checks only `--all-features` on `ubuntu-latest` and `windows-latest` (`:58`, `:79`), and that configuration compiles none of three arms. `query_os` (`src/query/platform.rs:158`) compiles where the target is neither Linux nor Windows or `cfg(miri)` holds; `unsupported` (`src/topology/cpu/binding.rs:13`, `:20`) compiles under the same condition and only where `std` is on (`mod binding` is `std`-gated, `src/topology/cpu/mod.rs:5-6`); the `single_node` arm of `CpuTopology::detect` (`src/topology/cpu/detect/mod.rs:8-12`, `:29-35`) compiles where the target is neither OS or `std` is off. `--all-features` turns `std` on, so each run selects a native backend and none of the three arms is built at 1.81.0. They are built at 1.97.0 (`ci.yml` `verify` on `macos-latest`; the detect arm also by the `--no-default-features` clippy and nextest steps, `ci.yml:96`, `:106`), and the first two on nightly under Miri.
 - Acceptance: today no `msrv.yml` job checks any target but the Linux and Windows runners (`matrix.os`, `:58`). After: a job at `RUSTUP_TOOLCHAIN` 1.81.0, whose `rustc --version` step prints 1.81.0, runs `cargo check --locked --all-features` for a non-Linux, non-Windows target (a `macos-latest` cell, or `rustup target add` plus `--target` on Linux) and is green on the PR head; the same job is red when a construct needing a newer rustc is added to each of the three arms in turn.
 - priority: verification; milestone: M-topology-contracts; needs: none.
@@ -50,6 +50,17 @@ Items are ordered by priority, then dependency; delivered work lives in git hist
 - scope: `docs/adr/0007-release-scope-1-0.md`, `README.md`.
 - Next step: rewrite the ADR in place on the recommendation unless the user redirects.
 - basis: e230e7aed16129441115c0049cd3a94faf3b143f.
+
+<a id="themis-msrv-no-default-features-2026-11-23"></a>
+## THEMIS-MSRV-NO-DEFAULT-FEATURES-2026-11-23 — Check the `no_std` build at the 1.81 floor [patch] — todo
+
+- Outcome: both `std`-off configurations, `--no-default-features` and `--no-default-features --features melinoe`, are built at the declared `rust-version` 1.81.0, so a floor break in a path only a `std`-off build compiles fails a check before a `no_std` consumer meets it.
+- Evidence: `msrv.yml:79` runs only `cargo check --locked --all-features`, and `--all-features` turns `std` on (`Cargo.toml:19-20`). The crate is `no_std` without it (`src/lib.rs:7`), and `CpuTopology::detect` then compiles its `single_node` arm on every target (`src/topology/cpu/detect/mod.rs:29-35`). `melinoe` does not imply `std` (`Cargo.toml:22`; `std` implies `melinoe`, `:20`), so the second configuration also compiles `src/branded` (`src/lib.rs:21-22`) through its `not(feature = "std")` `alloc` imports (`src/branded/region/cell.rs:8-12`). Only the first is built anywhere, and only at 1.97.0 (`ci.yml:96`, `:106`); no workflow command names `--features melinoe` (`git grep -n -e '--features' -- .github` lists `testing` only).
+- Acceptance: today `git grep -c -e no-default-features -- .github/workflows/msrv.yml` prints nothing. After: `msrv.yml` runs, under `RUSTUP_TOOLCHAIN` 1.81.0, `cargo check --locked --no-default-features` and `cargo check --locked --no-default-features --features melinoe`; `git grep -n continue-on-error -- .github/workflows/msrv.yml` prints nothing; each of the PR checks of job `check` (`Rust 1.81.0 check (ubuntu-latest)` and `(windows-latest)`) concludes success on the PR head and concludes failure on each of two probe pushes, one adding a construct needing a newer rustc to the `single_node` arm and one adding such a construct under `not(feature = "std")` in `src/branded/region/cell.rs`. The `single_node` probe fails the first step, which skips the second under GitHub's default `success()` condition (recalled, not checked this session), so only the `cell.rs` probe, which compiles in the second configuration alone, tests that step. A failing second step on the unmodified head is a defect fixed in this item.
+- priority: verification; milestone: M-topology-contracts; needs: none.
+- scope: `.github/workflows/msrv.yml`.
+- Next step: add both steps beside the `--all-features` check, then prove each red against a post-1.81 construct in the arms named above.
+- basis: c6b7c6288e19b26734883348cdb8a4802830d0cd.
 
 <a id="themis-efficiency-class-label"></a>
 ## THEMIS-EFFICIENCY-CLASS-LABEL — Own the efficiency-class label in Themis [minor] — todo
