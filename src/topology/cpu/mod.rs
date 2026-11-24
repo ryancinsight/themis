@@ -52,8 +52,8 @@ pub use tables::{LOCAL_DISTANCE, REMOTE_DISTANCE};
 pub(crate) use topology::logical_processor_count;
 pub use topology::CpuTopology;
 
-// The efficiency surface is std-only, as is `CpuTopology::detect`; these
-// tests allocate, so they build alongside it rather than under bare
-// `cfg(test)`.
+// Efficiency detection is `std`-gated; `CpuEfficiencyView`, the efficiency
+// queries and `CpuTopology::detect` compile without `std`. These tests
+// allocate, so they build with `std` rather than under bare `cfg(test)`.
 #[cfg(all(test, feature = "std"))]
 mod tests;
