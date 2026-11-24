@@ -20,7 +20,7 @@ Items are ordered by priority, then dependency; delivered work lives in git hist
 <a id="themis-msrv-fallback-target-2026-11-16"></a>
 ## THEMIS-MSRV-FALLBACK-TARGET-2026-11-16 — Compile the no-backend fallback at the 1.81 floor [patch] — todo
 
-- Outcome: the fallbacks that every target other than Linux and Windows compiles (macOS included) are built at the declared `rust-version` 1.81.0, so a floor break there fails a check before a consumer meets it.
+- Outcome: the fallbacks that every target other than Linux and Windows compiles with `std` on (macOS included) are built at the declared `rust-version` 1.81.0, so a floor break there fails a check before a consumer meets it.
 - Evidence: `msrv.yml` checks only `--all-features` on `ubuntu-latest` and `windows-latest` (`:58`, `:79`), and that configuration compiles none of three arms. `query_os` (`src/query/platform.rs:158`) compiles where the target is neither Linux nor Windows or `cfg(miri)` holds; `unsupported` (`src/topology/cpu/binding.rs:13`, `:20`) compiles under the same condition and only where `std` is on (`mod binding` is `std`-gated, `src/topology/cpu/mod.rs:5-6`); the `single_node` arm of `CpuTopology::detect` (`src/topology/cpu/detect/mod.rs:8-12`, `:29-35`) compiles where the target is neither OS or `std` is off. `--all-features` turns `std` on, so each run selects a native backend and none of the three arms is built at 1.81.0. They are built at 1.97.0 (`ci.yml` `verify` on `macos-latest`; the detect arm also by the `--no-default-features` clippy and nextest steps, `ci.yml:96`, `:106`), and the first two on nightly under Miri.
 - Acceptance: today no `msrv.yml` job checks any target but the Linux and Windows runners (`matrix.os`, `:58`). After: a job at `RUSTUP_TOOLCHAIN` 1.81.0, whose `rustc --version` step prints 1.81.0, runs `cargo check --locked --all-features` for a non-Linux, non-Windows target (a `macos-latest` cell, or `rustup target add` plus `--target` on Linux) and is green on the PR head; the same job is red when a construct needing a newer rustc is added to each of the three arms in turn.
 - priority: verification; milestone: M-topology-contracts; needs: none.
@@ -50,6 +50,28 @@ Items are ordered by priority, then dependency; delivered work lives in git hist
 - scope: `docs/adr/0007-release-scope-1-0.md`, `README.md`.
 - Next step: rewrite the ADR in place on the recommendation unless the user redirects.
 - basis: e230e7aed16129441115c0049cd3a94faf3b143f.
+
+<a id="themis-msrv-no-default-features-2026-11-23"></a>
+## THEMIS-MSRV-NO-DEFAULT-FEATURES-2026-11-23 — Check the `no_std` build at the 1.81 floor [patch] — todo
+
+- Outcome: the `std`-off configuration (`--no-default-features`) is built at the declared `rust-version` 1.81.0, so a floor break in a path only that configuration compiles fails a check before a no_std consumer meets it.
+- Evidence: `msrv.yml:79` runs only `cargo check --locked --all-features`, and `--all-features` turns `std` on (`Cargo.toml:19-20`). The crate is `no_std` without it (`src/lib.rs:7`), and `CpuTopology::detect` then compiles its `single_node` arm on every target (`src/topology/cpu/detect/mod.rs:29-35`). That configuration is built only at 1.97.0 (`ci.yml:96`, `:106`).
+- Acceptance: today `git grep -c -e no-default-features -- .github/workflows/msrv.yml` prints nothing. After: an `msrv.yml` step under `RUSTUP_TOOLCHAIN` 1.81.0 runs `cargo check --locked --no-default-features`, is green on the PR head, and is red when a construct needing a newer rustc is added to the `single_node` arm.
+- priority: verification; milestone: M-topology-contracts; needs: none.
+- scope: `.github/workflows/msrv.yml`.
+- Next step: add the step beside the `--all-features` check, then prove it red against a post-1.81 construct in that arm.
+- basis: c6b7c6288e19b26734883348cdb8a4802830d0cd.
+
+<a id="themis-std-gate-comments-2026-11-23"></a>
+## THEMIS-STD-GATE-COMMENTS-2026-11-23 — Correct two comments on what builds without `std` [patch] — todo
+
+- Outcome: the CI comment and the topology comment state the `std` gate as the code has it, and the nextest filter names only tests that exist without `std`.
+- Evidence: `ci.yml:101-103` says binding builds without `std` and its tests run under `--no-default-features`, but `mod binding` is `std`-gated (`src/topology/cpu/mod.rs:5-6`), so `binding::tests::` in the filter at `ci.yml:106` matches nothing and only the query tests run (`src/query/tests/pin.rs:3-5`). `src/topology/cpu/mod.rs:55-56` calls `CpuTopology::detect` `std`-only, but `mod detect` is unconditional (`mod.rs:12`) and its `single_node` arm compiles without `std` (`detect/mod.rs:29-35`).
+- Acceptance: today `git grep -n -F "Binding and the processor query build without" -- .github` and `git grep -n -e "as is .CpuTopology::detect" -- src` print one line each. After: both print nothing, the `ci.yml:106` filter lists no `binding::tests::` alternative, and the `verify` job is green on the PR head.
+- priority: verification; milestone: M-topology-contracts; needs: none.
+- scope: `.github/workflows/ci.yml`, `src/topology/cpu/mod.rs`.
+- Next step: reword both comments and drop the dead filter alternative.
+- basis: c6b7c6288e19b26734883348cdb8a4802830d0cd.
 
 <a id="themis-efficiency-class-label"></a>
 ## THEMIS-EFFICIENCY-CLASS-LABEL — Own the efficiency-class label in Themis [minor] — todo
