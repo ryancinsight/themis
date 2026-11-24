@@ -79,17 +79,6 @@ Items are ordered by priority, then dependency; delivered work lives in git hist
 - Next step: drop the four `std` gates, add the `current_thread_affinity` assertion and the CI step, push the gates-restored probe and read its step conclusions, then confirm `cargo clippy --locked --all-targets --no-default-features -- -D warnings` stays clean; in hermes `backlog.md` add THEMIS-BINDING-STD-GATE-2026-11-24 to the `needs:` of HERMES-NUMA-BINDING-ON-THEMIS-2026-09-29 and name the themis commit that lands this item as its lock target.
 - basis: a268630588819a3e116429f167879b840003af30.
 
-<a id="themis-book-numa-lookup-name-2026-11-24"></a>
-## THEMIS-BOOK-NUMA-LOOKUP-NAME-2026-11-24 — Name the real processor-to-node lookup in the CPU topology chapter [patch] — todo
-
-- Outcome: `docs/book/cpu_topology.md` lists and describes the lookup the source declares, `CpuTopology::processor_to_numa_node(&self, processor: u32) -> Option<NumaNodeId>`, with its real `None` conditions.
-- Evidence: the chapter names `numa_node_for_processor` at `:52` (as `-> Option<&NumaNode>`), `:61` and `:123`; `git grep -n -e numa_node_for_processor -- src` finds nothing at the basis. The method is `processor_to_numa_node` (`src/topology/cpu/topology.rs:373`), which returns `None` for a processor beyond the table and for a table entry equal to `NumaNodeId::INVALID` (`:373-378`), so the chapter's "`None` only if `p` is greater than the highest processor" (`:62-63`) is also false; its O(1) claim holds (`.get(processor as usize)`, `:374-375`). `:123` says moirai calls the method; `git grep -n -e processor_to_numa_node -e numa_node_for_processor` over moirai `origin/main` at `23461ab1` finds nothing.
-- Acceptance: (1) `git grep -n -F numa_node_for_processor -- docs README.md src` exits 1 (three hits at the basis). (2) `git grep -c -F 'pub fn processor_to_numa_node(&self, processor: u32) -> Option<NumaNodeId>;' -- docs/book/cpu_topology.md` prints `docs/book/cpu_topology.md:1`. (3) A block without `ignore` assigns `CpuTopology::processor_to_numa_node` to a `fn(&CpuTopology, u32) -> Option<NumaNodeId>`, so `mdbook test` (`book-pages.yml:69`) fails on a wrong type. (4) Reading check, since no grep survives rewording: the `None` sentence names both conditions above, and `:123` asserts no moirai call site unless moirai's source has one.
-- priority: verification; milestone: M-topology-contracts; needs: none.
-- scope: `docs/book/cpu_topology.md`.
-- Next step: rewrite the listing, the paragraph at `:61-63` and the sentence at `:123` from `topology.rs:373-378`, on the then-current head of the chapter, whose `detect` listing (`:50-51`) is edited by a neighbouring book fix.
-- basis: a268630588819a3e116429f167879b840003af30.
-
 <a id="themis-efficiency-class-label"></a>
 ## THEMIS-EFFICIENCY-CLASS-LABEL — Own the efficiency-class label in Themis [minor] — todo
 

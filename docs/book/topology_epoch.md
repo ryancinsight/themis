@@ -47,7 +47,9 @@ are stale.
 
 The recommended caching pattern is:
 
-```rust,ignore
+```rust
+# extern crate themis;
+# use themis::{CpuTopology, TopologyEpoch};
 struct TopologyCache {
     topology: CpuTopology,
     epoch: TopologyEpoch,
@@ -56,8 +58,10 @@ struct TopologyCache {
 impl TopologyCache {
     fn refresh_if_stale(&mut self, live_epoch: TopologyEpoch) {
         if self.epoch != live_epoch {
-            self.topology = CpuTopology::detect();
-            self.epoch = live_epoch;
+            if let Some(snapshot) = CpuTopology::detect() {
+                self.topology = snapshot;
+                self.epoch = live_epoch;
+            }
         }
     }
 }
@@ -65,8 +69,10 @@ impl TopologyCache {
 
 The component holds a snapshot together with the epoch at which it was
 captured.  Before each use it compares its stored epoch against the current
-live epoch.  If they differ it re-detects and updates both fields; if they are
-equal the cached snapshot is valid and no work is done.
+live epoch.  If they differ it re-detects; when `detect()` returns `Some` it
+replaces both fields, and when it returns `None` it keeps the previous
+snapshot and epoch so that the next call retries.  If the epochs are equal the
+cached snapshot is valid and no work is done.
 
 ## Relationship to topology types
 

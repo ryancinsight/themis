@@ -47,20 +47,46 @@ instance — relevant for work-stealing domain construction in moirai.
 
 ```rust,ignore
 impl CpuTopology {
-    #[cfg(feature = "std")]
-    pub fn detect() -> Self;
-    pub fn numa_node_for_processor(&self, processor: u32) -> Option<&NumaNode>;
+    #[must_use]
+    pub fn detect() -> Option<Self>;
+    #[must_use]
+    pub fn processor_to_numa_node(&self, processor: u32) -> Option<NumaNodeId>;
 }
 ```
 
-`detect()` is only available when the `std` feature is enabled; it reads the
-OS topology interfaces (`/sys/devices/system/cpu` on Linux, the NUMA API on
-Windows).  The method returns a snapshot that is valid until the next
+`detect()` is available with or without the `std` feature. With `std` on Linux
+it reads sysfs and with `std` on Windows it reads the NUMA API. In every other
+configuration (`std` off, or another target OS) it returns a single-node
+snapshot of the logical processor count, which is 1 without `std`. Every
+current path returns `Some`. The snapshot is valid until the next
 [`TopologyEpoch`](topology_epoch.md) advance.
 
-`numa_node_for_processor(p)` is an O(1) lookup using an internally maintained
-processor-to-node table.  It returns `None` only if `p` is greater than the
-highest processor number present in the snapshot.
+`mdbook test` compiles the following block against the crate, so it fails when
+the type signature of `detect` drifts: its parameters, return type, or
+`unsafe`-ness. It does not check the `#[must_use]` attribute shown in the
+listing or a `const` qualifier, and the book is built with the default features,
+which include `std`, so it does not check feature gating either:
+
+```rust
+# extern crate themis;
+use themis::CpuTopology;
+
+let detect: fn() -> Option<CpuTopology> = CpuTopology::detect;
+```
+
+`processor_to_numa_node(p)` is an O(1) lookup in an internally maintained
+processor-to-node table. It returns `None` in two cases: `p` lies beyond the end
+of the table, or the table entry for `p` is the `NumaNodeId::INVALID` sentinel,
+which the table holds for a processor that no detected node lists. The next
+block pins its signature in the same way:
+
+```rust
+# extern crate themis;
+use themis::{CpuTopology, NumaNodeId};
+
+let lookup: fn(&CpuTopology, u32) -> Option<NumaNodeId> =
+    CpuTopology::processor_to_numa_node;
+```
 
 ## Efficiency and native affinity
 
@@ -90,8 +116,10 @@ intersects it with the online, permitted processors. `current_thread_affinity()`
 reports the present affinity. Windows calls `SetThreadGroupAffinity`, narrowing
 the request to the active processors of its group first, so one call binds the
 processors of one group; Linux calls `sched_setaffinity` with a 4 KiB bitmap
-covering the crate's 32 768-processor bound. None of these allocate or panic,
-and none needs the `std` feature.
+covering the crate's 32 768-processor bound. None of these allocate or panic.
+The whole binding surface (the three calls above, `AffinityChange`,
+`ThreadAffinity` and `BindError`) is compiled only with the `std` feature, which
+is on by default.
 
 There is no guard. A caller restores with
 `bind_current_thread_to(change.previous())`, which replaces whatever was set in
@@ -120,7 +148,7 @@ sufficient, rather than falling back to an arbitrary node.
 ## Relationship to placement types
 
 [`NumaNodeId`](locality_identities.md) values in `PlacementHint::Numa(id)` are
-resolved against `CpuTopology`.  Moirai uses `numa_node_for_processor` to
-build work-stealing domains aligned with cache topology: threads that share an
-L3 cache are placed in the same domain to maximise cache reuse before stealing
-crosses the boundary.
+resolved against `CpuTopology`.  `processor_to_numa_node` resolves a processor
+to its node, which a consumer building work-stealing domains can combine with
+`CacheLevel::shared_processors`: placing threads that share an L3 cache in the
+same domain maximises cache reuse before stealing crosses the boundary.
