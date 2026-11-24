@@ -47,16 +47,28 @@ instance — relevant for work-stealing domain construction in moirai.
 
 ```rust,ignore
 impl CpuTopology {
-    #[cfg(feature = "std")]
-    pub fn detect() -> Self;
+    #[must_use]
+    pub fn detect() -> Option<Self>;
     pub fn numa_node_for_processor(&self, processor: u32) -> Option<&NumaNode>;
 }
 ```
 
-`detect()` is only available when the `std` feature is enabled; it reads the
-OS topology interfaces (`/sys/devices/system/cpu` on Linux, the NUMA API on
-Windows).  The method returns a snapshot that is valid until the next
+`detect()` is available with or without the `std` feature. With `std` on Linux
+it reads sysfs and with `std` on Windows it reads the NUMA API. In every other
+configuration (`std` off, or another target OS) it returns a single-node
+snapshot of the logical processor count, which is 1 without `std`. Every
+current path returns `Some`. The snapshot is valid until the next
 [`TopologyEpoch`](topology_epoch.md) advance.
+
+`mdbook test` compiles the following block against the crate, so it fails when
+the signature of `detect` above drifts:
+
+```rust
+# extern crate themis;
+use themis::CpuTopology;
+
+let detect: fn() -> Option<CpuTopology> = CpuTopology::detect;
+```
 
 `numa_node_for_processor(p)` is an O(1) lookup using an internally maintained
 processor-to-node table.  It returns `None` only if `p` is greater than the
