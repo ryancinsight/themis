@@ -28,17 +28,6 @@ Items are ordered by priority, then dependency; delivered work lives in git hist
 - Next step: add the target cell to the existing matrix, then prove it red against a construct newer than 1.81 in each of the three arms.
 - basis: e230e7aed16129441115c0049cd3a94faf3b143f.
 
-<a id="themis-nightly-locked-2026-11-16"></a>
-## THEMIS-NIGHTLY-LOCKED-2026-11-16 — Pass --locked to the nightly cargo steps [patch] — todo
-
-- Outcome: the nightly doctest and Miri jobs verify the dependency set `Cargo.lock` records, as the dependency-resolving steps of `ci.yml` and `msrv.yml` already do, instead of re-resolving when the lock and manifest disagree.
-- Evidence: `.github/workflows/ci.yml:140` (`cargo +nightly test --doc`), `:168` (`cargo +nightly miri test --features testing --lib branded`) and `:171` (`cargo +nightly miri test --features testing --test branded`) carry no `--locked`. Every other cargo step that resolves dependencies carries it: the clippy, nextest, doctest and doc steps in `ci.yml` (`:92`, `:96`, `:99`, `:106`, `:111`, `:116`) and the check in `msrv.yml:79`. `cargo fmt --check` (`ci.yml:89`) and `cargo --version` (`msrv.yml:70`) carry none and resolve nothing.
-- Acceptance: `git grep -n 'cargo +nightly' .github/workflows/ci.yml | grep -v -e '--locked'` prints three lines today and none after; the `doctest-error-codes` and `miri` jobs pass on the PR head.
-- priority: verification; milestone: M-topology-contracts; needs: none.
-- scope: `.github/workflows/ci.yml`.
-- Next step: add `--locked` to the three commands.
-- basis: e230e7aed16129441115c0049cd3a94faf3b143f.
-
 <a id="themis-msrv-floor-adr-2026-11-16"></a>
 ## THEMIS-MSRV-FLOOR-ADR-2026-11-16 — Record the MSRV floor and edition in ADR 0007 [patch] — todo
 
