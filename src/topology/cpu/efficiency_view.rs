@@ -41,9 +41,9 @@ pub enum EfficiencyTier {
 
 impl fmt::Display for EfficiencyTier {
     /// Writes the lowercase tier name: `performance`, `efficiency`,
-    /// `intermediate` or `uniform`.
+    /// `intermediate` or `uniform`, honouring width and alignment.
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.write_str(match self {
+        formatter.pad(match self {
             Self::Performance => "performance",
             Self::Efficiency => "efficiency",
             Self::Intermediate => "intermediate",
@@ -54,10 +54,12 @@ impl fmt::Display for EfficiencyTier {
 
 /// A borrowed CPU efficiency-class table whose presence is already proven.
 ///
-/// Construct this view through [`CpuTopology::efficiency`]. Its class-level
-/// queries are total because the optional platform report has been discharged
-/// once at the boundary. Processor-index queries remain optional because an
-/// index can lie outside the snapshot.
+/// Construct this view through [`CpuTopology::efficiency`]. Class count,
+/// hybrid status, the highest class and class iteration are total because the
+/// optional platform report has been discharged once at the boundary. Lookups
+/// by a caller-supplied processor index or class, such as [`Self::tier`],
+/// remain optional because [`EfficiencyClass::new`] and an index can name
+/// either outside the snapshot.
 #[derive(Clone, Copy, Debug)]
 pub struct CpuEfficiencyView<'topology> {
     classes: &'topology [EfficiencyClass],

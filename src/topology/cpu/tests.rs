@@ -86,6 +86,10 @@ fn a_homogeneous_host_is_uniform_not_performance() {
         Some(EfficiencyTier::Uniform)
     );
     assert_eq!(view.processor_tier(15), Some(EfficiencyTier::Uniform));
+    // A single-class host still has no tier for a class it does not hold.
+    assert_eq!(view.tier(EfficiencyClass::new(1)), None);
+    assert_eq!(view.tier(EfficiencyClass::new(u8::MAX)), None);
+    assert_eq!(view.processor_tier(16), None);
 }
 
 #[test]
@@ -114,6 +118,12 @@ fn tiers_display_as_the_words_consumers_print() {
     assert_eq!(
         words,
         ["performance", "efficiency", "intermediate", "uniform"]
+    );
+    // Consumers align the word in a fixed-width census column.
+    assert_eq!(format!("{:<12}|", EfficiencyTier::Uniform), "uniform     |");
+    assert_eq!(
+        format!("{:>12}|", EfficiencyTier::Efficiency),
+        "  efficiency|"
     );
 }
 
