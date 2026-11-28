@@ -1,7 +1,7 @@
 //! CPU efficiency-class value and detection tests.
 
 use super::super::types::EfficiencyClass;
-use super::CpuTopology;
+use super::{CpuTopology, EfficiencyTier};
 
 /// The performance-core mask of the developer host whose mislabelling
 /// motivated this capability: `{0, 1, 10, 11, 12, 13, 22, 23}` out of 24
@@ -20,6 +20,111 @@ fn hybrid_host() -> CpuTopology {
 fn homogeneous_host() -> CpuTopology {
     let classes: Box<[EfficiencyClass]> = vec![EfficiencyClass::LOWEST; 16].into();
     CpuTopology::single_node(16).with_efficiency_classes_for_test(Some(classes))
+}
+
+/// Six processors over classes `0, 1, 2`, two each, so the middle class is a
+/// tier of its own rather than a boundary.
+fn three_tier_host() -> CpuTopology {
+    let classes: Box<[EfficiencyClass]> = [0u8, 1, 2, 2, 1, 0]
+        .into_iter()
+        .map(EfficiencyClass::new)
+        .collect();
+    CpuTopology::single_node(6).with_efficiency_classes_for_test(Some(classes))
+}
+
+#[test]
+fn a_hybrid_host_has_a_performance_and_an_efficiency_tier() {
+    let topology = hybrid_host();
+    let view = topology
+        .efficiency()
+        .expect("the hybrid fixture reports classes");
+    assert_eq!(
+        view.tier(EfficiencyClass::new(1)),
+        Some(EfficiencyTier::Performance)
+    );
+    assert_eq!(
+        view.tier(EfficiencyClass::LOWEST),
+        Some(EfficiencyTier::Efficiency)
+    );
+    // Processors 0 and 2 of the developer host: a performance core and the
+    // efficiency core the retired hand-rolled constant mistook for one.
+    assert_eq!(view.processor_tier(0), Some(EfficiencyTier::Performance));
+    assert_eq!(view.processor_tier(2), Some(EfficiencyTier::Efficiency));
+}
+
+#[test]
+fn a_three_tier_host_names_its_middle_class_intermediate() {
+    let topology = three_tier_host();
+    let view = topology
+        .efficiency()
+        .expect("the three-tier fixture reports classes");
+    let tiers: Vec<_> = (0..6)
+        .map(|processor| view.processor_tier(processor))
+        .collect();
+    assert_eq!(
+        tiers,
+        [
+            EfficiencyTier::Efficiency,
+            EfficiencyTier::Intermediate,
+            EfficiencyTier::Performance,
+            EfficiencyTier::Performance,
+            EfficiencyTier::Intermediate,
+            EfficiencyTier::Efficiency,
+        ]
+        .map(Some)
+    );
+}
+
+#[test]
+fn a_homogeneous_host_is_uniform_not_performance() {
+    let topology = homogeneous_host();
+    let view = topology
+        .efficiency()
+        .expect("the homogeneous fixture reports classes");
+    assert_eq!(
+        view.tier(EfficiencyClass::LOWEST),
+        Some(EfficiencyTier::Uniform)
+    );
+    assert_eq!(view.processor_tier(15), Some(EfficiencyTier::Uniform));
+    // A single-class host still has no tier for a class it does not hold.
+    assert_eq!(view.tier(EfficiencyClass::new(1)), None);
+    assert_eq!(view.tier(EfficiencyClass::new(u8::MAX)), None);
+    assert_eq!(view.processor_tier(16), None);
+}
+
+#[test]
+fn a_class_or_processor_outside_the_snapshot_has_no_tier() {
+    let topology = three_tier_host();
+    let view = topology
+        .efficiency()
+        .expect("the three-tier fixture reports classes");
+    assert_eq!(view.tier(EfficiencyClass::new(3)), None);
+    assert_eq!(view.tier(EfficiencyClass::new(u8::MAX)), None);
+    assert_eq!(view.processor_tier(6), None);
+    assert_eq!(view.processor_tier(u32::MAX), None);
+}
+
+#[test]
+fn tiers_display_as_the_words_consumers_print() {
+    let words: Vec<String> = [
+        EfficiencyTier::Performance,
+        EfficiencyTier::Efficiency,
+        EfficiencyTier::Intermediate,
+        EfficiencyTier::Uniform,
+    ]
+    .iter()
+    .map(ToString::to_string)
+    .collect();
+    assert_eq!(
+        words,
+        ["performance", "efficiency", "intermediate", "uniform"]
+    );
+    // Consumers align the word in a fixed-width census column.
+    assert_eq!(format!("{:<12}|", EfficiencyTier::Uniform), "uniform     |");
+    assert_eq!(
+        format!("{:>12}|", EfficiencyTier::Efficiency),
+        "  efficiency|"
+    );
 }
 
 #[test]

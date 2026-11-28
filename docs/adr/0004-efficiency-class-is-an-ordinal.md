@@ -57,7 +57,9 @@ differently the coverage check fails and the result is absence rather than a
 class table keyed by ids the rest of the snapshot does not use.
 
 Consumers discharge table absence once through `CpuTopology::efficiency()`.
-The resulting `CpuEfficiencyView` makes class-level queries total. On Windows,
+The resulting `CpuEfficiencyView` makes class count, hybrid status, the
+highest class and class iteration total; lookups by a caller-supplied class or
+processor stay optional. On Windows,
 it can derive `ProcessorAffinityGroups` for any class. That affinity value owns
 the inverse of the flattened numbering convention, returns one native mask per
 group, retains unrepresentable processors explicitly, and selects the lowest
@@ -108,3 +110,10 @@ or behavior changes, so it is `[minor]`.
 Revision 2026-09-01: add the presence-proven efficiency view and group-aware
 affinity representation after three consumers independently re-derived the
 same flattened processor convention and repeated absence checks.
+
+Revision 2026-11-28: add `EfficiencyTier` and `CpuEfficiencyView::tier`, and
+narrow "class-level queries are total" to the queries that take no
+caller-supplied class. `EfficiencyClass::new` is public, so a caller can name
+a class above the highest represented one; `tier` returns `None` for it
+rather than inventing a tier. Evidence: `src/topology/types/cpu.rs` and the
+`tier` tests in `src/topology/cpu/tests.rs`.

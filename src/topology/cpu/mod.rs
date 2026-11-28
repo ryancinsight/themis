@@ -34,7 +34,7 @@ pub(crate) use cache::detect_cache_levels;
 pub(crate) use cpulist::parse_cpu_list;
 #[cfg(all(feature = "std", any(windows, target_os = "linux")))]
 pub(crate) use efficiency::detect_efficiency_classes;
-pub use efficiency_view::CpuEfficiencyView;
+pub use efficiency_view::{CpuEfficiencyView, EfficiencyTier};
 #[cfg(all(feature = "std", any(windows, target_os = "linux")))]
 pub(crate) use smt::detect_core_ids;
 pub use smt_view::CpuSmtView;

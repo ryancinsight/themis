@@ -32,7 +32,7 @@ pub use cpu::{
     bind_current_thread, bind_current_thread_to, current_thread_affinity, AffinityChange,
     BindError, ThreadAffinity,
 };
-pub use cpu::{CpuEfficiencyView, CpuSmtView, CpuTopology};
+pub use cpu::{CpuEfficiencyView, CpuSmtView, CpuTopology, EfficiencyTier};
 #[cfg(windows)]
 pub use cpu::{ProcessorAffinityGroups, ProcessorGroupAffinity};
 pub use gpu::GpuTopology;

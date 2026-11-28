@@ -56,17 +56,6 @@ Items are ordered by priority, then dependency; delivered work lives in git hist
 - Next step: drop the four `std` gates, add the `current_thread_affinity` assertion and the CI step, push the gates-restored probe and read its step conclusions, rewrite `docs/book/cpu_topology.md:120-122` to say the surface needs no `std` (`README.md:98-101` then holds as written), then confirm `cargo clippy --locked --all-targets --no-default-features -- -D warnings` stays clean; in hermes `backlog.md` add THEMIS-BINDING-STD-GATE-2026-11-24 to the `needs:` of HERMES-NUMA-BINDING-ON-THEMIS-2026-09-29 and name the themis commit that lands this item as its lock target.
 - basis: 3399a1893ba00044853697313adefe26af878a4f.
 
-<a id="themis-efficiency-class-label"></a>
-## THEMIS-EFFICIENCY-CLASS-LABEL — Own the efficiency-class label in Themis [minor] — todo
-
-- Outcome: `CpuEfficiencyView` maps a class to one typed tier (performance, efficiency, intermediate, uniform for a single-class host), so consumers stop re-deriving the ranking words.
-- Evidence: apollo holds two copies of that rendering, `crates/apollo-bench/src/measurement/processor.rs:264` and `crates/apollo-fft/src/application/execution/kernel/measurement_cores.rs` `fn label`, each inventing `"uniform"`; themis `src/` has no such method. Finding from apollo#236, previously carried only by the THEMIS-ABSENCE-EQUALITY-TRAP block.
-- Acceptance: a typed enum (not a string) derived from `rank()` and `class_count()`, tested by value on the hybrid, three-tier and single-class fixtures; an apollo board item migrates both copies.
-- priority: tightening; milestone: M-topology-contracts; needs: none.
-- scope: `src/topology/cpu/efficiency_view.rs`, `src/topology/cpu/tests.rs`, `CHANGELOG.md`.
-- Next step: define the enum against apollo's two call sites and file the apollo migration item.
-- basis: ef8de1c0cd1199ef3fdd7426adc966453e04d81f.
-
 <a id="themis-placement-axes-2026-09-01"></a>
 ## THEMIS-PLACEMENT-AXES-2026-09-01 — Report favoured cores and last-level-cache domains [minor] — blocked
 

@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **`EfficiencyTier`.** `CpuEfficiencyView::tier` and `processor_tier` name a
+  class as performance (highest of several), efficiency (rank 0 of several),
+  intermediate (between) or uniform (the only class of a homogeneous host);
+  `Display` prints those words. A class above the highest represented one has
+  no tier. Consumers no longer re-derive the ranking from `rank()` and
+  `class_count()`.
+
 ## 0.11.5 — 2026-11-05
 
 ### Fixed
