@@ -122,9 +122,9 @@ build on the pinned toolchain (`rust-toolchain.toml`, 1.97.0), and
 Miri tests on nightly. Their locked closure includes edition-2024 manifests
 such as `serde_spanned` 1.1.1, which Cargo 1.81 cannot parse, and
 dev-dependencies do not set this crate's `rust-version`.
-The crate stays on edition 2021 because edition 2024 needs Rust 1.85; raising
-the floor is a decision for the release-scope ADR
-([0007](docs/adr/0007-release-scope-1-0.md)).
+The crate stays on edition 2021 because edition 2024 needs Rust 1.85; the
+release-scope ADR ([0007](docs/adr/0007-release-scope-1-0.md)) records the
+floor, the edition and when either may rise.
 
 ## Benchmarks
 

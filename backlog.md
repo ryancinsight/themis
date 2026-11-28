@@ -28,18 +28,6 @@ Items are ordered by priority, then dependency; delivered work lives in git hist
 - Next step: add the target cell to the existing matrix, then prove it red against a construct newer than 1.81 in each of the three arms.
 - basis: e230e7aed16129441115c0049cd3a94faf3b143f.
 
-<a id="themis-msrv-floor-adr-2026-11-16"></a>
-## THEMIS-MSRV-FLOOR-ADR-2026-11-16 — Record the MSRV floor and edition in ADR 0007 [patch] — todo
-
-- Outcome: the 1.0 release-scope ADR states the `rust-version` floor and the edition, and when either may rise, so the README's deferral to it ("raising the floor is a decision for the release-scope ADR") points at a record.
-- Evidence: `README.md` (MSRV paragraph) defers to [ADR 0007](docs/adr/0007-release-scope-1-0.md); `git grep -n '1\.81\|edition' docs/adr/0007-release-scope-1-0.md` is empty. `Cargo.toml` declares `rust-version = "1.81.0"` and `edition = "2021"`; edition 2024 needs Rust 1.85 (README).
-- Recommended option (veto point): keep the 1.81.0 floor and edition 2021 through 1.0; raise either only when a non-dev dependency requires it, recorded by a dated revision note. Rejected: raising to 1.85 and edition 2024 now, since no consumer or regular dependency need is on record and it narrows the consumer set at the release that fixes the contract.
-- Acceptance: the ADR's Decision section states the floor, edition and raise trigger with one dated revision note; the `git grep` above is non-empty; README link and `docs/adr/README.md` index still resolve.
-- priority: verification; milestone: M-topology-contracts; needs: none.
-- scope: `docs/adr/0007-release-scope-1-0.md`, `README.md`.
-- Next step: rewrite the ADR in place on the recommendation unless the user redirects.
-- basis: e230e7aed16129441115c0049cd3a94faf3b143f.
-
 <a id="themis-msrv-no-default-features-2026-11-23"></a>
 ## THEMIS-MSRV-NO-DEFAULT-FEATURES-2026-11-23 — Check the `no_std` build at the 1.81 floor [patch] — todo
 
