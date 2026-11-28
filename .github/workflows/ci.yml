@@ -137,7 +137,7 @@ jobs:
       # rustdoc enforces it ("Some expected error codes were not found"). This
       # job is what makes the placement proofs in `split_static` load-bearing.
       - name: cargo test --doc (error codes enforced)
-        run: cargo +nightly test --doc
+        run: cargo +nightly test --locked --doc
 
   miri:
     name: miri (branded)
@@ -165,7 +165,7 @@ jobs:
       # disjointness that keeps those duplicates sound is exactly what Stacked
       # Borrows checks.
       - name: cargo miri test (branded unit tests)
-        run: cargo +nightly miri test --features testing --lib branded
+        run: cargo +nightly miri test --locked --features testing --lib branded
 
       - name: cargo miri test (branded integration tests)
-        run: cargo +nightly miri test --features testing --test branded
+        run: cargo +nightly miri test --locked --features testing --test branded
