@@ -43,7 +43,7 @@ pub use topology::{
 };
 pub use topology::{
     CacheLevel, CoreId, CpuEfficiencyView, CpuSmtView, CpuTopology, EfficiencyClass,
-    GpuDeviceProperties, GpuTopology, NumaNode, TpuDeviceProperties, TpuTopology,
+    EfficiencyTier, GpuDeviceProperties, GpuTopology, NumaNode, TpuDeviceProperties, TpuTopology,
 };
 #[cfg(windows)]
 pub use topology::{ProcessorAffinityGroups, ProcessorGroupAffinity};

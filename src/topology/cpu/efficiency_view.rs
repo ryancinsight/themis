@@ -4,6 +4,53 @@ use super::CpuTopology;
 #[cfg(windows)]
 use super::ProcessorAffinityGroups;
 use crate::topology::types::EfficiencyClass;
+use core::fmt;
+
+/// Placement tier of an efficiency class within one topology snapshot.
+///
+/// Ranks are dense within a snapshot ([`EfficiencyClass`]), so the tier is the
+/// only name a rank has: the highest rank is [`Performance`], rank `0` is
+/// [`Efficiency`], every rank between them is [`Intermediate`], and a
+/// snapshot with one class is [`Uniform`] because it has no tier to rank
+/// against. Obtain a tier through [`CpuEfficiencyView::tier`].
+///
+/// [`Performance`]: Self::Performance
+/// [`Efficiency`]: Self::Efficiency
+/// [`Intermediate`]: Self::Intermediate
+/// [`Uniform`]: Self::Uniform
+///
+/// # Examples
+///
+/// ```
+/// # extern crate themis;
+/// use themis::EfficiencyTier;
+///
+/// assert_eq!(EfficiencyTier::Intermediate.to_string(), "intermediate");
+/// ```
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum EfficiencyTier {
+    /// The most performant class of a snapshot that reports several.
+    Performance,
+    /// The least performant class of a snapshot that reports several.
+    Efficiency,
+    /// A class strictly between the two, on a part with three or more tiers.
+    Intermediate,
+    /// The only class of a homogeneous snapshot.
+    Uniform,
+}
+
+impl fmt::Display for EfficiencyTier {
+    /// Writes the lowercase tier name: `performance`, `efficiency`,
+    /// `intermediate` or `uniform`.
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(match self {
+            Self::Performance => "performance",
+            Self::Efficiency => "efficiency",
+            Self::Intermediate => "intermediate",
+            Self::Uniform => "uniform",
+        })
+    }
+}
 
 /// A borrowed CPU efficiency-class table whose presence is already proven.
 ///
@@ -45,6 +92,35 @@ impl<'topology> CpuEfficiencyView<'topology> {
     #[must_use]
     pub const fn highest_class(self) -> EfficiencyClass {
         self.highest
+    }
+
+    /// Returns the placement tier of `class` in this snapshot.
+    ///
+    /// `None` means `class` ranks above the highest represented class, so this
+    /// snapshot has no processor in it. Ranks are dense, so every class at or
+    /// below the highest one is represented.
+    #[must_use]
+    pub fn tier(self, class: EfficiencyClass) -> Option<EfficiencyTier> {
+        if class > self.highest {
+            return None;
+        }
+        Some(if !self.is_hybrid() {
+            EfficiencyTier::Uniform
+        } else if class == self.highest {
+            EfficiencyTier::Performance
+        } else if class == EfficiencyClass::LOWEST {
+            EfficiencyTier::Efficiency
+        } else {
+            EfficiencyTier::Intermediate
+        })
+    }
+
+    /// Returns the placement tier of one processor.
+    ///
+    /// `None` means `processor` lies outside this topology snapshot.
+    #[must_use]
+    pub fn processor_tier(self, processor: u32) -> Option<EfficiencyTier> {
+        self.tier(self.processor_class(processor)?)
     }
 
     /// Returns the represented class of one processor.

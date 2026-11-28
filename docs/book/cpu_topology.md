@@ -96,6 +96,12 @@ presence once: class count, hybrid status, highest class, and class iteration
 are then total. Only lookup by a caller-supplied processor id remains optional,
 because that id can lie outside the snapshot.
 
+`CpuEfficiencyView::tier` names a class as an `EfficiencyTier`: the highest
+class of several is `Performance`, rank 0 is `Efficiency`, a class between them
+is `Intermediate`, and the only class of a homogeneous host is `Uniform`.
+`processor_tier` composes it with the processor lookup, and `Display` prints
+the lowercase word. A class above the highest represented one has no tier.
+
 Windows logical processor ids use Themis's flattened `group * 64 + bit`
 numbering. On Windows, `ProcessorAffinityGroups::from_processors` owns the
 inverse mapping to sorted native `(group, mask)` partitions. It deduplicates
